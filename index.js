@@ -1,3 +1,5 @@
+require("dotenv").config();
+
 const { Client, GatewayIntentBits, Partials } = require("discord.js");
 const fs = require("fs");
 const cron = require("node-cron");
@@ -10,6 +12,8 @@ const CORE_ROLE_ID = process.env.CORE_ROLE_ID;
 const DATA_FILE = "./sync-data.json";
 const REQUIRED_COUNT = 5;
 
+/* -------------------- Client -------------------- */
+
 const client = new Client({
   intents: [
     GatewayIntentBits.Guilds,
@@ -20,7 +24,7 @@ const client = new Client({
   partials: [Partials.Channel],
 });
 
-/* -------------------- 데이터 유틸 -------------------- */
+/* -------------------- Utils -------------------- */
 
 function loadData() {
   if (!fs.existsSync(DATA_FILE)) return {};
@@ -31,66 +35,65 @@ function saveData(data) {
   fs.writeFileSync(DATA_FILE, JSON.stringify(data, null, 2));
 }
 
-function resetData() {
-  saveData({});
-}
-
-function getWeekLabel() {
+/**
+ * KST 기준 주차 (월요일 기준)
+ */
+function getWeekKey() {
   const now = new Date();
-  const monday = new Date(now);
-  monday.setDate(now.getDate() - ((now.getDay() + 6) % 7));
-  return monday.toISOString().slice(0, 10);
+  const kst = new Date(now.getTime() + 9 * 60 * 60 * 1000);
+  const monday = new Date(kst);
+  monday.setDate(kst.getDate() - ((kst.getDay() + 6) % 7));
+  return monday.toISOString().slice(0, 10); // YYYY-MM-DD
 }
 
-/* -------------------- 리포트 생성 -------------------- */
+/* -------------------- Report -------------------- */
 
 async function generateReport() {
   const data = loadData();
+  const weekKey = getWeekKey();
+  const weekData = data[weekKey] || {};
+
   const guild = client.guilds.cache.first();
   if (!guild) return null;
 
   await guild.members.fetch();
 
-  const coreMembers = guild.members.cache.filter((m) =>
-    m.roles.cache.has(CORE_ROLE_ID)
+  const coreMembers = guild.members.cache.filter(
+    (m) => !m.user.bot && m.roles.cache.has(CORE_ROLE_ID)
   );
 
   const lines = [];
   const underperformed = [];
 
   coreMembers.forEach((member) => {
-    const count = data[member.id]?.count || 0;
-    const line = `- ${member.displayName}: ${count} / ${REQUIRED_COUNT}`;
-    lines.push(line);
+    const count = weekData[member.id] || 0;
+    lines.push(`- ${member.displayName}: ${count} / ${REQUIRED_COUNT}`);
 
     if (count < REQUIRED_COUNT) {
       underperformed.push(`<@${member.id}>`);
     }
   });
 
-const report = [
-  `📊 Core Sync Report (${getWeekLabel()} 주차)`,
-  ``,
-  `이번 주 Core Sync 기록을 공유합니다.`,
-  `Core 기준은 주 ${REQUIRED_COUNT}회입니다.`,
-  ``,
-  ...lines,
-  ``,
-  underperformed.length
-    ? `⚠️ 기준 미달: ${underperformed.join(" ")}`
-    : `🎉 모든 Core 멤버가 기준을 충족했습니다!`,
-  ``,
-  `이번 주도 수고 많았습니다.`,
-  `다음 주도 각자의 리듬에 맞게 참여해주세요 🙂`,
-].join("\n");
-
-
-  return report;
+  return [
+    `📊 Core Sync Report (${weekKey} 주차)`,
+    ``,
+    `이번 주 Core Sync 기록을 공유합니다.`,
+    `Core 기준은 주 ${REQUIRED_COUNT}회입니다.`,
+    ``,
+    ...lines,
+    ``,
+    underperformed.length
+      ? `⚠️ 기준 미달: ${underperformed.join(" ")}`
+      : `🎉 모든 Core 멤버가 기준을 충족했습니다!`,
+    ``,
+    `이번 주도 수고 많았습니다.`,
+    `다음 주도 각자의 리듬에 맞게 참여해주세요 🙂`,
+  ].join("\n");
 }
 
-/* -------------------- 이벤트 -------------------- */
+/* -------------------- Events -------------------- */
 
-client.once("ready", async () => {
+client.once("ready", () => {
   console.log(`🤖 Core Sync Bot online as ${client.user.tag}`);
 });
 
@@ -100,18 +103,19 @@ client.once("ready", async () => {
 client.on("messageCreate", (message) => {
   if (message.author.bot) return;
 
-  // Forum 채널의 Thread 글만 카운트
   if (
     message.channel.isThread() &&
     message.channel.parentId === FORUM_CHANNEL_ID
   ) {
     const data = loadData();
-    const userId = message.author.id;
+    const weekKey = getWeekKey();
 
-    if (!data[userId]) {
-      data[userId] = { count: 0 };
+    if (!data[weekKey]) data[weekKey] = {};
+    if (!data[weekKey][message.author.id]) {
+      data[weekKey][message.author.id] = 0;
     }
-    data[userId].count += 1;
+
+    data[weekKey][message.author.id] += 1;
     saveData(data);
   }
 
@@ -123,19 +127,23 @@ client.on("messageCreate", (message) => {
   }
 });
 
-/* -------------------- 스케줄 -------------------- */
+/* -------------------- Schedule -------------------- */
 
-// 매주 월요일 00:00 → 리셋
-cron.schedule("0 11 * * 0", async () => {
-  const report = await generateReport();
-  if (!report) return;
+// 매주 일요일 11:00 KST 자동 리포트
+cron.schedule(
+  "0 11 * * 0",
+  async () => {
+    const report = await generateReport();
+    if (!report) return;
 
-  const channel = await client.channels.fetch(REPORT_CHANNEL_ID);
-  if (channel && channel.isTextBased()) {
-    channel.send(report);
-  }
-});
+    const channel = await client.channels.fetch(REPORT_CHANNEL_ID);
+    if (channel && channel.isTextBased()) {
+      channel.send(report);
+    }
+  },
+  { timezone: "Asia/Seoul" }
+);
 
-/* -------------------- 시작 -------------------- */
+/* -------------------- Start -------------------- */
 
 client.login(BOT_TOKEN);
