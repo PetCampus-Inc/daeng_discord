@@ -1,10 +1,74 @@
-const { Client, GatewayIntentBits } = require("discord.js");
+const { Client, GatewayIntentBits, ChannelType } = require("discord.js");
 const fs = require("fs");
+const cron = require("node-cron");
 
 const TOKEN = process.env.BOT_TOKEN;
-const SYNC_CHANNEL_ID = process.env.SYNC_CHANNEL_ID;
-const REPORT_CHANNEL_ID = process.env.REPORT_CHANNEL_ID; // 운영자 채널 (선택)
+const FORUM_CHANNEL_ID = process.env.FORUM_CHANNEL_ID;
+const REPORT_CHANNEL_ID = process.env.REPORT_CHANNEL_ID;
+
 const DATA_FILE = "./data.json";
+const WEEKLY_TARGET = 5;
+
+/* ------------------ 기본 유틸 ------------------ */
+
+function getWeekKey(date = new Date()) {
+  const d = new Date(date);
+  const day = d.getDay(); // 0=일
+  const diff = d.getDate() - day + (day === 0 ? -6 : 1); // 월요일
+  d.setDate(diff);
+  d.setHours(0, 0, 0, 0);
+  return d.toISOString().slice(0, 10);
+}
+
+function loadData() {
+  if (!fs.existsSync(DATA_FILE)) {
+    return { weekKey: getWeekKey(), users: {} };
+  }
+  return JSON.parse(fs.readFileSync(DATA_FILE, "utf8"));
+}
+
+function saveData(data) {
+  fs.writeFileSync(DATA_FILE, JSON.stringify(data, null, 2));
+}
+
+function ensureWeek(data) {
+  const currentWeek = getWeekKey();
+  if (data.weekKey !== currentWeek) {
+    return { weekKey: currentWeek, users: {} };
+  }
+  return data;
+}
+
+/* ------------------ 리포트 포맷 ------------------ */
+
+function formatWeeklyReport(data, tagUnderperformed = false) {
+  const lines = [];
+  const mentions = [];
+
+  Object.entries(data.users).forEach(([userId, u]) => {
+    const success = u.count >= WEEKLY_TARGET;
+    const emoji = success ? " 🎉" : "";
+    lines.push(`- ${u.name}: ${u.count} / ${WEEKLY_TARGET}${emoji}`);
+
+    if (!success && tagUnderperformed) {
+      mentions.push(`<@${userId}>`);
+    }
+  });
+
+  return `📊 **Core Sync Report (${data.weekKey} 주차)**
+
+이번 주 Core Sync 기록을 공유합니다.
+Core 기준은 주 ${WEEKLY_TARGET}회입니다.
+
+${lines.length ? lines.join("\n") : "- 기록 없음"}
+
+이번 주도 수고 많았습니다.
+다음 주도 각자의 리듬에 맞게 참여해주세요 🙂
+
+${mentions.length ? `\n⚠️ 기준 미달: ${mentions.join(" ")}` : ""}`;
+}
+
+/* ------------------ Discord Client ------------------ */
 
 const client = new Client({
   intents: [
@@ -14,62 +78,71 @@ const client = new Client({
   ],
 });
 
-function loadData() {
-  if (!fs.existsSync(DATA_FILE)) return {};
-  return JSON.parse(fs.readFileSync(DATA_FILE, "utf8"));
-}
+/* ------------------ Forum 글 작성 카운트 ------------------ */
 
-function saveData(data) {
-  fs.writeFileSync(DATA_FILE, JSON.stringify(data, null, 2));
-}
-
-function formatReport(data) {
-  const rows = Object.values(data)
-    .sort((a, b) => b.count - a.count)
-    .map((u) => `- ${u.name}: ${u.count}`);
-  return `**[Weekly Sync Count]**\n\n${rows.length ? rows.join("\n") : "- (no data)"}`;
-}
-
-client.on("ready", async () => {
-  console.log(`Logged in as ${client.user.tag}`);
+client.on("threadCreate", async (thread) => {
+  if (thread.parentId !== FORUM_CHANNEL_ID) return;
 
   try {
-    const channel = await client.channels.fetch(process.env.SYNC_CHANNEL_ID);
-    if (channel) {
-      channel.send("🤖 Sync Bot is online. Test message retry.");
+    const starter = await thread.fetchStarterMessage();
+    if (!starter || starter.author.bot) return;
+
+    let data = ensureWeek(loadData());
+
+    const userId = starter.author.id;
+    if (!data.users[userId]) {
+      data.users[userId] = {
+        name: starter.author.username,
+        count: 0,
+      };
     }
-  } catch (err) {
-    console.error("Failed to send test message:", err);
+
+    data.users[userId].name = starter.author.username;
+    data.users[userId].count += 1;
+
+    saveData(data);
+  } catch (e) {
+    console.error("threadCreate error:", e);
   }
 });
 
-client.on("messageCreate", (message) => {
+/* ------------------ 수동 리포트 ------------------ */
+
+client.on("messageCreate", async (message) => {
   if (message.author.bot) return;
+  if (message.content !== "check-report") return;
 
-  // 카운트: sync-up 채널만
-  if (message.channel.id === SYNC_CHANNEL_ID) {
-    const data = loadData();
-    const userId = message.author.id;
+  let data = ensureWeek(loadData());
+  saveData(data);
 
-    if (!data[userId]) {
-      data[userId] = { name: message.author.username, count: 0 };
-    }
-    data[userId].name = message.author.username; // 닉 변경 반영
-    data[userId].count += 1;
-    saveData(data);
-  }
+  const channel = await client.channels.fetch(REPORT_CHANNEL_ID);
+  channel.send(formatWeeklyReport(data, false));
+});
 
-  // 운영자 명령: !sync-report
-  if (message.content === "!sync-report") {
-    const data = loadData();
-    message.channel.send(formatReport(data));
-  }
+/* ------------------ 자동 리포트 (일요일 11시) ------------------ */
 
-  // 운영자 명령: !sync-reset (리셋)
-  if (message.content === "!sync-reset") {
-    saveData({});
-    message.channel.send("✅ Sync count reset done.");
-  }
+cron.schedule("0 11 * * 0", async () => {
+  let data = ensureWeek(loadData());
+
+  const channel = await client.channels.fetch(REPORT_CHANNEL_ID);
+  await channel.send(formatWeeklyReport(data, true));
+
+  saveData(data);
+});
+
+/* ------------------ 주간 리셋 (월요일 00시) ------------------ */
+
+cron.schedule("0 0 * * 1", () => {
+  saveData({
+    weekKey: getWeekKey(),
+    users: {},
+  });
+});
+
+/* ------------------ Ready ------------------ */
+
+client.once("ready", () => {
+  console.log(`🤖 Core Sync Bot online as ${client.user.tag}`);
 });
 
 client.login(TOKEN);
