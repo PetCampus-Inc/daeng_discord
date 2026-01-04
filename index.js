@@ -1,5 +1,3 @@
-require("dotenv").config();
-
 const { Client, GatewayIntentBits, Partials } = require("discord.js");
 const fs = require("fs");
 const cron = require("node-cron");
