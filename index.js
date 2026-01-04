@@ -68,22 +68,22 @@ async function generateReport() {
     }
   });
 
-  const report =
-`📊 Core Sync Report (${getWeekLabel()} 주차)
-
-이번 주 Core Sync 기록을 공유합니다.
-Core 기준은 주 ${REQUIRED_COUNT}회입니다.
-
-${lines.join("\n")}
-
-${
+const report = [
+  `📊 Core Sync Report (${getWeekLabel()} 주차)`,
+  ``,
+  `이번 주 Core Sync 기록을 공유합니다.`,
+  `Core 기준은 주 ${REQUIRED_COUNT}회입니다.`,
+  ``,
+  ...lines,
+  ``,
   underperformed.length
     ? `⚠️ 기준 미달: ${underperformed.join(" ")}`
-    : "🎉 모든 Core 멤버가 기준을 충족했습니다!"
-}
+    : `🎉 모든 Core 멤버가 기준을 충족했습니다!`,
+  ``,
+  `이번 주도 수고 많았습니다.`,
+  `다음 주도 각자의 리듬에 맞게 참여해주세요 🙂`,
+].join("\n");
 
-이번 주도 수고 많았습니다.
-다음 주도 각자의 리듬에 맞게 참여해주세요 🙂`;
 
   return report;
 }
@@ -126,11 +126,16 @@ client.on("messageCreate", (message) => {
 /* -------------------- 스케줄 -------------------- */
 
 // 매주 월요일 00:00 → 리셋
-cron.schedule("0 0 * * 1", () => {
-  console.log("🔄 Weekly reset");
-  resetData();
+cron.schedule("0 11 * * 0", async () => {
+  const report = await generateReport();
+  if (!report) return;
+
+  const channel = await client.channels.fetch(REPORT_CHANNEL_ID);
+  if (channel && channel.isTextBased()) {
+    channel.send(report);
+  }
 });
 
-// 매주 일요일 11:00 → 자동 리포트
-cron.schedule("0 11 * * 0", async () => {
-  const report = await g
+/* -------------------- 시작 -------------------- */
+
+client.login(BOT_TOKEN);
