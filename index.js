@@ -36,7 +36,7 @@ client.on("ready", async () => {
   try {
     const channel = await client.channels.fetch(process.env.SYNC_CHANNEL_ID);
     if (channel) {
-      channel.send("🤖 Sync Bot is online. Test message.");
+      channel.send("🤖 Sync Bot is online. Test message retry.");
     }
   } catch (err) {
     console.error("Failed to send test message:", err);
