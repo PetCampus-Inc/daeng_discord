@@ -34,14 +34,48 @@ function saveData(data) {
 }
 
 /**
- * KST 기준 주차 (월요일 기준)
+ * KST 기준 날짜 키 (YYYY-MM-DD)
+ */
+function getDayKey() {
+  const now = new Date();
+  const kst = new Date(now.getTime() + 9 * 60 * 60 * 1000);
+  return kst.toISOString().slice(0, 10);
+}
+
+/**
+ * KST 기준 주차 (월요일 기준) 키 (YYYY-MM-DD)
  */
 function getWeekKey() {
   const now = new Date();
   const kst = new Date(now.getTime() + 9 * 60 * 60 * 1000);
   const monday = new Date(kst);
   monday.setDate(kst.getDate() - ((kst.getDay() + 6) % 7));
-  return monday.toISOString().slice(0, 10); // YYYY-MM-DD
+  return monday.toISOString().slice(0, 10);
+}
+
+/**
+ * weekData[userId]가 예전(number) 포맷일 수도 있으니,
+ * 항상 { count, days } 형태로 보정해서 반환
+ */
+function ensureUserEntry(weekData, userId) {
+  if (!weekData[userId]) {
+    weekData[userId] = { count: 0, days: {} };
+    return weekData[userId];
+  }
+
+  // 기존 포맷(숫자) 마이그레이션
+  if (typeof weekData[userId] === "number") {
+    weekData[userId] = { count: weekData[userId], days: {} };
+    return weekData[userId];
+  }
+
+  // 누락 필드 보정
+  if (typeof weekData[userId].count !== "number") weekData[userId].count = 0;
+  if (!weekData[userId].days || typeof weekData[userId].days !== "object") {
+    weekData[userId].days = {};
+  }
+
+  return weekData[userId];
 }
 
 /* -------------------- Report -------------------- */
@@ -64,7 +98,9 @@ async function generateReport() {
   const underperformed = [];
 
   coreMembers.forEach((member) => {
-    const count = weekData[member.id] || 0;
+    const entry = ensureUserEntry(weekData, member.id);
+    const count = entry.count || 0;
+
     lines.push(`- ${member.displayName}: ${count} / ${REQUIRED_COUNT}`);
 
     if (count < REQUIRED_COUNT) {
@@ -73,7 +109,7 @@ async function generateReport() {
   });
 
   return [
-    `📊 Core Sync Report (${weekKey} 주차)`,
+    `Core Sync Report (${weekKey} 주차)`,
     ``,
     `이번 주 Core Sync 기록을 공유합니다.`,
     `Core 기준은 주 ${REQUIRED_COUNT}회입니다.`,
@@ -81,22 +117,22 @@ async function generateReport() {
     ...lines,
     ``,
     underperformed.length
-      ? `⚠️ 기준 미달: ${underperformed.join(" ")}`
-      : `🎉 모든 Core 멤버가 기준을 충족했습니다!`,
+      ? `기준 미달: ${underperformed.join(" ")}`
+      : `모든 Core 멤버가 기준을 충족했습니다.`,
     ``,
     `이번 주도 수고 많았습니다.`,
-    `다음 주도 각자의 리듬에 맞게 참여해주세요 🙂`,
   ].join("\n");
 }
 
 /* -------------------- Events -------------------- */
 
 client.once("ready", () => {
-  console.log(`🤖 Core Sync Bot online as ${client.user.tag}`);
+  console.log(`Core Sync Bot online as ${client.user.tag}`);
 });
 
 /**
  * Forum(Thread) 글 카운트
+ * - "하루에 유저당 1회만 +1" 보장
  */
 client.on("messageCreate", (message) => {
   if (message.author.bot) return;
@@ -107,13 +143,20 @@ client.on("messageCreate", (message) => {
   ) {
     const data = loadData();
     const weekKey = getWeekKey();
+    const dayKey = getDayKey();
 
     if (!data[weekKey]) data[weekKey] = {};
-    if (!data[weekKey][message.author.id]) {
-      data[weekKey][message.author.id] = 0;
-    }
+    const weekData = data[weekKey];
 
-    data[weekKey][message.author.id] += 1;
+    const entry = ensureUserEntry(weekData, message.author.id);
+
+    // 이미 오늘 카운트했다면 무시
+    if (entry.days[dayKey]) return;
+
+    // 오늘 첫 참여면 +1 하고 날짜 기록
+    entry.count += 1;
+    entry.days[dayKey] = true;
+
     saveData(data);
   }
 
