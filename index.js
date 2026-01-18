@@ -8,6 +8,8 @@ const CORE_ROLE_ID = process.env.CORE_ROLE_ID;
 
 const REQUIRED_COUNT = 5;
 const THREAD_SCAN_LIMIT = 30;
+const NOTION_LINK =
+  "https://www.notion.so/2de6c15f67fb8039b0f7e6e9c7fe202f?v=2de6c15f67fb815e809d000ce19fbfe7";
 
 /* -------------------- Client -------------------- */
 
@@ -120,15 +122,18 @@ async function generateReport() {
     }
   }
 
-  return [
-    `Core Sync Report (${weekKey} 주차)`,
-    ``,
-    ...lines,
-    ``,
-    underperformed.length
-      ? `기준 미달: ${underperformed.join(" ")}`
-      : `모든 Core 멤버가 기준을 충족했습니다.`,
-  ].join("\n");
+return [
+  `Core Sync Report (${weekKey} 주차)`,
+  ``,
+  ...lines,
+  ``,
+  underperformed.length
+    ? `기준 미달: ${underperformed.join(" ")}`
+    : `모든 Core 멤버가 기준을 충족했습니다.`,
+   ``,
+   `📌 Core Sync 기준 & 가이드`,
+   NOTION_LINK,
+ ].join("\n");
 }
 
 /* -------------------- Events -------------------- */
