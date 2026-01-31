@@ -14,7 +14,7 @@
 
     body {
       font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-      background: linear-gradient(135deg, #1e3a5f 0%, #2d1b4e 50%, #1a1a2e 100%);
+      background: linear-gradient(135deg, #2c1810 0%, #4a2c2a 50%, #1a1412 100%);
       min-height: 100vh;
       color: #fff;
       padding: 20px;
@@ -89,7 +89,7 @@
 
     header h1 {
       font-size: 2.5rem;
-      background: linear-gradient(90deg, #667eea 0%, #764ba2 100%);
+      background: linear-gradient(90deg, #f4a261 0%, #e76f51 100%);
       -webkit-background-clip: text;
       -webkit-text-fill-color: transparent;
       background-clip: text;
@@ -166,7 +166,7 @@
     .stat-value {
       font-size: 2rem;
       font-weight: 700;
-      color: #667eea;
+      color: #f4a261;
     }
 
     .stat-label {
@@ -284,9 +284,9 @@
     .sync-day {
       font-size: 0.75rem;
       padding: 4px 8px;
-      background: rgba(102, 126, 234, 0.3);
+      background: rgba(244, 162, 97, 0.3);
       border-radius: 4px;
-      color: #a5b4fc;
+      color: #f4a261;
     }
 
     .loading {
@@ -298,7 +298,7 @@
       width: 50px;
       height: 50px;
       border: 3px solid rgba(255,255,255,0.1);
-      border-top-color: #667eea;
+      border-top-color: #f4a261;
       border-radius: 50%;
       animation: spin 1s linear infinite;
       margin: 0 auto 20px;
@@ -325,11 +325,11 @@
       height: 60px;
       border-radius: 50%;
       border: none;
-      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      background: linear-gradient(135deg, #f4a261 0%, #e76f51 100%);
       color: #fff;
       font-size: 1.5rem;
       cursor: pointer;
-      box-shadow: 0 5px 20px rgba(102, 126, 234, 0.4);
+      box-shadow: 0 5px 20px rgba(244, 162, 97, 0.4);
       transition: transform 0.3s;
     }
 
@@ -573,7 +573,7 @@
       grid.innerHTML = members.map(member => `
         <div class="member-card ${member.isMet ? 'met' : 'not-met'}">
           <div class="member-header">
-            <img src="${member.avatar}" alt="${member.displayName}" class="member-avatar" onerror="this.src='data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><rect fill=%22%23667eea%22 width=%22100%22 height=%22100%22/><text fill=%22white%22 font-size=%2240%22 x=%2250%22 y=%2260%22 text-anchor=%22middle%22>${member.displayName.charAt(0)}</text></svg>'">
+            <img src="${member.avatar}" alt="${member.displayName}" class="member-avatar" onerror="this.src='data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><rect fill=%22%23f4a261%22 width=%22100%22 height=%22100%22/><text fill=%22white%22 font-size=%2240%22 x=%2250%22 y=%2260%22 text-anchor=%22middle%22>${member.displayName.charAt(0)}</text></svg>'">
             <div class="member-info">
               <h3>${member.displayName}</h3>
               <span>@${member.username}</span>
