@@ -12,7 +12,7 @@ const REPORT_CHANNEL_ID = process.env.REPORT_CHANNEL_ID;
 const CORE_ROLE_ID = process.env.CORE_ROLE_ID;
 
 const REQUIRED_COUNT = 5;
-const THREAD_SCAN_LIMIT = 200;
+const THREAD_SCAN_LIMIT = 100;
 const GUILD_ID = process.env.GUILD_ID;
 const NOTION_LINK =
   "https://www.notion.so/2de6c15f67fb8039b0f7e6e9c7fe202f?v=2de6c15f67fb815e809d000ce19fbfe7";
@@ -97,6 +97,21 @@ async function getGuild() {
   return client.guilds.cache.first();
 }
 
+let membersFetchedAt = 0;
+const MEMBERS_CACHE_TTL = 60000;
+
+async function fetchMembersWithCache(guild) {
+  const now = Date.now();
+  if (now - membersFetchedAt > MEMBERS_CACHE_TTL) {
+    try {
+      await guild.members.fetch();
+      membersFetchedAt = now;
+    } catch (err) {
+      console.warn("멤버 목록 갱신 실패, 캐시 사용:", err.message);
+    }
+  }
+}
+
 async function getCoreMembersData(weekKey) {
   const userDays = await countCoreSyncForWeek(weekKey);
 
@@ -105,7 +120,7 @@ async function getCoreMembersData(weekKey) {
     throw new Error("서버를 찾을 수 없습니다. GUILD_ID를 설정해주세요.");
   }
 
-  await guild.members.fetch();
+  await fetchMembersWithCache(guild);
 
   const coreMembers = guild.members.cache.filter(
     (m) => !m.user.bot && m.roles.cache.has(CORE_ROLE_ID)
@@ -151,7 +166,7 @@ async function generateReport() {
     return null;
   }
 
-  await guild.members.fetch();
+  await fetchMembersWithCache(guild);
 
   const coreMembers = guild.members.cache.filter(
     (m) => !m.user.bot && m.roles.cache.has(CORE_ROLE_ID)
