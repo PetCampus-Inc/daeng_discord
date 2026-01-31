@@ -275,6 +275,65 @@
       font-size: 0.9rem;
     }
 
+    .week-calendar {
+      display: grid;
+      grid-template-columns: repeat(7, 1fr);
+      gap: 4px;
+      margin-top: 10px;
+    }
+
+    .week-calendar-header {
+      display: grid;
+      grid-template-columns: repeat(7, 1fr);
+      gap: 4px;
+      margin-bottom: 4px;
+    }
+
+    .day-label {
+      font-size: 0.65rem;
+      text-align: center;
+      color: rgba(255,255,255,0.5);
+      font-weight: 500;
+    }
+
+    .day-cell {
+      aspect-ratio: 1;
+      border-radius: 6px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      font-size: 0.7rem;
+      background: rgba(255,255,255,0.05);
+      color: rgba(255,255,255,0.4);
+      transition: all 0.3s;
+    }
+
+    .day-cell.synced {
+      background: linear-gradient(135deg, rgba(81, 207, 102, 0.3), rgba(81, 207, 102, 0.5));
+      color: #51cf66;
+      font-weight: 600;
+    }
+
+    .day-cell.synced::after {
+      content: '✓';
+      font-size: 0.9rem;
+      margin-top: 2px;
+    }
+
+    .day-cell.today {
+      border: 2px solid #f4a261;
+    }
+
+    .day-cell.future {
+      opacity: 0.3;
+    }
+
+    .day-number {
+      font-size: 0.75rem;
+      font-weight: 600;
+    }
+
     .sync-days {
       display: flex;
       gap: 5px;
@@ -493,6 +552,7 @@
         <div class="members-grid" id="membersGrid"></div>
       `;
 
+      weekDaysData = data.weekDays || [];
       renderChart(members, data.requiredCount);
       renderMemberCards(members);
     }
@@ -567,8 +627,12 @@
       });
     }
 
+    let weekDaysData = [];
+    const DAY_NAMES = ['월', '화', '수', '목', '금', '토', '일'];
+
     function renderMemberCards(members) {
       const grid = document.getElementById('membersGrid');
+      const today = new Date().toISOString().slice(0, 10);
       
       grid.innerHTML = members.map(member => `
         <div class="member-card ${member.isMet ? 'met' : 'not-met'}">
@@ -588,8 +652,19 @@
               <span>${member.percentage}%</span>
             </div>
           </div>
-          <div class="sync-days">
-            ${member.days.map(day => `<span class="sync-day">${day.slice(5)}</span>`).join('')}
+          <div class="week-calendar-header">
+            ${DAY_NAMES.map(name => `<div class="day-label">${name}</div>`).join('')}
+          </div>
+          <div class="week-calendar">
+            ${weekDaysData.map(day => {
+              const isSynced = member.days.includes(day);
+              const isToday = day === today;
+              const isFuture = day > today;
+              const dayNum = day.slice(8, 10);
+              return `<div class="day-cell ${isSynced ? 'synced' : ''} ${isToday ? 'today' : ''} ${isFuture ? 'future' : ''}">
+                <span class="day-number">${parseInt(dayNum)}</span>
+              </div>`;
+            }).join('')}
           </div>
         </div>
       `).join('');

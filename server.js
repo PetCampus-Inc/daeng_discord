@@ -219,9 +219,19 @@ app.get("/api/sync-data", async (req, res) => {
 
     const membersData = await getCoreMembersData(weekKey);
 
+    // Generate week days (Monday to Sunday)
+    const weekStart = new Date(weekKey);
+    const weekDays = [];
+    for (let i = 0; i < 7; i++) {
+      const day = new Date(weekStart);
+      day.setDate(weekStart.getDate() + i);
+      weekDays.push(day.toISOString().slice(0, 10));
+    }
+
     res.json({
       success: true,
       weekKey,
+      weekDays,
       requiredCount: REQUIRED_COUNT,
       members: membersData,
       botConnected: true,
