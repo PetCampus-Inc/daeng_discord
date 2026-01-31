@@ -1,4 +1,4 @@
-# Core Sync Dashboard
+# Knockdog Admin
 
 ## Overview
 A Discord bot with web dashboard that tracks "Core Sync" activity in a forum channel and provides visual analytics for member progress.
@@ -36,9 +36,13 @@ npm run bot  # Bot only (index.js)
 - Working time extraction from thread content
 - Week navigation (view past weeks)
 - **Post-it memo system** - Weekly memos stored in PostgreSQL
+- **Announcement banner** - Global announcements displayed at top
+- **Member call feature** - Send Discord DM to members with one click
 - Scans forum threads with format `[YYYY-MM-DD / Name]`
 - Generates weekly report (Sundays at 11 AM KST)
 - Manual report via `check-report` command in chat
+- Auto-refresh every 10 minutes
 
 ## Database Schema
 - `memos` table: id, week_key, content, color, author, position_x, position_y, created_at
+- `announcements` table: id, content, is_active, created_at

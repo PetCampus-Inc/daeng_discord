@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Core Sync Dashboard</title>
+  <title>Knockdog Admin</title>
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
   <style>
     * {
@@ -645,6 +645,106 @@
     .btn-submit:hover {
       background: #22c55e;
     }
+
+    /* Announcement Banner */
+    .announcement-banner {
+      background: linear-gradient(90deg, #f59e0b, #d97706);
+      border-radius: 10px;
+      padding: 16px 20px;
+      margin-bottom: 24px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+    }
+
+    .announcement-content {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      flex: 1;
+    }
+
+    .announcement-icon {
+      font-size: 1.5rem;
+    }
+
+    .announcement-text {
+      color: #000;
+      font-weight: 500;
+      font-size: 0.95rem;
+    }
+
+    .announcement-close {
+      background: rgba(0,0,0,0.2);
+      border: none;
+      color: #000;
+      width: 28px;
+      height: 28px;
+      border-radius: 50%;
+      cursor: pointer;
+      font-size: 1rem;
+      transition: background 0.2s;
+    }
+
+    .announcement-close:hover {
+      background: rgba(0,0,0,0.3);
+    }
+
+    .announcement-edit {
+      display: flex;
+      gap: 8px;
+      margin-bottom: 24px;
+    }
+
+    .announcement-edit input {
+      flex: 1;
+      padding: 10px 14px;
+      border: 1px solid rgba(255,255,255,0.1);
+      border-radius: 6px;
+      background: rgba(255,255,255,0.05);
+      color: #fff;
+      font-size: 0.9rem;
+    }
+
+    .announcement-edit button {
+      padding: 10px 20px;
+      border: none;
+      border-radius: 6px;
+      background: #f59e0b;
+      color: #000;
+      font-weight: 500;
+      cursor: pointer;
+      transition: background 0.2s;
+    }
+
+    .announcement-edit button:hover {
+      background: #d97706;
+    }
+
+    /* Call Button */
+    .call-btn {
+      padding: 6px 12px;
+      border: 1px solid rgba(255,255,255,0.15);
+      border-radius: 6px;
+      background: transparent;
+      color: #999;
+      cursor: pointer;
+      font-size: 0.75rem;
+      transition: all 0.2s;
+      margin-left: auto;
+    }
+
+    .call-btn:hover {
+      background: #f87171;
+      border-color: #f87171;
+      color: #fff;
+    }
+
+    .call-btn.sending {
+      opacity: 0.5;
+      pointer-events: none;
+    }
   </style>
 </head>
 <body>
@@ -663,12 +763,19 @@
 
   <div class="container">
     <header>
-      <h1>Core Sync Dashboard</h1>
+      <h1>Knockdog Admin</h1>
       <div class="status-badge">
         <div class="status-dot" id="statusDot"></div>
         <span id="statusText">연결 확인 중...</span>
       </div>
     </header>
+
+    <div id="announcementContainer"></div>
+
+    <div class="announcement-edit">
+      <input type="text" id="announcementInput" placeholder="새 공지사항 입력...">
+      <button onclick="submitAnnouncement()">공지 등록</button>
+    </div>
 
     <div class="week-nav">
       <button id="prevWeek">이전 주</button>
@@ -916,6 +1023,7 @@
               <h3>${member.displayName}</h3>
               <span>@${member.username}</span>
             </div>
+            <button class="call-btn" onclick="callMember('${member.id}', this)">📢 호출</button>
           </div>
           <div class="progress-container">
             <div class="progress-bar">
@@ -969,7 +1077,7 @@
     });
 
     loadData();
-    setInterval(loadData, 60000);
+    setInterval(loadData, 600000);
 
     // Memo functions
     async function loadMemos() {
@@ -1083,6 +1191,105 @@
         closeMemoModal();
       }
     });
+
+    // Announcement functions
+    async function loadAnnouncement() {
+      try {
+        const response = await fetch('/api/announcements');
+        const data = await response.json();
+        renderAnnouncement(data.announcement);
+      } catch (err) {
+        console.error('Failed to load announcement:', err);
+      }
+    }
+
+    function renderAnnouncement(announcement) {
+      const container = document.getElementById('announcementContainer');
+      if (!announcement) {
+        container.innerHTML = '';
+        return;
+      }
+
+      container.innerHTML = `
+        <div class="announcement-banner">
+          <div class="announcement-content">
+            <span class="announcement-icon">📢</span>
+            <span class="announcement-text">${escapeHtml(announcement.content)}</span>
+          </div>
+          <button class="announcement-close" onclick="deleteAnnouncement(${announcement.id})">×</button>
+        </div>
+      `;
+    }
+
+    async function submitAnnouncement() {
+      const input = document.getElementById('announcementInput');
+      const content = input.value.trim();
+      
+      if (!content) {
+        alert('공지사항 내용을 입력하세요.');
+        return;
+      }
+
+      try {
+        const response = await fetch('/api/announcements', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ content })
+        });
+
+        if (response.ok) {
+          input.value = '';
+          loadAnnouncement();
+        } else {
+          alert('공지사항 등록에 실패했습니다.');
+        }
+      } catch (err) {
+        console.error('Failed to save announcement:', err);
+        alert('공지사항 등록에 실패했습니다.');
+      }
+    }
+
+    async function deleteAnnouncement(id) {
+      try {
+        await fetch(`/api/announcements/${id}`, { method: 'DELETE' });
+        loadAnnouncement();
+      } catch (err) {
+        console.error('Failed to delete announcement:', err);
+      }
+    }
+
+    // Call member function
+    async function callMember(userId, btn) {
+      if (!confirm('이 멤버를 호출하시겠습니까?')) return;
+      
+      btn.classList.add('sending');
+      btn.textContent = '전송중...';
+      
+      try {
+        const response = await fetch(`/api/call-member/${userId}`, { method: 'POST' });
+        const data = await response.json();
+        
+        if (response.ok) {
+          btn.textContent = '✓ 전송완료';
+          setTimeout(() => {
+            btn.textContent = '📢 호출';
+            btn.classList.remove('sending');
+          }, 2000);
+        } else {
+          alert(data.error || '호출에 실패했습니다.');
+          btn.textContent = '📢 호출';
+          btn.classList.remove('sending');
+        }
+      } catch (err) {
+        console.error('Failed to call member:', err);
+        alert('호출에 실패했습니다.');
+        btn.textContent = '📢 호출';
+        btn.classList.remove('sending');
+      }
+    }
+
+    // Load announcement on page load
+    loadAnnouncement();
   </script>
 </body>
 </html>

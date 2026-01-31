@@ -27,6 +27,14 @@ async function initDatabase() {
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
       )
     `);
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS announcements (
+        id SERIAL PRIMARY KEY,
+        content TEXT NOT NULL,
+        is_active BOOLEAN DEFAULT true,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      )
+    `);
     console.log("Database initialized");
   } catch (err) {
     console.error("Database init error:", err.message);
@@ -367,6 +375,73 @@ app.delete("/api/memos/:id", async (req, res) => {
     res.json({ success: true });
   } catch (err) {
     res.status(500).json({ error: err.message });
+  }
+});
+
+// Announcement API endpoints
+app.get("/api/announcements", async (req, res) => {
+  try {
+    const result = await pool.query(
+      "SELECT * FROM announcements WHERE is_active = true ORDER BY created_at DESC LIMIT 1"
+    );
+    res.json({ success: true, announcement: result.rows[0] || null });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.post("/api/announcements", async (req, res) => {
+  try {
+    const { content } = req.body;
+    if (!content) {
+      return res.status(400).json({ error: "content required" });
+    }
+    await pool.query("UPDATE announcements SET is_active = false");
+    const result = await pool.query(
+      "INSERT INTO announcements (content) VALUES ($1) RETURNING *",
+      [content]
+    );
+    res.json({ success: true, announcement: result.rows[0] });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.delete("/api/announcements/:id", async (req, res) => {
+  try {
+    const { id } = req.params;
+    await pool.query("UPDATE announcements SET is_active = false WHERE id = $1", [id]);
+    res.json({ success: true });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Call member API (sends Discord DM)
+app.post("/api/call-member/:userId", async (req, res) => {
+  try {
+    const { userId } = req.params;
+    
+    if (!client.isReady()) {
+      return res.status(503).json({ error: "Bot not connected" });
+    }
+
+    const user = await client.users.fetch(userId);
+    if (!user) {
+      return res.status(404).json({ error: "User not found" });
+    }
+
+    const message = "🚨 긴급호출!! 🚨 누군가 당신을 찾고 있습니다!! 지금 당장 확인해주세요!! 빨리요!! 🏃💨";
+    
+    await user.send(message);
+    res.json({ success: true, message: "DM sent" });
+  } catch (err) {
+    console.error("Call member error:", err.message);
+    if (err.code === 50007) {
+      res.status(400).json({ error: "Cannot send DM to this user (DMs disabled)" });
+    } else {
+      res.status(500).json({ error: err.message });
+    }
   }
 });
 
