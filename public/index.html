@@ -315,10 +315,11 @@
       font-weight: 600;
     }
 
-    .day-cell.synced::after {
-      content: '✓';
-      font-size: 0.9rem;
+    .day-cell.synced .work-time {
+      font-size: 0.55rem;
       margin-top: 2px;
+      color: rgba(255,255,255,0.9);
+      white-space: nowrap;
     }
 
     .day-cell.today {
@@ -661,8 +662,10 @@
               const isToday = day === today;
               const isFuture = day > today;
               const dayNum = day.slice(8, 10);
+              const workTime = member.workingTimes && member.workingTimes[day] ? member.workingTimes[day] : '';
               return `<div class="day-cell ${isSynced ? 'synced' : ''} ${isToday ? 'today' : ''} ${isFuture ? 'future' : ''}">
                 <span class="day-number">${parseInt(dayNum)}</span>
+                ${isSynced && workTime ? `<span class="work-time">${workTime}</span>` : ''}
               </div>`;
             }).join('')}
           </div>

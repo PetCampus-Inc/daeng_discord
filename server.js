@@ -57,6 +57,25 @@ function parseThreadTitle(title) {
   return { dayKey: match[1] };
 }
 
+function extractWorkingTime(content) {
+  if (!content) return null;
+  
+  // Look for Working-time section
+  const patterns = [
+    /👩🏻‍💻\s*Working-time\s*\n([\d:]+\s*[-~]\s*[\d:]+)/i,
+    /Working-time\s*\n([\d:]+\s*[-~]\s*[\d:]+)/i,
+    /Working-time[:\s]*([\d:]+\s*[-~]\s*[\d:]+)/i,
+  ];
+  
+  for (const pattern of patterns) {
+    const match = content.match(pattern);
+    if (match) {
+      return match[1].trim();
+    }
+  }
+  return null;
+}
+
 async function countCoreSyncForWeek(weekKey) {
   const forum = await client.channels.fetch(FORUM_CHANNEL_ID);
 
@@ -68,7 +87,8 @@ async function countCoreSyncForWeek(weekKey) {
     ...archived.threads.values(),
   ];
 
-  const userDays = new Map();
+  const userDays = new Map(); // userId -> Set of dayKeys
+  const userWorkingTimes = new Map(); // userId -> Map of dayKey -> workingTime
 
   for (const thread of threads) {
     const parsed = parseThreadTitle(thread.name);
@@ -82,12 +102,27 @@ async function countCoreSyncForWeek(weekKey) {
 
     if (!userDays.has(userId)) {
       userDays.set(userId, new Set());
+      userWorkingTimes.set(userId, new Map());
     }
 
     userDays.get(userId).add(parsed.dayKey);
+
+    // Fetch first message to get working time
+    try {
+      const messages = await thread.messages.fetch({ limit: 1 });
+      const firstMessage = messages.first();
+      if (firstMessage) {
+        const workingTime = extractWorkingTime(firstMessage.content);
+        if (workingTime) {
+          userWorkingTimes.get(userId).set(parsed.dayKey, workingTime);
+        }
+      }
+    } catch (err) {
+      console.error(`Error fetching message from thread ${thread.id}:`, err.message);
+    }
   }
 
-  return userDays;
+  return { userDays, userWorkingTimes };
 }
 
 async function getGuild() {
@@ -113,7 +148,7 @@ async function fetchMembersWithCache(guild) {
 }
 
 async function getCoreMembersData(weekKey) {
-  const userDays = await countCoreSyncForWeek(weekKey);
+  const { userDays, userWorkingTimes } = await countCoreSyncForWeek(weekKey);
 
   const guild = await getGuild();
   if (!guild) {
@@ -131,6 +166,9 @@ async function getCoreMembersData(weekKey) {
   for (const member of coreMembers.values()) {
     const count = userDays.get(member.id)?.size ?? 0;
     const days = userDays.get(member.id) ? Array.from(userDays.get(member.id)) : [];
+    const workingTimes = userWorkingTimes.get(member.id) 
+      ? Object.fromEntries(userWorkingTimes.get(member.id)) 
+      : {};
 
     membersData.push({
       id: member.id,
@@ -142,6 +180,7 @@ async function getCoreMembersData(weekKey) {
       percentage: Math.round((count / REQUIRED_COUNT) * 100),
       isMet: count >= REQUIRED_COUNT,
       days: days.sort(),
+      workingTimes: workingTimes,
     });
   }
 
@@ -158,7 +197,7 @@ async function generateReport() {
   }
 
   const weekKey = getWeekKey();
-  const userDays = await countCoreSyncForWeek(weekKey);
+  const { userDays } = await countCoreSyncForWeek(weekKey);
 
   const guild = await getGuild();
   if (!guild) {
