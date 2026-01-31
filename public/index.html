@@ -385,6 +385,266 @@
       background: #252525;
       color: #fff;
     }
+
+    /* Post-it Memos */
+    .memo-section {
+      margin-top: 40px;
+      margin-bottom: 32px;
+    }
+
+    .memo-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 16px;
+    }
+
+    .memo-title {
+      font-size: 1rem;
+      font-weight: 500;
+      color: #999;
+    }
+
+    .add-memo-btn {
+      padding: 8px 16px;
+      border: 1px solid rgba(255,255,255,0.15);
+      border-radius: 6px;
+      background: transparent;
+      color: #999;
+      cursor: pointer;
+      font-size: 0.85rem;
+      transition: all 0.2s;
+    }
+
+    .add-memo-btn:hover {
+      background: rgba(255,255,255,0.05);
+      color: #fff;
+    }
+
+    .memo-board {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 16px;
+      min-height: 100px;
+    }
+
+    .postit {
+      width: 200px;
+      min-height: 150px;
+      padding: 16px;
+      border-radius: 2px;
+      position: relative;
+      box-shadow: 2px 3px 12px rgba(0,0,0,0.3);
+      transform: rotate(-1deg);
+      transition: transform 0.2s, box-shadow 0.2s;
+    }
+
+    .postit:nth-child(2n) { transform: rotate(1deg); }
+    .postit:nth-child(3n) { transform: rotate(-2deg); }
+    .postit:nth-child(5n) { transform: rotate(1.5deg); }
+
+    .postit:hover {
+      transform: rotate(0deg) scale(1.02);
+      box-shadow: 4px 6px 20px rgba(0,0,0,0.4);
+      z-index: 10;
+    }
+
+    .postit.yellow { background: #fef3c7; }
+    .postit.pink { background: #fce7f3; }
+    .postit.blue { background: #dbeafe; }
+    .postit.green { background: #dcfce7; }
+    .postit.purple { background: #f3e8ff; }
+
+    .postit::before {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: 50%;
+      transform: translateX(-50%);
+      width: 40px;
+      height: 12px;
+      background: rgba(0,0,0,0.1);
+      border-radius: 0 0 4px 4px;
+    }
+
+    .postit-content {
+      color: #333;
+      font-size: 0.9rem;
+      line-height: 1.5;
+      word-break: break-word;
+      margin-top: 8px;
+    }
+
+    .postit-author {
+      position: absolute;
+      bottom: 10px;
+      right: 12px;
+      font-size: 0.7rem;
+      color: rgba(0,0,0,0.4);
+    }
+
+    .postit-delete {
+      position: absolute;
+      top: 8px;
+      right: 8px;
+      width: 20px;
+      height: 20px;
+      border: none;
+      background: transparent;
+      color: rgba(0,0,0,0.3);
+      cursor: pointer;
+      font-size: 1rem;
+      opacity: 0;
+      transition: opacity 0.2s;
+    }
+
+    .postit:hover .postit-delete {
+      opacity: 1;
+    }
+
+    .postit-delete:hover {
+      color: #e53e3e;
+    }
+
+    .empty-memos {
+      text-align: center;
+      padding: 40px;
+      color: #555;
+      font-size: 0.9rem;
+      width: 100%;
+    }
+
+    /* Modal */
+    .modal-overlay {
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background: rgba(0,0,0,0.7);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      z-index: 2000;
+      opacity: 0;
+      visibility: hidden;
+      transition: all 0.3s;
+    }
+
+    .modal-overlay.active {
+      opacity: 1;
+      visibility: visible;
+    }
+
+    .modal {
+      background: #252525;
+      border-radius: 12px;
+      padding: 24px;
+      width: 90%;
+      max-width: 400px;
+      transform: translateY(20px);
+      transition: transform 0.3s;
+    }
+
+    .modal-overlay.active .modal {
+      transform: translateY(0);
+    }
+
+    .modal h3 {
+      margin-bottom: 20px;
+      font-weight: 500;
+    }
+
+    .modal-field {
+      margin-bottom: 16px;
+    }
+
+    .modal-field label {
+      display: block;
+      font-size: 0.8rem;
+      color: #888;
+      margin-bottom: 6px;
+    }
+
+    .modal-field textarea,
+    .modal-field input {
+      width: 100%;
+      padding: 10px 12px;
+      border: 1px solid rgba(255,255,255,0.1);
+      border-radius: 6px;
+      background: #1a1a1a;
+      color: #fff;
+      font-size: 0.9rem;
+      resize: none;
+    }
+
+    .modal-field textarea {
+      height: 100px;
+    }
+
+    .color-picker {
+      display: flex;
+      gap: 8px;
+    }
+
+    .color-option {
+      width: 28px;
+      height: 28px;
+      border-radius: 50%;
+      border: 2px solid transparent;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+
+    .color-option:hover {
+      transform: scale(1.1);
+    }
+
+    .color-option.selected {
+      border-color: #fff;
+    }
+
+    .color-option.yellow { background: #fef3c7; }
+    .color-option.pink { background: #fce7f3; }
+    .color-option.blue { background: #dbeafe; }
+    .color-option.green { background: #dcfce7; }
+    .color-option.purple { background: #f3e8ff; }
+
+    .modal-actions {
+      display: flex;
+      gap: 10px;
+      justify-content: flex-end;
+      margin-top: 20px;
+    }
+
+    .modal-actions button {
+      padding: 10px 20px;
+      border-radius: 6px;
+      cursor: pointer;
+      font-size: 0.9rem;
+      transition: all 0.2s;
+    }
+
+    .btn-cancel {
+      background: transparent;
+      border: 1px solid rgba(255,255,255,0.15);
+      color: #999;
+    }
+
+    .btn-cancel:hover {
+      background: rgba(255,255,255,0.05);
+    }
+
+    .btn-submit {
+      background: #4ade80;
+      border: none;
+      color: #000;
+      font-weight: 500;
+    }
+
+    .btn-submit:hover {
+      background: #22c55e;
+    }
   </style>
 </head>
 <body>
@@ -426,10 +686,41 @@
 
   <button class="refresh-btn" onclick="loadData()" title="새로고침">↻</button>
 
+  <!-- Add Memo Modal -->
+  <div class="modal-overlay" id="memoModal">
+    <div class="modal">
+      <h3>메모 추가</h3>
+      <div class="modal-field">
+        <label>내용</label>
+        <textarea id="memoContent" placeholder="메모 내용을 입력하세요..."></textarea>
+      </div>
+      <div class="modal-field">
+        <label>작성자</label>
+        <input type="text" id="memoAuthor" placeholder="이름 (선택사항)">
+      </div>
+      <div class="modal-field">
+        <label>색상</label>
+        <div class="color-picker">
+          <div class="color-option yellow selected" data-color="yellow"></div>
+          <div class="color-option pink" data-color="pink"></div>
+          <div class="color-option blue" data-color="blue"></div>
+          <div class="color-option green" data-color="green"></div>
+          <div class="color-option purple" data-color="purple"></div>
+        </div>
+      </div>
+      <div class="modal-actions">
+        <button class="btn-cancel" onclick="closeMemoModal()">취소</button>
+        <button class="btn-submit" onclick="submitMemo()">추가</button>
+      </div>
+    </div>
+  </div>
+
   <script>
     let currentWeekOffset = 0;
     let chart = null;
     let weekDaysData = [];
+    let currentWeekKey = '';
+    let selectedColor = 'yellow';
     const DAY_NAMES = ['월', '화', '수', '목', '금', '토', '일'];
 
     async function loadData() {
@@ -477,6 +768,7 @@
         }
 
         weekDaysData = data.weekDays || [];
+        currentWeekKey = data.weekKey;
         renderDashboard(data);
 
       } catch (error) {
@@ -536,10 +828,21 @@
         </div>
 
         <div class="members-grid" id="membersGrid"></div>
+
+        <div class="memo-section">
+          <div class="memo-header">
+            <h2 class="memo-title">이번 주 메모</h2>
+            <button class="add-memo-btn" onclick="openMemoModal()">+ 메모 추가</button>
+          </div>
+          <div class="memo-board" id="memoBoard">
+            <div class="empty-memos">메모가 없습니다</div>
+          </div>
+        </div>
       `;
 
       renderChart(members, data.requiredCount);
       renderMemberCards(members);
+      loadMemos();
     }
 
     function renderChart(members, requiredCount) {
@@ -667,6 +970,119 @@
 
     loadData();
     setInterval(loadData, 60000);
+
+    // Memo functions
+    async function loadMemos() {
+      try {
+        const response = await fetch(`/api/memos?weekKey=${currentWeekKey}`);
+        const data = await response.json();
+        renderMemos(data.memos || []);
+      } catch (err) {
+        console.error('Failed to load memos:', err);
+      }
+    }
+
+    function renderMemos(memos) {
+      const board = document.getElementById('memoBoard');
+      if (!board) return;
+      
+      if (memos.length === 0) {
+        board.innerHTML = '<div class="empty-memos">메모가 없습니다</div>';
+        return;
+      }
+
+      board.innerHTML = memos.map(memo => `
+        <div class="postit ${memo.color}">
+          <button class="postit-delete" onclick="deleteMemo(${memo.id})">×</button>
+          <div class="postit-content">${escapeHtml(memo.content)}</div>
+          <div class="postit-author">${escapeHtml(memo.author)}</div>
+        </div>
+      `).join('');
+    }
+
+    function escapeHtml(text) {
+      const div = document.createElement('div');
+      div.textContent = text;
+      return div.innerHTML;
+    }
+
+    function openMemoModal() {
+      document.getElementById('memoModal').classList.add('active');
+      document.getElementById('memoContent').value = '';
+      document.getElementById('memoAuthor').value = '';
+      selectedColor = 'yellow';
+      updateColorSelection();
+    }
+
+    function closeMemoModal() {
+      document.getElementById('memoModal').classList.remove('active');
+    }
+
+    function updateColorSelection() {
+      document.querySelectorAll('.color-option').forEach(el => {
+        el.classList.toggle('selected', el.dataset.color === selectedColor);
+      });
+    }
+
+    document.querySelectorAll('.color-option').forEach(el => {
+      el.addEventListener('click', () => {
+        selectedColor = el.dataset.color;
+        updateColorSelection();
+      });
+    });
+
+    async function submitMemo() {
+      const content = document.getElementById('memoContent').value.trim();
+      const author = document.getElementById('memoAuthor').value.trim() || 'Anonymous';
+      
+      if (!content) {
+        alert('메모 내용을 입력하세요.');
+        return;
+      }
+
+      try {
+        const response = await fetch('/api/memos', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            weekKey: currentWeekKey,
+            content,
+            color: selectedColor,
+            author
+          })
+        });
+
+        if (response.ok) {
+          closeMemoModal();
+          loadMemos();
+        } else {
+          alert('메모 저장에 실패했습니다.');
+        }
+      } catch (err) {
+        console.error('Failed to save memo:', err);
+        alert('메모 저장에 실패했습니다.');
+      }
+    }
+
+    async function deleteMemo(id) {
+      if (!confirm('이 메모를 삭제하시겠습니까?')) return;
+      
+      try {
+        const response = await fetch(`/api/memos/${id}`, { method: 'DELETE' });
+        if (response.ok) {
+          loadMemos();
+        }
+      } catch (err) {
+        console.error('Failed to delete memo:', err);
+      }
+    }
+
+    // Close modal on overlay click
+    document.getElementById('memoModal').addEventListener('click', (e) => {
+      if (e.target.classList.contains('modal-overlay')) {
+        closeMemoModal();
+      }
+    });
   </script>
 </body>
 </html>

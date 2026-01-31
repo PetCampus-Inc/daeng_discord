@@ -2,9 +2,38 @@ const express = require("express");
 const path = require("path");
 const { Client, GatewayIntentBits, Partials } = require("discord.js");
 const cron = require("node-cron");
+const { Pool } = require("pg");
 
 const app = express();
 const PORT = 5000;
+
+app.use(express.json());
+
+const pool = new Pool({
+  connectionString: process.env.DATABASE_URL,
+});
+
+async function initDatabase() {
+  try {
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS memos (
+        id SERIAL PRIMARY KEY,
+        week_key VARCHAR(10) NOT NULL,
+        content TEXT NOT NULL,
+        color VARCHAR(20) DEFAULT 'yellow',
+        author VARCHAR(100) DEFAULT 'Anonymous',
+        position_x INTEGER DEFAULT 0,
+        position_y INTEGER DEFAULT 0,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      )
+    `);
+    console.log("Database initialized");
+  } catch (err) {
+    console.error("Database init error:", err.message);
+  }
+}
+
+initDatabase();
 
 const BOT_TOKEN = process.env.BOT_TOKEN;
 const FORUM_CHANNEL_ID = process.env.FORUM_CHANNEL_ID;
@@ -296,6 +325,49 @@ app.get("/api/status", (req, res) => {
     botUser: client.user ? client.user.tag : null,
     guilds: client.guilds.cache.size,
   });
+});
+
+// Memo API endpoints
+app.get("/api/memos", async (req, res) => {
+  try {
+    const weekKey = req.query.weekKey;
+    if (!weekKey) {
+      return res.status(400).json({ error: "weekKey required" });
+    }
+    const result = await pool.query(
+      "SELECT * FROM memos WHERE week_key = $1 ORDER BY created_at DESC",
+      [weekKey]
+    );
+    res.json({ success: true, memos: result.rows });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.post("/api/memos", async (req, res) => {
+  try {
+    const { weekKey, content, color, author } = req.body;
+    if (!weekKey || !content) {
+      return res.status(400).json({ error: "weekKey and content required" });
+    }
+    const result = await pool.query(
+      "INSERT INTO memos (week_key, content, color, author) VALUES ($1, $2, $3, $4) RETURNING *",
+      [weekKey, content, color || "yellow", author || "Anonymous"]
+    );
+    res.json({ success: true, memo: result.rows[0] });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.delete("/api/memos/:id", async (req, res) => {
+  try {
+    const { id } = req.params;
+    await pool.query("DELETE FROM memos WHERE id = $1", [id]);
+    res.json({ success: true });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
 });
 
 client.once("ready", () => {
