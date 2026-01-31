@@ -12,9 +12,19 @@ const REPORT_CHANNEL_ID = process.env.REPORT_CHANNEL_ID;
 const CORE_ROLE_ID = process.env.CORE_ROLE_ID;
 
 const REQUIRED_COUNT = 5;
-const THREAD_SCAN_LIMIT = 100;
+const THREAD_SCAN_LIMIT = 200;
+const GUILD_ID = process.env.GUILD_ID;
 const NOTION_LINK =
   "https://www.notion.so/2de6c15f67fb8039b0f7e6e9c7fe202f?v=2de6c15f67fb815e809d000ce19fbfe7";
+
+function validateConfig() {
+  const missing = [];
+  if (!BOT_TOKEN) missing.push("BOT_TOKEN");
+  if (!FORUM_CHANNEL_ID) missing.push("FORUM_CHANNEL_ID");
+  if (!REPORT_CHANNEL_ID) missing.push("REPORT_CHANNEL_ID");
+  if (!CORE_ROLE_ID) missing.push("CORE_ROLE_ID");
+  return missing;
+}
 
 const client = new Client({
   intents: [
@@ -80,11 +90,20 @@ async function countCoreSyncForWeek(weekKey) {
   return userDays;
 }
 
+async function getGuild() {
+  if (GUILD_ID) {
+    return await client.guilds.fetch(GUILD_ID).catch(() => null);
+  }
+  return client.guilds.cache.first();
+}
+
 async function getCoreMembersData(weekKey) {
   const userDays = await countCoreSyncForWeek(weekKey);
 
-  const guild = client.guilds.cache.first();
-  if (!guild) return [];
+  const guild = await getGuild();
+  if (!guild) {
+    throw new Error("서버를 찾을 수 없습니다. GUILD_ID를 설정해주세요.");
+  }
 
   await guild.members.fetch();
 
@@ -117,11 +136,20 @@ async function getCoreMembersData(weekKey) {
 }
 
 async function generateReport() {
+  const missingConfig = validateConfig();
+  if (missingConfig.length > 0) {
+    console.error("설정 오류:", missingConfig.join(", "));
+    return null;
+  }
+
   const weekKey = getWeekKey();
   const userDays = await countCoreSyncForWeek(weekKey);
 
-  const guild = client.guilds.cache.first();
-  if (!guild) return null;
+  const guild = await getGuild();
+  if (!guild) {
+    console.error("서버를 찾을 수 없습니다. GUILD_ID를 확인해주세요.");
+    return null;
+  }
 
   await guild.members.fetch();
 
@@ -160,6 +188,20 @@ app.get("/api/sync-data", async (req, res) => {
   try {
     const weekOffset = parseInt(req.query.weekOffset) || 0;
     const weekKey = getWeekKey(weekOffset);
+    const missingConfig = validateConfig();
+
+    if (!client.isReady()) {
+      return res.json({
+        success: true,
+        weekKey,
+        requiredCount: REQUIRED_COUNT,
+        members: [],
+        botConnected: false,
+        configStatus: missingConfig.length > 0 ? `환경변수 누락: ${missingConfig.join(", ")}` : "설정 완료",
+        missingConfig,
+      });
+    }
+
     const membersData = await getCoreMembersData(weekKey);
 
     res.json({
@@ -167,14 +209,19 @@ app.get("/api/sync-data", async (req, res) => {
       weekKey,
       requiredCount: REQUIRED_COUNT,
       members: membersData,
-      botConnected: client.isReady(),
+      botConnected: true,
+      configStatus: "설정 완료",
+      missingConfig: [],
     });
   } catch (error) {
     console.error("API Error:", error);
+    const weekOffset = parseInt(req.query.weekOffset) || 0;
     res.status(500).json({
       success: false,
+      weekKey: getWeekKey(weekOffset),
       error: error.message,
       botConnected: client.isReady(),
+      configStatus: validateConfig().length > 0 ? `환경변수 누락: ${validateConfig().join(", ")}` : "설정 완료",
     });
   }
 });
