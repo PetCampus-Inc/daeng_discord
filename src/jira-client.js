@@ -258,7 +258,9 @@ async function getMyIssues(displayName, options = {}) {
   };
   
   try {
+    console.log('Jira JQL:', jql);
     const result = await client.issueSearch.searchForIssuesUsingJqlEnhancedSearch(searchParams);
+    console.log('Jira result count:', result.issues?.length || 0);
     
     return (result.issues || []).map(issue => ({
       key: issue.key,
@@ -269,8 +271,7 @@ async function getMyIssues(displayName, options = {}) {
       project: issue.fields.project?.key
     }));
   } catch (err) {
-    // If text search fails, try exact match with currentUser() as fallback
-    console.error('Jira search error:', err.message);
+    console.error('Jira search error:', err.message, err.response?.data || '');
     return [];
   }
 }
