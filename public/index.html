@@ -41,6 +41,39 @@
       color: #64748b;
     }
 
+    .quick-links {
+      display: flex;
+      justify-content: center;
+      gap: 16px;
+      margin-bottom: 16px;
+    }
+
+    .quick-link {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 8px 16px;
+      background: #fff;
+      border-radius: 12px;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.06);
+      text-decoration: none;
+      color: #475569;
+      font-size: 0.9rem;
+      font-weight: 500;
+      transition: all 0.2s;
+    }
+
+    .quick-link:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+    }
+
+    .quick-link img {
+      width: 24px;
+      height: 24px;
+      object-fit: contain;
+    }
+
     .current-datetime {
       font-family: 'Courier New', monospace;
       font-weight: 600;
@@ -1395,6 +1428,16 @@
       <div class="header-top-info">
         <span class="current-datetime" id="currentDateTime">--</span>
         <span class="visitor-count">👥 오늘 방문: <strong id="visitorCount">-</strong>명</span>
+      </div>
+      <div class="quick-links">
+        <a href="https://jira-knockdog.atlassian.net/jira/software/projects/Q2/list?jql=project%20%3D%20KDQA%20ORDER%20BY%20created%20ASC" target="_blank" class="quick-link">
+          <img src="https://cdn.worldvectorlogo.com/logos/jira-1.svg" alt="Jira">
+          <span>Jira</span>
+        </a>
+        <a href="https://www.notion.so/6c22af2c448a4205abf22c985da4f2d4?v=fff6c15f67fb817e93bf000cbf2f9467" target="_blank" class="quick-link">
+          <img src="https://upload.wikimedia.org/wikipedia/commons/4/45/Notion_app_logo.png" alt="Notion">
+          <span>Notion</span>
+        </a>
       </div>
       <h1>Knockdog Admin</h1>
       <div class="status-badge">
