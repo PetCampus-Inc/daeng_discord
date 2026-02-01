@@ -36,6 +36,15 @@ async function initDatabase() {
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
       )
     `);
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS visits (
+        id SERIAL PRIMARY KEY,
+        visit_date DATE NOT NULL DEFAULT CURRENT_DATE,
+        visitor_id VARCHAR(100) NOT NULL,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        UNIQUE(visit_date, visitor_id)
+      )
+    `);
     console.log("Database initialized");
   } catch (err) {
     console.error("Database init error:", err.message);
@@ -625,6 +634,36 @@ app.post("/api/post-daily", async (req, res) => {
     res.json({ success: true, threadId: thread.id, threadName });
   } catch (err) {
     console.error("Post daily error:", err.message);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Visitor tracking API
+app.post("/api/visit", async (req, res) => {
+  try {
+    const visitorId = req.body.visitorId || req.ip || 'anonymous';
+    await pool.query(
+      `INSERT INTO visits (visit_date, visitor_id) VALUES (CURRENT_DATE, $1) ON CONFLICT DO NOTHING`,
+      [visitorId]
+    );
+    const result = await pool.query(
+      `SELECT COUNT(*) as count FROM visits WHERE visit_date = CURRENT_DATE`
+    );
+    res.json({ success: true, todayCount: parseInt(result.rows[0].count) });
+  } catch (err) {
+    console.error("Visit tracking error:", err.message);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.get("/api/visitors/today", async (req, res) => {
+  try {
+    const result = await pool.query(
+      `SELECT COUNT(*) as count FROM visits WHERE visit_date = CURRENT_DATE`
+    );
+    res.json({ count: parseInt(result.rows[0].count) });
+  } catch (err) {
+    console.error("Visitor count error:", err.message);
     res.status(500).json({ error: err.message });
   }
 });
