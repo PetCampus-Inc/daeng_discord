@@ -1119,13 +1119,10 @@
         <div class="jira-section">
           <div class="jira-header">
             <div class="jira-title">
-              <span>Jira 티켓 처리 현황</span>
+              <span>Jira 티켓 처리 현황 (Q2)</span>
               <span class="jira-total-badge" id="jiraTotalBadge">0건</span>
             </div>
             <div class="jira-filters">
-              <select id="jiraProject">
-                <option value="">전체 프로젝트</option>
-              </select>
               <input type="date" id="jiraStartDate" title="시작일">
               <input type="date" id="jiraEndDate" title="종료일">
               <button onclick="loadJiraStats()">검색</button>
@@ -1140,7 +1137,6 @@
       renderChart(members, data.requiredCount);
       renderMemberCards(members);
       loadMemos();
-      loadJiraProjects();
       loadJiraStats();
     }
 
@@ -1484,27 +1480,6 @@
     loadAnnouncement();
 
     // Jira functions
-    async function loadJiraProjects() {
-      try {
-        const response = await fetch('/api/jira/projects');
-        const data = await response.json();
-        
-        if (data.success && data.projects) {
-          const select = document.getElementById('jiraProject');
-          if (select) {
-            data.projects.forEach(p => {
-              const option = document.createElement('option');
-              option.value = p.key;
-              option.textContent = `${p.name} (${p.key})`;
-              select.appendChild(option);
-            });
-          }
-        }
-      } catch (err) {
-        console.error('Failed to load Jira projects:', err);
-      }
-    }
-
     async function loadJiraStats() {
       const content = document.getElementById('jiraContent');
       if (!content) return;
@@ -1512,12 +1487,10 @@
       content.innerHTML = '<div class="jira-loading">Jira 데이터 로딩 중...</div>';
       
       try {
-        const project = document.getElementById('jiraProject')?.value || '';
         const startDate = document.getElementById('jiraStartDate')?.value || '';
         const endDate = document.getElementById('jiraEndDate')?.value || '';
         
-        let url = '/api/jira/assignee-stats?';
-        if (project) url += `project=${encodeURIComponent(project)}&`;
+        let url = '/api/jira/assignee-stats?project=Q2&';
         if (startDate) url += `startDate=${encodeURIComponent(startDate)}&`;
         if (endDate) url += `endDate=${encodeURIComponent(endDate)}&`;
         
