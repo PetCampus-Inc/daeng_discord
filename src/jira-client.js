@@ -62,12 +62,9 @@ async function getAccessToken() {
 
 async function getJiraClient() {
   const { accessToken, hostName } = await getAccessToken();
-  
-  const id = await getCloudId(accessToken);
-  const apiHost = `https://api.atlassian.com/ex/jira/${id}`;
 
   const client = new Version3Client({
-    host: apiHost,
+    host: hostName,
     authentication: {
       oauth2: { accessToken },
     },
