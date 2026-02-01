@@ -44,6 +44,12 @@ npm run bot  # Bot only (index.js)
 - **Member call feature** - Send Discord DM to members with one click
 - **Role-based member separation** - Core and Contributor members displayed separately based on Discord roles
 - **Jira integration** - Track ticket completion by assignees with filtering by project/date
+- **Daily standup writer** - Write daily updates from dashboard with template form:
+  - One-click Jira ticket import (fetch assigned tickets)
+  - Template sections: Done, In Progress, Blocker, Working-time
+  - User identification via dropdown (saved to localStorage)
+  - Easy time picker for working hours
+  - Posts directly to Discord forum as `[YYYY-MM-DD / Name]` thread
 - Scans forum threads with format `[YYYY-MM-DD / Name]`
 - Generates weekly report (Sundays at 11 AM KST)
 - Manual report via `check-report` command in chat

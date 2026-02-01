@@ -3,7 +3,7 @@ const path = require("path");
 const { Client, GatewayIntentBits, Partials } = require("discord.js");
 const cron = require("node-cron");
 const { Pool } = require("pg");
-const { getAssigneeStats, getProjects, getProjectStatuses } = require("./src/jira-client");
+const { getAssigneeStats, getProjects, getProjectStatuses, getMyIssues } = require("./src/jira-client");
 
 const app = express();
 const PORT = 5000;
@@ -91,9 +91,9 @@ function getWeekKeyFromDate(date) {
 }
 
 function parseThreadTitle(title) {
-  const match = title.match(/^\[(\d{4}-\d{2}-\d{2}) \/ .+\]$/);
+  const match = title.match(/^\[(\d{4}-\d{2}-\d{2}) \/ (.+)\]$/);
   if (!match) return null;
-  return { dayKey: match[1] };
+  return { dayKey: match[1], displayName: match[2].trim() };
 }
 
 function extractWorkingTime(content) {
@@ -115,7 +115,7 @@ function extractWorkingTime(content) {
   return null;
 }
 
-async function countCoreSyncForWeek(weekKey) {
+async function countCoreSyncForWeek(weekKey, memberNameToId = null) {
   const forum = await client.channels.fetch(FORUM_CHANNEL_ID);
 
   const active = await forum.threads.fetchActive();
@@ -136,7 +136,17 @@ async function countCoreSyncForWeek(weekKey) {
     const date = new Date(parsed.dayKey);
     if (getWeekKeyFromDate(date) !== weekKey) continue;
 
-    const userId = thread.ownerId;
+    // Try to get userId from ownerId first, then from displayName in thread title
+    let userId = thread.ownerId;
+    
+    // If thread was created by bot (or we have name mapping), try to match by displayName
+    if (parsed.displayName && memberNameToId) {
+      const mappedId = memberNameToId.get(parsed.displayName.toLowerCase());
+      if (mappedId) {
+        userId = mappedId;
+      }
+    }
+    
     if (!userId) continue;
 
     if (!userDays.has(userId)) {
@@ -187,8 +197,6 @@ async function fetchMembersWithCache(guild) {
 }
 
 async function getMembersDataByRole(weekKey) {
-  const { userDays, userWorkingTimes } = await countCoreSyncForWeek(weekKey);
-
   const guild = await getGuild();
   if (!guild) {
     throw new Error("서버를 찾을 수 없습니다. GUILD_ID를 설정해주세요.");
@@ -203,6 +211,14 @@ async function getMembersDataByRole(weekKey) {
   const contributorMembers = CONTRIBUTOR_ROLE_ID ? guild.members.cache.filter(
     (m) => !m.user.bot && m.roles.cache.has(CONTRIBUTOR_ROLE_ID) && !m.roles.cache.has(CORE_ROLE_ID)
   ) : new Map();
+
+  // Build name-to-id mapping for matching bot-posted threads
+  const memberNameToId = new Map();
+  for (const member of [...coreMembers.values(), ...contributorMembers.values()]) {
+    memberNameToId.set(member.displayName.toLowerCase(), member.id);
+  }
+
+  const { userDays, userWorkingTimes } = await countCoreSyncForWeek(weekKey, memberNameToId);
 
   function buildMemberData(members) {
     const membersData = [];
@@ -257,7 +273,6 @@ async function generateReport() {
   }
 
   const weekKey = getWeekKey();
-  const { userDays } = await countCoreSyncForWeek(weekKey);
 
   const guild = await getGuild();
   if (!guild) {
@@ -270,6 +285,14 @@ async function generateReport() {
   const coreMembers = guild.members.cache.filter(
     (m) => !m.user.bot && m.roles.cache.has(CORE_ROLE_ID)
   );
+
+  // Build name-to-id mapping for matching bot-posted threads
+  const memberNameToId = new Map();
+  for (const member of coreMembers.values()) {
+    memberNameToId.set(member.displayName.toLowerCase(), member.id);
+  }
+
+  const { userDays } = await countCoreSyncForWeek(weekKey, memberNameToId);
 
   const lines = [];
   const underperformed = [];
@@ -493,6 +516,115 @@ app.get("/api/jira/assignee-stats", async (req, res) => {
     res.json({ success: true, ...stats });
   } catch (err) {
     console.error("Jira assignee stats error:", err.message);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Get members list for user selection
+app.get("/api/members-list", async (req, res) => {
+  try {
+    if (!client.isReady()) {
+      return res.status(503).json({ error: "Bot not connected" });
+    }
+    
+    const guild = await getGuild();
+    if (!guild) {
+      return res.status(404).json({ error: "Guild not found" });
+    }
+    
+    await fetchMembersWithCache(guild);
+    
+    const allMembers = guild.members.cache.filter(
+      (m) => !m.user.bot && (m.roles.cache.has(CORE_ROLE_ID) || (CONTRIBUTOR_ROLE_ID && m.roles.cache.has(CONTRIBUTOR_ROLE_ID)))
+    );
+    
+    const membersList = Array.from(allMembers.values()).map(m => ({
+      id: m.id,
+      displayName: m.displayName,
+      username: m.user.username,
+      avatar: m.user.displayAvatarURL({ size: 64 })
+    }));
+    
+    membersList.sort((a, b) => a.displayName.localeCompare(b.displayName));
+    res.json({ success: true, members: membersList });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Get my Jira issues for daily standup
+app.get("/api/jira/my-issues", async (req, res) => {
+  try {
+    const { displayName, project } = req.query;
+    if (!displayName) {
+      return res.status(400).json({ error: "displayName required" });
+    }
+    
+    const options = {};
+    if (project) options.project = project;
+    
+    const issues = await getMyIssues(displayName, options);
+    res.json({ success: true, issues });
+  } catch (err) {
+    console.error("Jira my-issues error:", err.message);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Post daily standup to Discord forum
+app.post("/api/post-daily", async (req, res) => {
+  try {
+    const { userId, displayName, done, inProgress, blocker, workingTime, date } = req.body;
+    
+    if (!userId || !displayName) {
+      return res.status(400).json({ error: "userId and displayName required" });
+    }
+    
+    if (!client.isReady()) {
+      return res.status(503).json({ error: "Bot not connected" });
+    }
+    
+    const forum = await client.channels.fetch(FORUM_CHANNEL_ID);
+    if (!forum || forum.type !== 15) {
+      return res.status(400).json({ error: "Forum channel not found" });
+    }
+    
+    const postDate = date || new Date().toISOString().slice(0, 10);
+    const threadName = `[${postDate} / ${displayName}]`;
+    
+    let messageContent = '';
+    
+    if (done && done.length > 0) {
+      messageContent += '✅ Done\n';
+      messageContent += done.map(item => item).join('\n');
+      messageContent += '\n\n';
+    }
+    
+    if (inProgress && inProgress.length > 0) {
+      messageContent += '⚒️ In progress\n';
+      messageContent += inProgress.map(item => item).join('\n');
+      messageContent += '\n\n';
+    }
+    
+    if (blocker) {
+      messageContent += '⚠️ Blocker\n';
+      messageContent += blocker || '없음';
+      messageContent += '\n\n';
+    }
+    
+    if (workingTime) {
+      messageContent += '👩🏻‍💻 Working-time\n';
+      messageContent += workingTime;
+    }
+    
+    const thread = await forum.threads.create({
+      name: threadName,
+      message: { content: messageContent.trim() || '오늘의 데일리 업데이트' }
+    });
+    
+    res.json({ success: true, threadId: thread.id, threadName });
+  } catch (err) {
+    console.error("Post daily error:", err.message);
     res.status(500).json({ error: err.message });
   }
 });

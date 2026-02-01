@@ -230,9 +230,55 @@ async function getProjectStatuses(projectKey) {
   return Array.from(allStatuses);
 }
 
+async function getMyIssues(displayName, options = {}) {
+  const client = await getJiraClient();
+  
+  const { 
+    project,
+    statuses = ['To Do', 'In Progress', 'In Review', 'Open', 'Reopened']
+  } = options;
+  
+  // Sanitize displayName to prevent JQL injection
+  const sanitizedName = displayName.replace(/['"\\]/g, '');
+  
+  // Use text search for assignee displayName since we don't have accountId mapping
+  let jql = `assignee ~ "${sanitizedName}" AND status in (${statuses.map(s => `"${s}"`).join(', ')})`;
+  
+  if (project) {
+    const sanitizedProject = project.replace(/['"\\]/g, '');
+    jql += ` AND project = "${sanitizedProject}"`;
+  }
+  
+  jql += ' ORDER BY priority DESC, updated DESC';
+  
+  const searchParams = {
+    jql,
+    maxResults: 50,
+    fields: ['summary', 'status', 'issuetype', 'priority', 'project']
+  };
+  
+  try {
+    const result = await client.issueSearch.searchForIssuesUsingJqlEnhancedSearch(searchParams);
+    
+    return (result.issues || []).map(issue => ({
+      key: issue.key,
+      summary: issue.fields.summary,
+      status: issue.fields.status?.name,
+      issueType: issue.fields.issuetype?.name,
+      priority: issue.fields.priority?.name,
+      project: issue.fields.project?.key
+    }));
+  } catch (err) {
+    // If text search fails, try exact match with currentUser() as fallback
+    console.error('Jira search error:', err.message);
+    return [];
+  }
+}
+
 module.exports = {
   getJiraClient,
   getAssigneeStats,
   getProjects,
-  getProjectStatuses
+  getProjectStatuses,
+  getMyIssues
 };

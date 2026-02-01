@@ -982,6 +982,320 @@
       border-radius: 20px;
       font-size: 0.8rem;
     }
+
+    /* Daily Standup Styles */
+    .daily-standup-section {
+      background: #fff;
+      border-radius: 16px;
+      padding: 20px;
+      margin-bottom: 24px;
+      box-shadow: 0 2px 12px rgba(0,0,0,0.06);
+    }
+
+    .daily-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      cursor: pointer;
+      padding: 4px 0;
+    }
+
+    .daily-header h3 {
+      font-size: 1.1rem;
+      color: #1e293b;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .daily-toggle {
+      font-size: 1.2rem;
+      color: #94a3b8;
+      transition: transform 0.3s;
+    }
+
+    .daily-toggle.open {
+      transform: rotate(180deg);
+    }
+
+    .daily-content {
+      display: none;
+      margin-top: 20px;
+    }
+
+    .daily-content.show {
+      display: block;
+    }
+
+    .daily-user-select {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      margin-bottom: 20px;
+      padding: 16px;
+      background: #f8fafc;
+      border-radius: 12px;
+    }
+
+    .daily-user-select label {
+      font-weight: 500;
+      color: #475569;
+    }
+
+    .daily-user-select select {
+      flex: 1;
+      padding: 10px 14px;
+      border: 1px solid #e2e8f0;
+      border-radius: 8px;
+      font-size: 0.95rem;
+      background: #fff;
+      cursor: pointer;
+    }
+
+    .daily-form-section {
+      margin-bottom: 20px;
+    }
+
+    .daily-form-section h4 {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 0.95rem;
+      color: #1e293b;
+      margin-bottom: 12px;
+    }
+
+    .daily-items-list {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+
+    .daily-item {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 10px 12px;
+      background: #f8fafc;
+      border-radius: 8px;
+      border: 1px solid #e2e8f0;
+    }
+
+    .daily-item input {
+      flex: 1;
+      border: none;
+      background: transparent;
+      font-size: 0.9rem;
+      color: #1e293b;
+    }
+
+    .daily-item input:focus {
+      outline: none;
+    }
+
+    .daily-item .remove-btn {
+      width: 24px;
+      height: 24px;
+      border: none;
+      background: #fee2e2;
+      color: #dc2626;
+      border-radius: 6px;
+      cursor: pointer;
+      font-size: 1rem;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .daily-item .remove-btn:hover {
+      background: #fecaca;
+    }
+
+    .daily-add-row {
+      display: flex;
+      gap: 8px;
+      margin-top: 8px;
+    }
+
+    .daily-add-row input {
+      flex: 1;
+      padding: 10px 12px;
+      border: 1px dashed #cbd5e1;
+      border-radius: 8px;
+      font-size: 0.9rem;
+    }
+
+    .daily-add-row button {
+      padding: 10px 16px;
+      background: #f59e0b;
+      color: #fff;
+      border: none;
+      border-radius: 8px;
+      cursor: pointer;
+      font-weight: 500;
+    }
+
+    .jira-import-btn {
+      padding: 8px 16px;
+      background: linear-gradient(135deg, #3b82f6, #1d4ed8);
+      color: #fff;
+      border: none;
+      border-radius: 8px;
+      cursor: pointer;
+      font-size: 0.85rem;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .jira-import-btn:hover {
+      box-shadow: 0 4px 12px rgba(59, 130, 246, 0.3);
+    }
+
+    .jira-import-btn:disabled {
+      opacity: 0.6;
+      cursor: not-allowed;
+    }
+
+    .jira-tickets-popup {
+      position: fixed;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      background: #fff;
+      border-radius: 16px;
+      padding: 24px;
+      max-width: 500px;
+      width: 90%;
+      max-height: 70vh;
+      overflow-y: auto;
+      box-shadow: 0 20px 60px rgba(0,0,0,0.2);
+      z-index: 1001;
+    }
+
+    .jira-tickets-popup h4 {
+      margin-bottom: 16px;
+      color: #1e293b;
+    }
+
+    .jira-ticket-item {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 12px;
+      border: 1px solid #e2e8f0;
+      border-radius: 8px;
+      margin-bottom: 8px;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+
+    .jira-ticket-item:hover {
+      border-color: #3b82f6;
+      background: #f0f9ff;
+    }
+
+    .jira-ticket-item.selected {
+      border-color: #3b82f6;
+      background: #dbeafe;
+    }
+
+    .jira-ticket-item input[type="checkbox"] {
+      width: 18px;
+      height: 18px;
+    }
+
+    .jira-ticket-key {
+      font-weight: 600;
+      color: #3b82f6;
+      font-size: 0.85rem;
+    }
+
+    .jira-ticket-summary {
+      flex: 1;
+      font-size: 0.9rem;
+      color: #475569;
+    }
+
+    .daily-working-time {
+      display: flex;
+      gap: 12px;
+      align-items: center;
+    }
+
+    .time-input-group {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .time-input-group select {
+      padding: 10px 12px;
+      border: 1px solid #e2e8f0;
+      border-radius: 8px;
+      font-size: 0.95rem;
+      background: #fff;
+    }
+
+    .daily-blocker textarea {
+      width: 100%;
+      padding: 12px;
+      border: 1px solid #e2e8f0;
+      border-radius: 8px;
+      font-size: 0.9rem;
+      resize: vertical;
+      min-height: 60px;
+    }
+
+    .daily-submit-row {
+      display: flex;
+      justify-content: flex-end;
+      gap: 12px;
+      margin-top: 24px;
+      padding-top: 20px;
+      border-top: 1px solid #e2e8f0;
+    }
+
+    .daily-submit-btn {
+      padding: 12px 28px;
+      background: linear-gradient(135deg, #f59e0b, #ea580c);
+      color: #fff;
+      border: none;
+      border-radius: 10px;
+      cursor: pointer;
+      font-weight: 600;
+      font-size: 0.95rem;
+      box-shadow: 0 4px 12px rgba(245, 158, 11, 0.3);
+    }
+
+    .daily-submit-btn:hover {
+      transform: translateY(-1px);
+      box-shadow: 0 6px 16px rgba(245, 158, 11, 0.4);
+    }
+
+    .daily-submit-btn:disabled {
+      opacity: 0.6;
+      cursor: not-allowed;
+      transform: none;
+    }
+
+    .daily-preview-btn {
+      padding: 12px 20px;
+      background: #f1f5f9;
+      color: #475569;
+      border: none;
+      border-radius: 10px;
+      cursor: pointer;
+      font-weight: 500;
+    }
+
+    .daily-date-input {
+      padding: 10px 12px;
+      border: 1px solid #e2e8f0;
+      border-radius: 8px;
+      font-size: 0.95rem;
+      background: #fff;
+    }
   </style>
 </head>
 <body>
@@ -1003,6 +1317,102 @@
         <span>전체 DM 발송</span>
       </label>
       <button onclick="submitAnnouncement()">공지 등록</button>
+    </div>
+
+    <!-- Daily Standup Section -->
+    <div class="daily-standup-section">
+      <div class="daily-header" onclick="toggleDaily()">
+        <h3>📝 오늘의 데일리 작성</h3>
+        <span class="daily-toggle" id="dailyToggle">▼</span>
+      </div>
+      <div class="daily-content" id="dailyContent">
+        <div class="daily-user-select">
+          <label>작성자:</label>
+          <select id="dailyUserSelect" onchange="onUserSelect()">
+            <option value="">선택하세요...</option>
+          </select>
+          <input type="date" id="dailyDate" class="daily-date-input">
+        </div>
+
+        <div class="daily-form-section">
+          <h4>
+            ✅ Done
+            <button class="jira-import-btn" onclick="importJiraTickets('done')" id="jiraDoneBtn" disabled>
+              🎫 Jira에서 가져오기
+            </button>
+          </h4>
+          <div class="daily-items-list" id="doneList"></div>
+          <div class="daily-add-row">
+            <input type="text" id="doneInput" placeholder="완료한 작업 입력..." onkeypress="handleEnterKey(event, 'done')">
+            <button onclick="addDailyItem('done')">추가</button>
+          </div>
+        </div>
+
+        <div class="daily-form-section">
+          <h4>
+            ⚒️ In Progress
+            <button class="jira-import-btn" onclick="importJiraTickets('inProgress')" id="jiraProgressBtn" disabled>
+              🎫 Jira에서 가져오기
+            </button>
+          </h4>
+          <div class="daily-items-list" id="inProgressList"></div>
+          <div class="daily-add-row">
+            <input type="text" id="inProgressInput" placeholder="진행 중인 작업 입력..." onkeypress="handleEnterKey(event, 'inProgress')">
+            <button onclick="addDailyItem('inProgress')">추가</button>
+          </div>
+        </div>
+
+        <div class="daily-form-section">
+          <h4>⚠️ Blocker</h4>
+          <div class="daily-blocker">
+            <textarea id="blockerInput" placeholder="블로커가 있다면 입력..."></textarea>
+          </div>
+        </div>
+
+        <div class="daily-form-section">
+          <h4>👩🏻‍💻 Working-time</h4>
+          <div class="daily-working-time">
+            <div class="time-input-group">
+              <select id="startHour">
+                <option value="00">00</option><option value="01">01</option><option value="02">02</option><option value="03">03</option><option value="04">04</option><option value="05">05</option><option value="06">06</option><option value="07">07</option><option value="08">08</option><option value="09">09</option><option value="10">10</option><option value="11">11</option><option value="12">12</option><option value="13">13</option><option value="14">14</option><option value="15">15</option><option value="16">16</option><option value="17">17</option><option value="18">18</option><option value="19">19</option><option value="20">20</option><option value="21">21</option><option value="22">22</option><option value="23">23</option>
+              </select>
+              <span>:</span>
+              <select id="startMin">
+                <option value="00">00</option>
+                <option value="30">30</option>
+              </select>
+            </div>
+            <span>~</span>
+            <div class="time-input-group">
+              <select id="endHour">
+                <option value="00">00</option><option value="01">01</option><option value="02">02</option><option value="03">03</option><option value="04">04</option><option value="05">05</option><option value="06">06</option><option value="07">07</option><option value="08">08</option><option value="09">09</option><option value="10">10</option><option value="11">11</option><option value="12">12</option><option value="13">13</option><option value="14">14</option><option value="15">15</option><option value="16">16</option><option value="17">17</option><option value="18">18</option><option value="19">19</option><option value="20">20</option><option value="21">21</option><option value="22">22</option><option value="23">23</option>
+              </select>
+              <span>:</span>
+              <select id="endMin">
+                <option value="00">00</option>
+                <option value="30">30</option>
+              </select>
+            </div>
+          </div>
+        </div>
+
+        <div class="daily-submit-row">
+          <button class="daily-preview-btn" onclick="previewDaily()">미리보기</button>
+          <button class="daily-submit-btn" onclick="submitDaily()" id="submitDailyBtn" disabled>Discord에 게시</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Jira Tickets Modal -->
+    <div class="modal-overlay" id="jiraTicketsModal">
+      <div class="modal" style="max-width: 500px;">
+        <h3>🎫 Jira 티켓 선택</h3>
+        <div id="jiraTicketsList" style="max-height: 400px; overflow-y: auto;"></div>
+        <div class="modal-actions" style="margin-top: 16px;">
+          <button class="btn-cancel" onclick="closeJiraModal()">취소</button>
+          <button class="btn-submit" onclick="confirmJiraImport()">선택 추가</button>
+        </div>
+      </div>
     </div>
 
     <div class="week-nav">
@@ -1623,6 +2033,265 @@
         content.innerHTML = `<div class="jira-error">${escapeHtml(err.message)}</div>`;
       }
     }
+
+    // ===== Daily Standup Functions =====
+    let dailyItems = { done: [], inProgress: [] };
+    let membersList = [];
+    let selectedUser = null;
+    let currentJiraTarget = null;
+    let selectedJiraTickets = [];
+
+    async function initDailyStandup() {
+      // Set today's date
+      const today = new Date().toISOString().slice(0, 10);
+      document.getElementById('dailyDate').value = today;
+      
+      // Set default working time (10:00 - 19:00)
+      document.getElementById('startHour').value = '10';
+      document.getElementById('startMin').value = '00';
+      document.getElementById('endHour').value = '19';
+      document.getElementById('endMin').value = '00';
+      
+      // Load members list
+      try {
+        const response = await fetch('/api/members-list');
+        const data = await response.json();
+        if (data.success) {
+          membersList = data.members;
+          const select = document.getElementById('dailyUserSelect');
+          select.innerHTML = '<option value="">선택하세요...</option>' + 
+            membersList.map(m => `<option value="${m.id}" data-name="${m.displayName}">${m.displayName} (@${m.username})</option>`).join('');
+          
+          // Restore saved user from localStorage
+          const savedUserId = localStorage.getItem('knockdog_daily_user');
+          if (savedUserId) {
+            select.value = savedUserId;
+            onUserSelect();
+          }
+        }
+      } catch (err) {
+        console.error('Failed to load members:', err);
+      }
+    }
+
+    function toggleDaily() {
+      const content = document.getElementById('dailyContent');
+      const toggle = document.getElementById('dailyToggle');
+      content.classList.toggle('show');
+      toggle.classList.toggle('open');
+    }
+
+    function onUserSelect() {
+      const select = document.getElementById('dailyUserSelect');
+      const userId = select.value;
+      const selectedOption = select.options[select.selectedIndex];
+      
+      if (userId) {
+        selectedUser = {
+          id: userId,
+          displayName: selectedOption.dataset.name
+        };
+        localStorage.setItem('knockdog_daily_user', userId);
+        
+        // Enable buttons
+        document.getElementById('jiraDoneBtn').disabled = false;
+        document.getElementById('jiraProgressBtn').disabled = false;
+        document.getElementById('submitDailyBtn').disabled = false;
+      } else {
+        selectedUser = null;
+        document.getElementById('jiraDoneBtn').disabled = true;
+        document.getElementById('jiraProgressBtn').disabled = true;
+        document.getElementById('submitDailyBtn').disabled = true;
+      }
+    }
+
+    function handleEnterKey(event, type) {
+      if (event.key === 'Enter') {
+        addDailyItem(type);
+      }
+    }
+
+    function addDailyItem(type, text = null) {
+      const inputId = type === 'done' ? 'doneInput' : 'inProgressInput';
+      const input = document.getElementById(inputId);
+      const value = text || input.value.trim();
+      
+      if (!value) return;
+      
+      dailyItems[type].push(value);
+      if (!text) input.value = '';
+      renderDailyItems(type);
+    }
+
+    function removeDailyItem(type, index) {
+      dailyItems[type].splice(index, 1);
+      renderDailyItems(type);
+    }
+
+    function renderDailyItems(type) {
+      const listId = type === 'done' ? 'doneList' : 'inProgressList';
+      const list = document.getElementById(listId);
+      
+      list.innerHTML = dailyItems[type].map((item, index) => `
+        <div class="daily-item">
+          <input type="text" value="${escapeHtml(item)}" onchange="updateDailyItem('${type}', ${index}, this.value)">
+          <button class="remove-btn" onclick="removeDailyItem('${type}', ${index})">×</button>
+        </div>
+      `).join('');
+    }
+
+    function updateDailyItem(type, index, value) {
+      dailyItems[type][index] = value;
+    }
+
+    async function importJiraTickets(target) {
+      if (!selectedUser) {
+        alert('먼저 작성자를 선택해주세요.');
+        return;
+      }
+      
+      currentJiraTarget = target;
+      selectedJiraTickets = [];
+      
+      const modal = document.getElementById('jiraTicketsModal');
+      const list = document.getElementById('jiraTicketsList');
+      
+      list.innerHTML = '<div class="loading"><div class="spinner"></div><p style="color: #94a3b8;">Jira 티켓 로딩 중...</p></div>';
+      modal.classList.add('active');
+      
+      try {
+        const response = await fetch(`/api/jira/my-issues?displayName=${encodeURIComponent(selectedUser.displayName)}`);
+        const data = await response.json();
+        
+        if (!data.success || !data.issues || data.issues.length === 0) {
+          list.innerHTML = '<p style="text-align:center; color:#94a3b8; padding:20px;">할당된 티켓이 없습니다</p>';
+          return;
+        }
+        
+        list.innerHTML = data.issues.map(issue => `
+          <div class="jira-ticket-item" onclick="toggleJiraTicket('${issue.key}', '${escapeHtml(issue.summary).replace(/'/g, "\\'")}', this)">
+            <input type="checkbox" id="ticket-${issue.key}">
+            <span class="jira-ticket-key">${issue.key}</span>
+            <span class="jira-ticket-summary">${escapeHtml(issue.summary)}</span>
+          </div>
+        `).join('');
+      } catch (err) {
+        list.innerHTML = `<p style="text-align:center; color:#dc2626; padding:20px;">오류: ${escapeHtml(err.message)}</p>`;
+      }
+    }
+
+    function toggleJiraTicket(key, summary, element) {
+      const checkbox = element.querySelector('input[type="checkbox"]');
+      checkbox.checked = !checkbox.checked;
+      element.classList.toggle('selected', checkbox.checked);
+      
+      if (checkbox.checked) {
+        selectedJiraTickets.push({ key, summary });
+      } else {
+        selectedJiraTickets = selectedJiraTickets.filter(t => t.key !== key);
+      }
+    }
+
+    function closeJiraModal() {
+      document.getElementById('jiraTicketsModal').classList.remove('active');
+      selectedJiraTickets = [];
+    }
+
+    function confirmJiraImport() {
+      if (selectedJiraTickets.length === 0) {
+        alert('티켓을 선택해주세요.');
+        return;
+      }
+      
+      selectedJiraTickets.forEach(ticket => {
+        addDailyItem(currentJiraTarget, `${ticket.key} ${ticket.summary}`);
+      });
+      
+      closeJiraModal();
+    }
+
+    function getWorkingTime() {
+      const startH = document.getElementById('startHour').value;
+      const startM = document.getElementById('startMin').value;
+      const endH = document.getElementById('endHour').value;
+      const endM = document.getElementById('endMin').value;
+      return `${startH}:${startM}-${endH}:${endM}`;
+    }
+
+    function previewDaily() {
+      const date = document.getElementById('dailyDate').value;
+      const blocker = document.getElementById('blockerInput').value.trim();
+      const workingTime = getWorkingTime();
+      
+      let preview = `[${date} / ${selectedUser?.displayName || '이름'}]\n\n`;
+      
+      if (dailyItems.done.length > 0) {
+        preview += '✅ Done\n' + dailyItems.done.join('\n') + '\n\n';
+      }
+      
+      if (dailyItems.inProgress.length > 0) {
+        preview += '⚒️ In progress\n' + dailyItems.inProgress.join('\n') + '\n\n';
+      }
+      
+      preview += '⚠️ Blocker\n' + (blocker || '없음') + '\n\n';
+      preview += '👩🏻‍💻 Working-time\n' + workingTime;
+      
+      alert(preview);
+    }
+
+    async function submitDaily() {
+      if (!selectedUser) {
+        alert('작성자를 선택해주세요.');
+        return;
+      }
+      
+      const date = document.getElementById('dailyDate').value;
+      const blocker = document.getElementById('blockerInput').value.trim();
+      const workingTime = getWorkingTime();
+      
+      const btn = document.getElementById('submitDailyBtn');
+      btn.disabled = true;
+      btn.textContent = '게시 중...';
+      
+      try {
+        const response = await fetch('/api/post-daily', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            userId: selectedUser.id,
+            displayName: selectedUser.displayName,
+            date: date,
+            done: dailyItems.done,
+            inProgress: dailyItems.inProgress,
+            blocker: blocker || null,
+            workingTime: workingTime
+          })
+        });
+        
+        const data = await response.json();
+        
+        if (data.success) {
+          alert(`✅ Discord에 게시되었습니다!\n\n${data.threadName}`);
+          // Clear form
+          dailyItems = { done: [], inProgress: [] };
+          renderDailyItems('done');
+          renderDailyItems('inProgress');
+          document.getElementById('blockerInput').value = '';
+          // Reload data to show new thread
+          loadData();
+        } else {
+          throw new Error(data.error || '게시 실패');
+        }
+      } catch (err) {
+        alert('오류: ' + err.message);
+      } finally {
+        btn.disabled = false;
+        btn.textContent = 'Discord에 게시';
+      }
+    }
+
+    // Initialize daily standup on page load
+    document.addEventListener('DOMContentLoaded', initDailyStandup);
   </script>
 </body>
 </html>
