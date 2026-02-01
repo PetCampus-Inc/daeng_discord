@@ -4,22 +4,15 @@ let connectionSettings = null;
 let tokenExpiresAt = 0;
 
 async function getAccessToken() {
-  const now = Date.now();
-  if (connectionSettings && tokenExpiresAt > now) {
-    const accessToken = connectionSettings?.settings?.access_token || 
-                        connectionSettings?.settings?.oauth?.credentials?.access_token;
-    const hostName = connectionSettings?.settings?.site_url;
-    if (accessToken && hostName) {
-      return { accessToken, hostName };
-    }
-  }
-  
+  // Always fetch fresh token - don't cache
   const hostname = process.env.REPLIT_CONNECTORS_HOSTNAME;
   const xReplitToken = process.env.REPL_IDENTITY 
     ? 'repl ' + process.env.REPL_IDENTITY 
     : process.env.WEB_REPL_RENEWAL 
     ? 'depl ' + process.env.WEB_REPL_RENEWAL 
     : null;
+
+  console.log('Jira auth - hostname:', hostname, 'hasToken:', !!xReplitToken);
 
   if (!xReplitToken) {
     throw new Error('Jira authentication not available - please reconnect Jira integration');
@@ -35,26 +28,24 @@ async function getAccessToken() {
   });
   
   if (!response.ok) {
+    const errText = await response.text();
+    console.error('Connector response error:', response.status, errText);
     throw new Error(`Failed to get Jira credentials: ${response.status}`);
   }
   
   const data = await response.json();
+  console.log('Connector response keys:', Object.keys(data));
   connectionSettings = data.items?.[0];
 
   const accessToken = connectionSettings?.settings?.access_token || 
                       connectionSettings?.settings?.oauth?.credentials?.access_token;
   const hostName = connectionSettings?.settings?.site_url;
 
+  console.log('Jira settings - hasAccessToken:', !!accessToken, 'hostName:', hostName);
+
   if (!connectionSettings || !accessToken || !hostName) {
     console.error('Jira connection settings:', JSON.stringify(connectionSettings, null, 2));
     throw new Error('Jira not connected - please set up Jira integration');
-  }
-
-  const expiresAt = connectionSettings?.settings?.expires_at;
-  if (expiresAt) {
-    tokenExpiresAt = new Date(expiresAt).getTime() - 60000;
-  } else {
-    tokenExpiresAt = now + 3600000;
   }
 
   return { accessToken, hostName };
@@ -63,8 +54,18 @@ async function getAccessToken() {
 async function getJiraClient() {
   const { accessToken, hostName } = await getAccessToken();
 
+  // Try to get cloud ID for API access
+  let apiHost = hostName;
+  try {
+    const id = await getCloudId(accessToken);
+    apiHost = `https://api.atlassian.com/ex/jira/${id}`;
+    console.log('Using Atlassian API host with cloudId:', id);
+  } catch (err) {
+    console.log('CloudId fetch failed, using direct host:', hostName);
+  }
+
   const client = new Version3Client({
-    host: hostName,
+    host: apiHost,
     authentication: {
       oauth2: { accessToken },
     },
