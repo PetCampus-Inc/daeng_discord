@@ -32,7 +32,7 @@ outputType = "webview"
 
 [deployment]
 deploymentTarget = "autoscale"
-run = ["npm", "start"]
+run = ["node", "server.js"]
 
 [[ports]]
 localPort = 5000
