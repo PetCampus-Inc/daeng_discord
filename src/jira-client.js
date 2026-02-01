@@ -259,7 +259,7 @@ async function getMyIssues(displayName, options = {}) {
   const client = await getJiraClient();
   
   const { 
-    project,
+    project = 'Q2',
     statuses = ['To Do', 'In Progress', 'In Review', 'Open', 'Reopened', '진행 중', '해야 할 일', '검토 중']
   } = options;
   
@@ -270,12 +270,8 @@ async function getMyIssues(displayName, options = {}) {
     return [];
   }
   
-  let jql = `assignee = "${accountId}" AND status in (${statuses.map(s => `"${s}"`).join(', ')})`;
-  
-  if (project) {
-    const sanitizedProject = project.replace(/['"\\]/g, '');
-    jql += ` AND project = "${sanitizedProject}"`;
-  }
+  const sanitizedProject = project.replace(/['"\\]/g, '');
+  let jql = `assignee = "${accountId}" AND project = "${sanitizedProject}" AND status in (${statuses.map(s => `"${s}"`).join(', ')})`;
   
   jql += ' ORDER BY priority DESC, updated DESC';
   
