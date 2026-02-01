@@ -259,8 +259,7 @@ async function getMyIssues(displayName, options = {}) {
   const client = await getJiraClient();
   
   const { 
-    project = 'Q2',
-    statuses = ['To Do', 'In Progress', 'In Review', 'Open', 'Reopened', '진행 중', '해야 할 일', '검토 중']
+    project = 'Q2'
   } = options;
   
   const accountId = await findUserAccountId(displayName);
@@ -271,14 +270,16 @@ async function getMyIssues(displayName, options = {}) {
   }
   
   const sanitizedProject = project.replace(/['"\\]/g, '');
-  let jql = `assignee = "${accountId}" AND project = "${sanitizedProject}" AND status in (${statuses.map(s => `"${s}"`).join(', ')})`;
   
-  jql += ' ORDER BY priority DESC, updated DESC';
+  const doneStatuses = ['Done', 'Closed', 'Resolved', '완료', '종료'];
+  const inProgressStatuses = ['To Do', 'In Progress', 'In Review', 'Open', 'Reopened', '진행 중', '해야 할 일', '검토 중', '열림'];
+  
+  let jql = `assignee = "${accountId}" AND project = "${sanitizedProject}" ORDER BY status DESC, updated DESC`;
   
   const searchParams = {
     jql,
     maxResults: 50,
-    fields: ['summary', 'status', 'issuetype', 'priority', 'project']
+    fields: ['summary', 'status', 'issuetype', 'priority', 'project', 'resolutiondate']
   };
   
   try {
@@ -286,14 +287,20 @@ async function getMyIssues(displayName, options = {}) {
     const result = await client.issueSearch.searchForIssuesUsingJqlEnhancedSearch(searchParams);
     console.log('Jira result count:', result.issues?.length || 0);
     
-    return (result.issues || []).map(issue => ({
-      key: issue.key,
-      summary: issue.fields.summary,
-      status: issue.fields.status?.name,
-      issueType: issue.fields.issuetype?.name,
-      priority: issue.fields.priority?.name,
-      project: issue.fields.project?.key
-    }));
+    return (result.issues || []).map(issue => {
+      const originalStatus = issue.fields.status?.name || '';
+      const isDone = doneStatuses.some(s => originalStatus.toLowerCase().includes(s.toLowerCase()));
+      
+      return {
+        key: issue.key,
+        summary: issue.fields.summary,
+        status: originalStatus,
+        category: isDone ? 'done' : 'inProgress',
+        issueType: issue.fields.issuetype?.name,
+        priority: issue.fields.priority?.name,
+        project: issue.fields.project?.key
+      };
+    });
   } catch (err) {
     console.error('Jira search error:', err.message, err.response?.data || '');
     return [];
