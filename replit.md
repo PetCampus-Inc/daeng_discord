@@ -4,7 +4,8 @@
 A Discord bot with web dashboard that tracks "Core Sync" activity in a forum channel and provides visual analytics for member progress.
 
 ## Project Structure
-- `server.js` - Combined Express web server + Discord bot + PostgreSQL API
+- `server.js` - Combined Express web server + Discord bot + PostgreSQL API + Jira API
+- `src/jira-client.js` - Jira API client using Replit connector
 - `index.js` - Original Discord bot (standalone)
 - `public/index.html` - Dashboard frontend with Chart.js
 - `package.json` - Node.js dependencies
@@ -14,6 +15,7 @@ A Discord bot with web dashboard that tracks "Core Sync" activity in a forum cha
 - `node-cron` - Scheduled tasks (weekly reports)
 - `express` - Web server for dashboard
 - `pg` - PostgreSQL database client
+- `jira.js` - Jira Cloud API wrapper
 
 ## Environment Variables Required
 - `BOT_TOKEN` - Discord bot token
@@ -22,6 +24,7 @@ A Discord bot with web dashboard that tracks "Core Sync" activity in a forum cha
 - `CORE_ROLE_ID` - Role ID for core members to track
 - `GUILD_ID` - (Optional) Discord server ID for multi-guild bots
 - `DATABASE_URL` - PostgreSQL connection string (auto-configured)
+- Jira credentials managed via Replit Connector (OAuth 2.0)
 
 ## Running
 ```bash
@@ -38,6 +41,7 @@ npm run bot  # Bot only (index.js)
 - **Post-it memo system** - Weekly memos stored in PostgreSQL
 - **Announcement banner** - Global announcements displayed at top
 - **Member call feature** - Send Discord DM to members with one click
+- **Jira integration** - Track ticket completion by assignees with filtering by project/date
 - Scans forum threads with format `[YYYY-MM-DD / Name]`
 - Generates weekly report (Sundays at 11 AM KST)
 - Manual report via `check-report` command in chat

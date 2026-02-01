@@ -3,6 +3,7 @@ const path = require("path");
 const { Client, GatewayIntentBits, Partials } = require("discord.js");
 const cron = require("node-cron");
 const { Pool } = require("pg");
+const { getAssigneeStats, getProjects, getProjectStatuses } = require("./src/jira-client");
 
 const app = express();
 const PORT = 5000;
@@ -413,6 +414,45 @@ app.delete("/api/announcements/:id", async (req, res) => {
     await pool.query("UPDATE announcements SET is_active = false WHERE id = $1", [id]);
     res.json({ success: true });
   } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Jira API endpoints
+app.get("/api/jira/projects", async (req, res) => {
+  try {
+    const projects = await getProjects();
+    res.json({ success: true, projects });
+  } catch (err) {
+    console.error("Jira projects error:", err.message);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.get("/api/jira/statuses/:projectKey", async (req, res) => {
+  try {
+    const statuses = await getProjectStatuses(req.params.projectKey);
+    res.json({ success: true, statuses });
+  } catch (err) {
+    console.error("Jira statuses error:", err.message);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.get("/api/jira/assignee-stats", async (req, res) => {
+  try {
+    const { project, startDate, endDate, statuses } = req.query;
+    const options = {};
+    
+    if (project) options.project = project;
+    if (startDate) options.startDate = startDate;
+    if (endDate) options.endDate = endDate;
+    if (statuses) options.statuses = statuses.split(',');
+    
+    const stats = await getAssigneeStats(options);
+    res.json({ success: true, ...stats });
+  } catch (err) {
+    console.error("Jira assignee stats error:", err.message);
     res.status(500).json({ error: err.message });
   }
 });

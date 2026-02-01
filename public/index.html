@@ -745,6 +745,176 @@
       opacity: 0.5;
       pointer-events: none;
     }
+
+    /* Jira Section */
+    .jira-section {
+      margin-top: 48px;
+      margin-bottom: 32px;
+    }
+
+    .jira-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 16px;
+      margin-bottom: 20px;
+    }
+
+    .jira-title {
+      font-size: 1.2rem;
+      font-weight: 500;
+      color: #fff;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .jira-title img {
+      width: 24px;
+      height: 24px;
+    }
+
+    .jira-filters {
+      display: flex;
+      gap: 12px;
+      flex-wrap: wrap;
+    }
+
+    .jira-filters select,
+    .jira-filters input[type="date"] {
+      padding: 8px 12px;
+      border: 1px solid rgba(255,255,255,0.15);
+      border-radius: 6px;
+      background: rgba(255,255,255,0.05);
+      color: #fff;
+      font-size: 0.85rem;
+      cursor: pointer;
+    }
+
+    .jira-filters select option {
+      background: #252525;
+    }
+
+    .jira-filters button {
+      padding: 8px 16px;
+      border: 1px solid #3b82f6;
+      border-radius: 6px;
+      background: transparent;
+      color: #3b82f6;
+      cursor: pointer;
+      font-size: 0.85rem;
+      transition: all 0.2s;
+    }
+
+    .jira-filters button:hover {
+      background: #3b82f6;
+      color: #fff;
+    }
+
+    .jira-stats-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+      gap: 16px;
+    }
+
+    .jira-assignee-card {
+      background: rgba(255,255,255,0.03);
+      border: 1px solid rgba(255,255,255,0.08);
+      border-radius: 12px;
+      padding: 20px;
+      transition: border-color 0.2s;
+    }
+
+    .jira-assignee-card:hover {
+      border-color: rgba(59, 130, 246, 0.5);
+    }
+
+    .jira-assignee-header {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      margin-bottom: 16px;
+    }
+
+    .jira-assignee-avatar {
+      width: 44px;
+      height: 44px;
+      border-radius: 50%;
+      background: #333;
+    }
+
+    .jira-assignee-info h3 {
+      font-size: 1rem;
+      font-weight: 500;
+      color: #fff;
+    }
+
+    .jira-assignee-info span {
+      font-size: 0.8rem;
+      color: #666;
+    }
+
+    .jira-count {
+      margin-left: auto;
+      font-size: 1.8rem;
+      font-weight: 600;
+      color: #3b82f6;
+    }
+
+    .jira-issues-preview {
+      max-height: 150px;
+      overflow-y: auto;
+    }
+
+    .jira-issue-item {
+      padding: 8px 0;
+      border-bottom: 1px solid rgba(255,255,255,0.05);
+      font-size: 0.8rem;
+    }
+
+    .jira-issue-item:last-child {
+      border-bottom: none;
+    }
+
+    .jira-issue-key {
+      color: #3b82f6;
+      font-weight: 500;
+      margin-right: 8px;
+    }
+
+    .jira-issue-summary {
+      color: #aaa;
+    }
+
+    .jira-loading {
+      text-align: center;
+      padding: 40px;
+      color: #666;
+    }
+
+    .jira-error {
+      background: rgba(248, 113, 113, 0.1);
+      border: 1px solid rgba(248, 113, 113, 0.3);
+      border-radius: 10px;
+      padding: 20px;
+      text-align: center;
+      color: #f87171;
+    }
+
+    .jira-empty {
+      text-align: center;
+      padding: 40px;
+      color: #555;
+    }
+
+    .jira-total-badge {
+      background: rgba(59, 130, 246, 0.2);
+      color: #3b82f6;
+      padding: 4px 12px;
+      border-radius: 20px;
+      font-size: 0.8rem;
+    }
   </style>
 </head>
 <body>
@@ -945,11 +1115,33 @@
             <div class="empty-memos">메모가 없습니다</div>
           </div>
         </div>
+
+        <div class="jira-section">
+          <div class="jira-header">
+            <div class="jira-title">
+              <span>Jira 티켓 처리 현황</span>
+              <span class="jira-total-badge" id="jiraTotalBadge">0건</span>
+            </div>
+            <div class="jira-filters">
+              <select id="jiraProject">
+                <option value="">전체 프로젝트</option>
+              </select>
+              <input type="date" id="jiraStartDate" title="시작일">
+              <input type="date" id="jiraEndDate" title="종료일">
+              <button onclick="loadJiraStats()">검색</button>
+            </div>
+          </div>
+          <div id="jiraContent">
+            <div class="jira-loading">Jira 데이터 로딩 중...</div>
+          </div>
+        </div>
       `;
 
       renderChart(members, data.requiredCount);
       renderMemberCards(members);
       loadMemos();
+      loadJiraProjects();
+      loadJiraStats();
     }
 
     function renderChart(members, requiredCount) {
@@ -1290,6 +1482,89 @@
 
     // Load announcement on page load
     loadAnnouncement();
+
+    // Jira functions
+    async function loadJiraProjects() {
+      try {
+        const response = await fetch('/api/jira/projects');
+        const data = await response.json();
+        
+        if (data.success && data.projects) {
+          const select = document.getElementById('jiraProject');
+          if (select) {
+            data.projects.forEach(p => {
+              const option = document.createElement('option');
+              option.value = p.key;
+              option.textContent = `${p.name} (${p.key})`;
+              select.appendChild(option);
+            });
+          }
+        }
+      } catch (err) {
+        console.error('Failed to load Jira projects:', err);
+      }
+    }
+
+    async function loadJiraStats() {
+      const content = document.getElementById('jiraContent');
+      if (!content) return;
+      
+      content.innerHTML = '<div class="jira-loading">Jira 데이터 로딩 중...</div>';
+      
+      try {
+        const project = document.getElementById('jiraProject')?.value || '';
+        const startDate = document.getElementById('jiraStartDate')?.value || '';
+        const endDate = document.getElementById('jiraEndDate')?.value || '';
+        
+        let url = '/api/jira/assignee-stats?';
+        if (project) url += `project=${encodeURIComponent(project)}&`;
+        if (startDate) url += `startDate=${encodeURIComponent(startDate)}&`;
+        if (endDate) url += `endDate=${encodeURIComponent(endDate)}&`;
+        
+        const response = await fetch(url);
+        const data = await response.json();
+        
+        if (!response.ok) {
+          throw new Error(data.error || 'Failed to load Jira data');
+        }
+        
+        const badge = document.getElementById('jiraTotalBadge');
+        if (badge) {
+          badge.textContent = `${data.totalIssues || 0}건`;
+        }
+        
+        if (!data.assignees || data.assignees.length === 0) {
+          content.innerHTML = '<div class="jira-empty">완료된 티켓이 없습니다</div>';
+          return;
+        }
+        
+        content.innerHTML = `<div class="jira-stats-grid">${data.assignees.map(assignee => `
+          <div class="jira-assignee-card">
+            <div class="jira-assignee-header">
+              <img src="${assignee.avatar || ''}" alt="${assignee.displayName}" class="jira-assignee-avatar" onerror="this.src='data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><rect fill=%22%23333%22 width=%22100%22 height=%22100%22/><text fill=%22%23666%22 font-size=%2240%22 x=%2250%22 y=%2260%22 text-anchor=%22middle%22>${assignee.displayName.charAt(0)}</text></svg>'">
+              <div class="jira-assignee-info">
+                <h3>${escapeHtml(assignee.displayName)}</h3>
+                <span>${assignee.email || ''}</span>
+              </div>
+              <div class="jira-count">${assignee.completedCount}</div>
+            </div>
+            <div class="jira-issues-preview">
+              ${assignee.issues.slice(0, 5).map(issue => `
+                <div class="jira-issue-item">
+                  <span class="jira-issue-key">${issue.key}</span>
+                  <span class="jira-issue-summary">${escapeHtml(issue.summary.length > 40 ? issue.summary.substring(0, 40) + '...' : issue.summary)}</span>
+                </div>
+              `).join('')}
+              ${assignee.issues.length > 5 ? `<div class="jira-issue-item" style="color:#666;">+${assignee.issues.length - 5}개 더</div>` : ''}
+            </div>
+          </div>
+        `).join('')}</div>`;
+        
+      } catch (err) {
+        console.error('Failed to load Jira stats:', err);
+        content.innerHTML = `<div class="jira-error">${escapeHtml(err.message)}</div>`;
+      }
+    }
   </script>
 </body>
 </html>
