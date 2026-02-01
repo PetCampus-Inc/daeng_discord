@@ -37,3 +37,8 @@ run = ["npm", "start"]
 [[ports]]
 localPort = 5000
 externalPort = 80
+
+[userenv]
+
+[userenv.shared]
+CONTRIBUTOR_ROLE_ID = "1467352079927611527"

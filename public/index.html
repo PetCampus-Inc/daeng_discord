@@ -200,6 +200,28 @@
       }
     }
 
+    .member-section {
+      margin-top: 32px;
+    }
+
+    .section-title {
+      font-size: 1.1rem;
+      font-weight: 500;
+      margin-bottom: 16px;
+      padding-left: 12px;
+      border-left: 3px solid #666;
+    }
+
+    .section-title.core-title {
+      border-left-color: #4ade80;
+      color: #4ade80;
+    }
+
+    .section-title.contributor-title {
+      border-left-color: #60a5fa;
+      color: #60a5fa;
+    }
+
     .member-card {
       background: rgba(255,255,255,0.03);
       border: 1px solid rgba(255,255,255,0.08);
@@ -722,6 +744,23 @@
       background: #d97706;
     }
 
+    .dm-checkbox {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      color: #999;
+      font-size: 0.85rem;
+      cursor: pointer;
+      user-select: none;
+    }
+
+    .dm-checkbox input[type="checkbox"] {
+      width: 16px;
+      height: 16px;
+      accent-color: #f59e0b;
+      cursor: pointer;
+    }
+
     /* Call Button */
     .call-btn {
       padding: 6px 12px;
@@ -944,6 +983,10 @@
 
     <div class="announcement-edit">
       <input type="text" id="announcementInput" placeholder="새 공지사항 입력...">
+      <label class="dm-checkbox">
+        <input type="checkbox" id="sendDmCheck">
+        <span>전체 DM 발송</span>
+      </label>
       <button onclick="submitAnnouncement()">공지 등록</button>
     </div>
 
@@ -1072,39 +1115,49 @@
     }
 
     function renderDashboard(data) {
-      const members = data.members;
-      const metCount = members.filter(m => m.isMet).length;
-      const avgPercentage = Math.round(members.reduce((sum, m) => sum + m.percentage, 0) / members.length);
+      const coreMembers = data.members;
+      const contributorMembers = data.contributorMembers || [];
+      const metCount = coreMembers.filter(m => m.isMet).length;
 
       const content = document.getElementById('content');
       content.innerHTML = `
         <div class="stats-grid">
           <div class="stat-card">
-            <div class="stat-value">${members.length}</div>
-            <div class="stat-label">총 멤버</div>
+            <div class="stat-value">${coreMembers.length}</div>
+            <div class="stat-label">Core 멤버</div>
           </div>
           <div class="stat-card">
             <div class="stat-value green">${metCount}</div>
             <div class="stat-label">기준 충족</div>
           </div>
           <div class="stat-card">
-            <div class="stat-value red">${members.length - metCount}</div>
+            <div class="stat-value red">${coreMembers.length - metCount}</div>
             <div class="stat-label">기준 미달</div>
           </div>
           <div class="stat-card">
-            <div class="stat-value">${avgPercentage}%</div>
-            <div class="stat-label">평균 달성률</div>
+            <div class="stat-value">${contributorMembers.length}</div>
+            <div class="stat-label">Contributor</div>
           </div>
         </div>
 
         <div class="chart-container">
-          <h2 class="chart-title">멤버별 Core Sync 현황</h2>
+          <h2 class="chart-title">Core 멤버 Sync 현황</h2>
           <div class="chart-wrapper">
             <canvas id="syncChart"></canvas>
           </div>
         </div>
 
-        <div class="members-grid" id="membersGrid"></div>
+        <div class="member-section">
+          <h2 class="section-title core-title">Core 멤버</h2>
+          <div class="members-grid" id="coreMembersGrid"></div>
+        </div>
+
+        ${contributorMembers.length > 0 ? `
+        <div class="member-section">
+          <h2 class="section-title contributor-title">Contributor 멤버</h2>
+          <div class="members-grid" id="contributorMembersGrid"></div>
+        </div>
+        ` : ''}
 
         <div class="memo-section">
           <div class="memo-header">
@@ -1134,8 +1187,11 @@
         </div>
       `;
 
-      renderChart(members, data.requiredCount);
-      renderMemberCards(members);
+      renderChart(coreMembers, data.requiredCount);
+      renderMemberCards(coreMembers, 'coreMembersGrid');
+      if (contributorMembers.length > 0) {
+        renderMemberCards(contributorMembers, 'contributorMembersGrid');
+      }
       loadMemos();
       loadJiraStats();
     }
@@ -1199,8 +1255,9 @@
       });
     }
 
-    function renderMemberCards(members) {
-      const grid = document.getElementById('membersGrid');
+    function renderMemberCards(members, gridId) {
+      const grid = document.getElementById(gridId);
+      if (!grid) return;
       const today = new Date().toISOString().slice(0, 10);
       
       grid.innerHTML = members.map(member => `
@@ -1411,10 +1468,16 @@
 
     async function submitAnnouncement() {
       const input = document.getElementById('announcementInput');
+      const sendDmCheck = document.getElementById('sendDmCheck');
       const content = input.value.trim();
+      const sendDM = sendDmCheck.checked;
       
       if (!content) {
         alert('공지사항 내용을 입력하세요.');
+        return;
+      }
+
+      if (sendDM && !confirm('모든 멤버에게 DM을 전송합니다. 계속하시겠습니까?')) {
         return;
       }
 
@@ -1422,12 +1485,17 @@
         const response = await fetch('/api/announcements', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ content })
+          body: JSON.stringify({ content, sendDM })
         });
 
         if (response.ok) {
+          const result = await response.json();
           input.value = '';
+          sendDmCheck.checked = false;
           loadAnnouncement();
+          if (sendDM && result.dmResults) {
+            alert(`공지사항이 등록되었습니다.\nDM 발송: ${result.dmResults.sent}명 성공, ${result.dmResults.failed}명 실패`);
+          }
         } else {
           alert('공지사항 등록에 실패했습니다.');
         }

@@ -48,6 +48,7 @@ const BOT_TOKEN = process.env.BOT_TOKEN;
 const FORUM_CHANNEL_ID = process.env.FORUM_CHANNEL_ID;
 const REPORT_CHANNEL_ID = process.env.REPORT_CHANNEL_ID;
 const CORE_ROLE_ID = process.env.CORE_ROLE_ID;
+const CONTRIBUTOR_ROLE_ID = process.env.CONTRIBUTOR_ROLE_ID;
 
 const REQUIRED_COUNT = 5;
 const THREAD_SCAN_LIMIT = 100;
@@ -185,7 +186,7 @@ async function fetchMembersWithCache(guild) {
   }
 }
 
-async function getCoreMembersData(weekKey) {
+async function getMembersDataByRole(weekKey) {
   const { userDays, userWorkingTimes } = await countCoreSyncForWeek(weekKey);
 
   const guild = await getGuild();
@@ -199,32 +200,53 @@ async function getCoreMembersData(weekKey) {
     (m) => !m.user.bot && m.roles.cache.has(CORE_ROLE_ID)
   );
 
-  const membersData = [];
+  const contributorMembers = CONTRIBUTOR_ROLE_ID ? guild.members.cache.filter(
+    (m) => !m.user.bot && m.roles.cache.has(CONTRIBUTOR_ROLE_ID) && !m.roles.cache.has(CORE_ROLE_ID)
+  ) : new Map();
 
-  for (const member of coreMembers.values()) {
-    const count = userDays.get(member.id)?.size ?? 0;
-    const days = userDays.get(member.id) ? Array.from(userDays.get(member.id)) : [];
-    const workingTimes = userWorkingTimes.get(member.id) 
-      ? Object.fromEntries(userWorkingTimes.get(member.id)) 
-      : {};
+  function buildMemberData(members) {
+    const membersData = [];
+    for (const member of members.values()) {
+      const count = userDays.get(member.id)?.size ?? 0;
+      const days = userDays.get(member.id) ? Array.from(userDays.get(member.id)) : [];
+      const workingTimes = userWorkingTimes.get(member.id) 
+        ? Object.fromEntries(userWorkingTimes.get(member.id)) 
+        : {};
 
-    membersData.push({
-      id: member.id,
-      displayName: member.displayName,
-      username: member.user.username,
-      avatar: member.user.displayAvatarURL({ size: 64 }),
-      syncCount: count,
-      requiredCount: REQUIRED_COUNT,
-      percentage: Math.round((count / REQUIRED_COUNT) * 100),
-      isMet: count >= REQUIRED_COUNT,
-      days: days.sort(),
-      workingTimes: workingTimes,
-    });
+      membersData.push({
+        id: member.id,
+        displayName: member.displayName,
+        username: member.user.username,
+        avatar: member.user.displayAvatarURL({ size: 64 }),
+        syncCount: count,
+        requiredCount: REQUIRED_COUNT,
+        percentage: Math.round((count / REQUIRED_COUNT) * 100),
+        isMet: count >= REQUIRED_COUNT,
+        days: days.sort(),
+        workingTimes: workingTimes,
+      });
+    }
+    membersData.sort((a, b) => b.syncCount - a.syncCount);
+    return membersData;
   }
 
-  membersData.sort((a, b) => b.syncCount - a.syncCount);
+  return {
+    coreMembers: buildMemberData(coreMembers),
+    contributorMembers: buildMemberData(contributorMembers)
+  };
+}
 
-  return membersData;
+async function getAllMembersForDM() {
+  const guild = await getGuild();
+  if (!guild) return [];
+
+  await fetchMembersWithCache(guild);
+
+  const allMembers = guild.members.cache.filter(
+    (m) => !m.user.bot && (m.roles.cache.has(CORE_ROLE_ID) || (CONTRIBUTOR_ROLE_ID && m.roles.cache.has(CONTRIBUTOR_ROLE_ID)))
+  );
+
+  return Array.from(allMembers.values());
 }
 
 async function generateReport() {
@@ -294,7 +316,7 @@ app.get("/api/sync-data", async (req, res) => {
       });
     }
 
-    const membersData = await getCoreMembersData(weekKey);
+    const { coreMembers, contributorMembers } = await getMembersDataByRole(weekKey);
 
     // Generate week days (Monday to Sunday)
     const weekStart = new Date(weekKey);
@@ -310,7 +332,8 @@ app.get("/api/sync-data", async (req, res) => {
       weekKey,
       weekDays,
       requiredCount: REQUIRED_COUNT,
-      members: membersData,
+      members: coreMembers,
+      contributorMembers: contributorMembers,
       botConnected: true,
       configStatus: "설정 완료",
       missingConfig: [],
@@ -393,7 +416,7 @@ app.get("/api/announcements", async (req, res) => {
 
 app.post("/api/announcements", async (req, res) => {
   try {
-    const { content } = req.body;
+    const { content, sendDM } = req.body;
     if (!content) {
       return res.status(400).json({ error: "content required" });
     }
@@ -402,7 +425,24 @@ app.post("/api/announcements", async (req, res) => {
       "INSERT INTO announcements (content) VALUES ($1) RETURNING *",
       [content]
     );
-    res.json({ success: true, announcement: result.rows[0] });
+
+    let dmResults = { sent: 0, failed: 0 };
+    if (sendDM && client.isReady()) {
+      const members = await getAllMembersForDM();
+      const dmMessage = `📢 **새로운 공지사항**\n\n${content}\n\n---\n_Knockdog Admin에서 발송됨_`;
+      
+      for (const member of members) {
+        try {
+          await member.user.send(dmMessage);
+          dmResults.sent++;
+        } catch (dmErr) {
+          console.log(`DM failed for ${member.displayName}:`, dmErr.message);
+          dmResults.failed++;
+        }
+      }
+    }
+
+    res.json({ success: true, announcement: result.rows[0], dmResults });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }

@@ -22,6 +22,7 @@ A Discord bot with web dashboard that tracks "Core Sync" activity in a forum cha
 - `FORUM_CHANNEL_ID` - ID of the forum channel to scan
 - `REPORT_CHANNEL_ID` - ID of the channel to post reports
 - `CORE_ROLE_ID` - Role ID for core members to track
+- `CONTRIBUTOR_ROLE_ID` - Role ID for contributor members (separate from Core)
 - `GUILD_ID` - (Optional) Discord server ID for multi-guild bots
 - `DATABASE_URL` - PostgreSQL connection string (auto-configured)
 - Jira credentials managed via Replit Connector (OAuth 2.0)
@@ -39,8 +40,9 @@ npm run bot  # Bot only (index.js)
 - Working time extraction from thread content
 - Week navigation (view past weeks)
 - **Post-it memo system** - Weekly memos stored in PostgreSQL
-- **Announcement banner** - Global announcements displayed at top
+- **Announcement banner** - Global announcements displayed at top with DM broadcast option
 - **Member call feature** - Send Discord DM to members with one click
+- **Role-based member separation** - Core and Contributor members displayed separately based on Discord roles
 - **Jira integration** - Track ticket completion by assignees with filtering by project/date
 - Scans forum threads with format `[YYYY-MM-DD / Name]`
 - Generates weekly report (Sundays at 11 AM KST)
