@@ -228,19 +228,49 @@ async function getProjectStatuses(projectKey) {
   return Array.from(allStatuses);
 }
 
+async function findUserAccountId(displayName) {
+  const { accessToken } = await getAccessToken();
+  const id = await getCloudId(accessToken);
+  
+  const searchUrl = `https://api.atlassian.com/ex/jira/${id}/rest/api/3/user/search?query=${encodeURIComponent(displayName)}`;
+  
+  const response = await fetch(searchUrl, {
+    headers: {
+      'Authorization': `Bearer ${accessToken}`,
+      'Accept': 'application/json'
+    }
+  });
+  
+  if (!response.ok) {
+    console.error('User search failed:', response.status);
+    return null;
+  }
+  
+  const users = await response.json();
+  console.log('Jira user search for', displayName, '- found:', users.length);
+  
+  if (users.length === 0) return null;
+  
+  const exactMatch = users.find(u => u.displayName === displayName);
+  return exactMatch?.accountId || users[0].accountId;
+}
+
 async function getMyIssues(displayName, options = {}) {
   const client = await getJiraClient();
   
   const { 
     project,
-    statuses = ['To Do', 'In Progress', 'In Review', 'Open', 'Reopened']
+    statuses = ['To Do', 'In Progress', 'In Review', 'Open', 'Reopened', '진행 중', '해야 할 일', '검토 중']
   } = options;
   
-  // Sanitize displayName to prevent JQL injection
-  const sanitizedName = displayName.replace(/['"\\]/g, '');
+  const accountId = await findUserAccountId(displayName);
   
-  // Use text search for assignee displayName since we don't have accountId mapping
-  let jql = `assignee ~ "${sanitizedName}" AND status in (${statuses.map(s => `"${s}"`).join(', ')})`;
+  if (!accountId) {
+    console.log('No Jira user found for:', displayName);
+    return [];
+  }
+  
+  let jql = `assignee = "${accountId}" AND status in (${statuses.map(s => `"${s}"`).join(', ')})`;
   
   if (project) {
     const sanitizedProject = project.replace(/['"\\]/g, '');
