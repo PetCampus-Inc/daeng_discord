@@ -107,85 +107,106 @@ async function getAssigneeStats(options = {}) {
     project, 
     startDate, 
     endDate,
-    statuses = ['Done', 'Closed', 'Resolved']
+    statuses = ['Done', 'Closed', 'Resolved', '완료'],
+    includeInProgress = true
   } = options;
   
-  let jql = `status in (${statuses.map(s => `"${s}"`).join(', ')})`;
+  const completedStatuses = ['Done', 'Closed', 'Resolved', '완료'];
+  const inProgressStatuses = ['In Progress', '진행 중', '해야 할 일', '검토 중', 'To Do', 'In Review'];
   
-  if (project) {
-    jql += ` AND project = "${project}"`;
-  }
-  
-  if (startDate) {
-    jql += ` AND resolved >= "${startDate}"`;
-  }
-  
-  if (endDate) {
-    jql += ` AND resolved <= "${endDate}"`;
-  }
-  
-  jql += ' ORDER BY resolved DESC';
-  
-  const assigneeStats = new Map();
-  let nextPageToken = null;
-  const maxResults = 100;
-  let total = 0;
-  let pageCount = 0;
-  
-  do {
-    const searchParams = {
-      jql,
-      maxResults,
-      fields: ['assignee', 'summary', 'status', 'resolutiondate', 'issuetype', 'priority']
-    };
+  async function fetchIssues(statusList, isCompleted) {
+    let jql = `status in (${statusList.map(s => `"${s}"`).join(', ')})`;
     
-    if (nextPageToken) {
-      searchParams.nextPageToken = nextPageToken;
+    if (project) {
+      jql += ` AND project = "${project}"`;
     }
     
-    const result = await client.issueSearch.searchForIssuesUsingJqlEnhancedSearch(searchParams);
+    if (isCompleted) {
+      if (startDate) jql += ` AND resolved >= "${startDate}"`;
+      if (endDate) jql += ` AND resolved <= "${endDate}"`;
+      jql += ' ORDER BY resolved DESC';
+    } else {
+      jql += ' ORDER BY updated DESC';
+    }
     
-    total = result.total || 0;
-    nextPageToken = result.nextPageToken;
+    const assigneeStats = new Map();
+    let nextPageToken = null;
+    const maxResults = 100;
+    let total = 0;
+    let pageCount = 0;
     
-    for (const issue of result.issues || []) {
-      const assignee = issue.fields.assignee;
-      if (!assignee) continue;
+    do {
+      const searchParams = {
+        jql,
+        maxResults,
+        fields: ['assignee', 'summary', 'status', 'resolutiondate', 'issuetype', 'priority', 'updated']
+      };
       
-      const assigneeId = assignee.accountId;
-      if (!assigneeStats.has(assigneeId)) {
-        assigneeStats.set(assigneeId, {
-          accountId: assigneeId,
-          displayName: assignee.displayName,
-          avatar: assignee.avatarUrls?.['48x48'] || assignee.avatarUrls?.['32x32'],
-          email: assignee.emailAddress,
-          completedCount: 0,
-          issues: []
+      if (nextPageToken) {
+        searchParams.nextPageToken = nextPageToken;
+      }
+      
+      const result = await client.issueSearch.searchForIssuesUsingJqlEnhancedSearch(searchParams);
+      
+      total = result.total || 0;
+      nextPageToken = result.nextPageToken;
+      
+      for (const issue of result.issues || []) {
+        const assignee = issue.fields.assignee;
+        if (!assignee) continue;
+        
+        const assigneeId = assignee.accountId;
+        if (!assigneeStats.has(assigneeId)) {
+          assigneeStats.set(assigneeId, {
+            accountId: assigneeId,
+            displayName: assignee.displayName,
+            avatar: assignee.avatarUrls?.['48x48'] || assignee.avatarUrls?.['32x32'],
+            email: assignee.emailAddress,
+            count: 0,
+            issues: []
+          });
+        }
+        
+        const stats = assigneeStats.get(assigneeId);
+        stats.count++;
+        stats.issues.push({
+          key: issue.key,
+          summary: issue.fields.summary,
+          status: issue.fields.status?.name,
+          resolvedDate: issue.fields.resolutiondate,
+          updatedDate: issue.fields.updated,
+          issueType: issue.fields.issuetype?.name,
+          priority: issue.fields.priority?.name
         });
       }
       
-      const stats = assigneeStats.get(assigneeId);
-      stats.completedCount++;
-      stats.issues.push({
-        key: issue.key,
-        summary: issue.fields.summary,
-        status: issue.fields.status?.name,
-        resolvedDate: issue.fields.resolutiondate,
-        issueType: issue.fields.issuetype?.name,
-        priority: issue.fields.priority?.name
-      });
-    }
+      pageCount++;
+    } while (nextPageToken && pageCount < 3);
     
-    pageCount++;
-  } while (nextPageToken && pageCount < 5);
+    return { stats: assigneeStats, total };
+  }
   
-  const statsArray = Array.from(assigneeStats.values());
-  statsArray.sort((a, b) => b.completedCount - a.completedCount);
+  const completedResult = await fetchIssues(completedStatuses, true);
+  
+  let inProgressResult = { stats: new Map(), total: 0 };
+  if (includeInProgress) {
+    inProgressResult = await fetchIssues(inProgressStatuses, false);
+  }
+  
+  const completedArray = Array.from(completedResult.stats.values());
+  completedArray.sort((a, b) => b.count - a.count);
+  completedArray.forEach(a => { a.completedCount = a.count; delete a.count; });
+  
+  const inProgressArray = Array.from(inProgressResult.stats.values());
+  inProgressArray.sort((a, b) => b.count - a.count);
+  inProgressArray.forEach(a => { a.inProgressCount = a.count; delete a.count; });
   
   return {
-    assignees: statsArray,
-    totalIssues: total,
-    query: jql
+    assignees: completedArray,
+    inProgressAssignees: inProgressArray,
+    totalCompleted: completedResult.total,
+    totalInProgress: inProgressResult.total,
+    totalIssues: completedResult.total + inProgressResult.total
   };
 }
 
