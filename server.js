@@ -45,6 +45,29 @@ async function initDatabase() {
         UNIQUE(visit_date, visitor_id)
       )
     `);
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS polls (
+        id SERIAL PRIMARY KEY,
+        title VARCHAR(200) NOT NULL,
+        description TEXT,
+        options TEXT[] NOT NULL,
+        created_by VARCHAR(100) NOT NULL,
+        is_active BOOLEAN DEFAULT true,
+        deadline TIMESTAMP,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      )
+    `);
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS votes (
+        id SERIAL PRIMARY KEY,
+        poll_id INTEGER REFERENCES polls(id) ON DELETE CASCADE,
+        voter_name VARCHAR(100) NOT NULL,
+        selected_option INTEGER NOT NULL,
+        comment TEXT,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        UNIQUE(poll_id, voter_name)
+      )
+    `);
     console.log("Database initialized");
   } catch (err) {
     console.error("Database init error:", err.message);
@@ -693,6 +716,116 @@ app.post("/api/call-member/:userId", async (req, res) => {
     } else {
       res.status(500).json({ error: err.message });
     }
+  }
+});
+
+// Poll APIs
+app.get("/api/polls", async (req, res) => {
+  try {
+    const result = await pool.query(`
+      SELECT p.*, 
+        (SELECT COUNT(*) FROM votes WHERE poll_id = p.id) as vote_count
+      FROM polls p 
+      ORDER BY p.is_active DESC, p.created_at DESC
+    `);
+    res.json({ success: true, polls: result.rows });
+  } catch (err) {
+    console.error("Get polls error:", err.message);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.get("/api/polls/:id", async (req, res) => {
+  try {
+    const { id } = req.params;
+    const pollResult = await pool.query(`SELECT * FROM polls WHERE id = $1`, [id]);
+    if (pollResult.rows.length === 0) {
+      return res.status(404).json({ error: "Poll not found" });
+    }
+    const votesResult = await pool.query(`
+      SELECT voter_name, selected_option, comment, created_at 
+      FROM votes WHERE poll_id = $1 ORDER BY created_at
+    `, [id]);
+    res.json({ 
+      success: true, 
+      poll: pollResult.rows[0], 
+      votes: votesResult.rows 
+    });
+  } catch (err) {
+    console.error("Get poll error:", err.message);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.post("/api/polls", async (req, res) => {
+  try {
+    const { title, description, options, createdBy, deadline } = req.body;
+    if (!title || !options || options.length < 2 || !createdBy) {
+      return res.status(400).json({ error: "Missing required fields" });
+    }
+    const result = await pool.query(`
+      INSERT INTO polls (title, description, options, created_by, deadline)
+      VALUES ($1, $2, $3, $4, $5) RETURNING *
+    `, [title, description || '', options, createdBy, deadline || null]);
+    res.json({ success: true, poll: result.rows[0] });
+  } catch (err) {
+    console.error("Create poll error:", err.message);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.post("/api/polls/:id/vote", async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { voterName, selectedOption, comment } = req.body;
+    if (!voterName || selectedOption === undefined) {
+      return res.status(400).json({ error: "Missing required fields" });
+    }
+    const pollResult = await pool.query(`SELECT * FROM polls WHERE id = $1`, [id]);
+    if (pollResult.rows.length === 0) {
+      return res.status(404).json({ error: "Poll not found" });
+    }
+    if (!pollResult.rows[0].is_active) {
+      return res.status(400).json({ error: "Poll is closed" });
+    }
+    const result = await pool.query(`
+      INSERT INTO votes (poll_id, voter_name, selected_option, comment)
+      VALUES ($1, $2, $3, $4)
+      ON CONFLICT (poll_id, voter_name) 
+      DO UPDATE SET selected_option = $3, comment = $4, created_at = CURRENT_TIMESTAMP
+      RETURNING *
+    `, [id, voterName, selectedOption, comment || '']);
+    res.json({ success: true, vote: result.rows[0] });
+  } catch (err) {
+    console.error("Vote error:", err.message);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.put("/api/polls/:id/close", async (req, res) => {
+  try {
+    const { id } = req.params;
+    const result = await pool.query(`
+      UPDATE polls SET is_active = false WHERE id = $1 RETURNING *
+    `, [id]);
+    if (result.rows.length === 0) {
+      return res.status(404).json({ error: "Poll not found" });
+    }
+    res.json({ success: true, poll: result.rows[0] });
+  } catch (err) {
+    console.error("Close poll error:", err.message);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.delete("/api/polls/:id", async (req, res) => {
+  try {
+    const { id } = req.params;
+    await pool.query(`DELETE FROM polls WHERE id = $1`, [id]);
+    res.json({ success: true });
+  } catch (err) {
+    console.error("Delete poll error:", err.message);
+    res.status(500).json({ error: err.message });
   }
 });
 
