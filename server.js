@@ -785,8 +785,12 @@ app.post("/api/polls/:id/vote", async (req, res) => {
     if (pollResult.rows.length === 0) {
       return res.status(404).json({ error: "Poll not found" });
     }
-    if (!pollResult.rows[0].is_active) {
+    const poll = pollResult.rows[0];
+    if (!poll.is_active) {
       return res.status(400).json({ error: "Poll is closed" });
+    }
+    if (selectedOption < 0 || selectedOption >= poll.options.length) {
+      return res.status(400).json({ error: "Invalid option selected" });
     }
     const result = await pool.query(`
       INSERT INTO votes (poll_id, voter_name, selected_option, comment)

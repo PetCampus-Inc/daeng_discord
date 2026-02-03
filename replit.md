@@ -50,6 +50,15 @@ npm run bot  # Bot only (index.js)
   - User identification via dropdown (saved to localStorage)
   - Easy time picker for working hours
   - Posts directly to Discord forum as `[YYYY-MM-DD / Name]` thread
+- **Poll/voting system** - Create polls for offline meetups, track attendance
+  - Modal popup interface (not on main screen)
+  - Create new polls with custom options
+  - Vote and see who voted for what option
+  - Close polls when done
+  - Results with percentage bars and voter lists
+- **Live clock** - Shows current date/time with seconds
+- **Visitor counter** - Daily unique visitor tracking
+- **Quick links** - Jira, Notion, Figma, Homepage, Swagger, AWS with company logos
 - Scans forum threads with format `[YYYY-MM-DD / Name]`
 - Generates weekly report (Sundays at 11 AM KST)
 - Manual report via `check-report` command in chat
@@ -58,3 +67,6 @@ npm run bot  # Bot only (index.js)
 ## Database Schema
 - `memos` table: id, week_key, content, color, author, position_x, position_y, created_at
 - `announcements` table: id, content, is_active, created_at
+- `visits` table: id, visit_date, visitor_id, created_at
+- `polls` table: id, title, description, options, created_by, is_active, deadline, created_at
+- `votes` table: id, poll_id, voter_name, selected_option, comment, created_at

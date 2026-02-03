@@ -802,6 +802,264 @@
       box-shadow: 0 6px 16px rgba(245, 158, 11, 0.4);
     }
 
+    /* Poll Modal Styles */
+    .poll-btn {
+      border: 2px dashed #f59e0b !important;
+      background: linear-gradient(135deg, #fef3c7, #fde68a) !important;
+    }
+
+    .poll-btn:hover {
+      background: linear-gradient(135deg, #fde68a, #fcd34d) !important;
+    }
+
+    .poll-tabs {
+      display: flex;
+      gap: 8px;
+      margin-bottom: 20px;
+    }
+
+    .poll-tab {
+      flex: 1;
+      padding: 10px;
+      border: none;
+      background: #f1f5f9;
+      border-radius: 10px;
+      cursor: pointer;
+      font-weight: 500;
+      color: #64748b;
+      transition: all 0.2s;
+    }
+
+    .poll-tab.active {
+      background: linear-gradient(135deg, #f59e0b, #ea580c);
+      color: #fff;
+    }
+
+    .poll-list {
+      max-height: 400px;
+      overflow-y: auto;
+    }
+
+    .poll-item {
+      background: #f8fafc;
+      border-radius: 12px;
+      padding: 14px;
+      margin-bottom: 10px;
+      cursor: pointer;
+      transition: all 0.2s;
+      border: 2px solid transparent;
+    }
+
+    .poll-item:hover {
+      border-color: #f59e0b;
+      background: #fffbeb;
+    }
+
+    .poll-item.closed {
+      opacity: 0.6;
+    }
+
+    .poll-item-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 6px;
+    }
+
+    .poll-item-title {
+      font-weight: 600;
+      color: #1e293b;
+    }
+
+    .poll-item-badge {
+      font-size: 0.75rem;
+      padding: 4px 8px;
+      border-radius: 6px;
+      font-weight: 500;
+    }
+
+    .poll-item-badge.active {
+      background: #dcfce7;
+      color: #16a34a;
+    }
+
+    .poll-item-badge.closed {
+      background: #fee2e2;
+      color: #dc2626;
+    }
+
+    .poll-item-meta {
+      font-size: 0.8rem;
+      color: #94a3b8;
+    }
+
+    .poll-options-list {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      margin: 16px 0;
+    }
+
+    .poll-option {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 12px;
+      background: #f8fafc;
+      border-radius: 10px;
+      cursor: pointer;
+      transition: all 0.2s;
+      border: 2px solid transparent;
+    }
+
+    .poll-option:hover {
+      border-color: #f59e0b;
+    }
+
+    .poll-option.selected {
+      background: #fffbeb;
+      border-color: #f59e0b;
+    }
+
+    .poll-option-radio {
+      width: 20px;
+      height: 20px;
+      border: 2px solid #cbd5e1;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .poll-option.selected .poll-option-radio {
+      border-color: #f59e0b;
+      background: #f59e0b;
+    }
+
+    .poll-option.selected .poll-option-radio::after {
+      content: '';
+      width: 8px;
+      height: 8px;
+      background: #fff;
+      border-radius: 50%;
+    }
+
+    .poll-option-text {
+      flex: 1;
+      font-weight: 500;
+      color: #374151;
+    }
+
+    .poll-option-count {
+      font-size: 0.85rem;
+      color: #94a3b8;
+    }
+
+    .poll-results {
+      margin: 16px 0;
+    }
+
+    .poll-result-item {
+      margin-bottom: 12px;
+    }
+
+    .poll-result-header {
+      display: flex;
+      justify-content: space-between;
+      margin-bottom: 6px;
+    }
+
+    .poll-result-option {
+      font-weight: 500;
+      color: #374151;
+    }
+
+    .poll-result-count {
+      color: #f59e0b;
+      font-weight: 600;
+    }
+
+    .poll-result-bar {
+      height: 24px;
+      background: #e2e8f0;
+      border-radius: 6px;
+      overflow: hidden;
+      position: relative;
+    }
+
+    .poll-result-fill {
+      height: 100%;
+      background: linear-gradient(135deg, #f59e0b, #ea580c);
+      border-radius: 6px;
+      transition: width 0.5s ease;
+    }
+
+    .poll-voters-list {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+      margin-top: 6px;
+    }
+
+    .poll-voter {
+      font-size: 0.75rem;
+      padding: 3px 8px;
+      background: #fef3c7;
+      color: #92400e;
+      border-radius: 6px;
+    }
+
+    .poll-create-options {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      margin-bottom: 12px;
+    }
+
+    .poll-create-option-row {
+      display: flex;
+      gap: 8px;
+    }
+
+    .poll-create-option-row input {
+      flex: 1;
+    }
+
+    .poll-create-option-row button {
+      padding: 8px 12px;
+      background: #fee2e2;
+      color: #dc2626;
+      border: none;
+      border-radius: 8px;
+      cursor: pointer;
+    }
+
+    .add-option-btn {
+      padding: 10px;
+      background: #f1f5f9;
+      border: 2px dashed #cbd5e1;
+      border-radius: 10px;
+      cursor: pointer;
+      color: #64748b;
+      font-weight: 500;
+      text-align: center;
+      transition: all 0.2s;
+    }
+
+    .add-option-btn:hover {
+      border-color: #f59e0b;
+      color: #f59e0b;
+    }
+
+    .poll-voter-select {
+      width: 100%;
+      padding: 10px;
+      border: 2px solid #e2e8f0;
+      border-radius: 10px;
+      font-size: 0.95rem;
+      margin-bottom: 12px;
+    }
+
     /* Announcement Banner */
     .announcement-banner {
       background: linear-gradient(135deg, #f59e0b, #ea580c);
@@ -1507,6 +1765,10 @@
           <img src="https://a0.awsstatic.com/libra-css/images/logos/aws_smile-header-desktop-en-white_59x35.png" alt="AWS" style="background:#232f3e; padding:4px; border-radius:4px;">
           <span>AWS</span>
         </a>
+        <button class="quick-link poll-btn" onclick="openPollModal()">
+          <span style="font-size: 1.2rem;">🗳️</span>
+          <span>투표</span>
+        </button>
       </div>
       <h1>Knockdog Admin</h1>
       <div class="status-badge">
@@ -1673,6 +1935,86 @@
     </div>
   </div>
 
+  <!-- Poll Modal -->
+  <div class="modal-overlay" id="pollModal">
+    <div class="modal" style="max-width: 520px;">
+      <h3 id="pollModalTitle">🗳️ 투표</h3>
+      <div class="poll-tabs" id="pollTabs">
+        <button class="poll-tab active" onclick="switchPollTab('list')">투표 목록</button>
+        <button class="poll-tab" onclick="switchPollTab('create')">새 투표</button>
+      </div>
+      
+      <!-- Poll List View -->
+      <div id="pollListView">
+        <div class="poll-list" id="pollList">
+          <p style="text-align: center; color: #94a3b8;">투표가 없습니다</p>
+        </div>
+      </div>
+      
+      <!-- Poll Create View -->
+      <div id="pollCreateView" style="display: none;">
+        <div class="modal-field">
+          <label>제목</label>
+          <input type="text" id="pollTitle" placeholder="예: 2월 오프라인 모임 참석 여부">
+        </div>
+        <div class="modal-field">
+          <label>설명 (선택)</label>
+          <input type="text" id="pollDescription" placeholder="예: 2월 15일 강남역 근처">
+        </div>
+        <div class="modal-field">
+          <label>옵션</label>
+          <div class="poll-create-options" id="pollCreateOptions">
+            <div class="poll-create-option-row">
+              <input type="text" value="참석" placeholder="옵션 1">
+              <button onclick="removePollOption(this)">✕</button>
+            </div>
+            <div class="poll-create-option-row">
+              <input type="text" value="불참" placeholder="옵션 2">
+              <button onclick="removePollOption(this)">✕</button>
+            </div>
+            <div class="poll-create-option-row">
+              <input type="text" value="미정" placeholder="옵션 3">
+              <button onclick="removePollOption(this)">✕</button>
+            </div>
+          </div>
+          <div class="add-option-btn" onclick="addPollOption()">+ 옵션 추가</div>
+        </div>
+        <div class="modal-field">
+          <label>작성자</label>
+          <select id="pollCreator" class="poll-voter-select">
+            <option value="">선택하세요...</option>
+          </select>
+        </div>
+        <div class="modal-actions">
+          <button class="btn-cancel" onclick="switchPollTab('list')">취소</button>
+          <button class="btn-submit" onclick="createPoll()">투표 만들기</button>
+        </div>
+      </div>
+      
+      <!-- Poll Vote View -->
+      <div id="pollVoteView" style="display: none;">
+        <div id="pollVoteContent"></div>
+        <div class="modal-actions">
+          <button class="btn-cancel" onclick="switchPollTab('list')">목록으로</button>
+          <button class="btn-submit" onclick="submitVote()">투표하기</button>
+        </div>
+      </div>
+      
+      <!-- Poll Result View -->
+      <div id="pollResultView" style="display: none;">
+        <div id="pollResultContent"></div>
+        <div class="modal-actions">
+          <button class="btn-cancel" onclick="switchPollTab('list')">목록으로</button>
+          <button class="btn-submit" id="closePollBtn" onclick="closePoll()" style="background: #dc2626;">투표 마감</button>
+        </div>
+      </div>
+      
+      <div class="modal-actions" id="pollListActions">
+        <button class="btn-cancel" onclick="closePollModal()">닫기</button>
+      </div>
+    </div>
+  </div>
+
   <script>
     let currentWeekOffset = 0;
     let chart = null;
@@ -1680,6 +2022,11 @@
     let currentWeekKey = '';
     let selectedColor = 'yellow';
     const DAY_NAMES = ['월', '화', '수', '목', '금', '토', '일'];
+    
+    // Poll State
+    let currentPollId = null;
+    let currentPollData = null;
+    let selectedPollOption = null;
 
     // Live Clock
     function updateClock() {
@@ -2627,6 +2974,361 @@
 
     // Initialize daily standup on page load
     document.addEventListener('DOMContentLoaded', initDailyStandup);
+
+    // Poll Functions
+    function openPollModal() {
+      document.getElementById('pollModal').classList.add('active');
+      loadPolls();
+      populatePollCreatorSelect();
+    }
+
+    function closePollModal() {
+      document.getElementById('pollModal').classList.remove('active');
+      switchPollTab('list');
+    }
+
+    function switchPollTab(tab) {
+      const tabs = document.querySelectorAll('.poll-tab');
+      tabs.forEach((t, i) => {
+        t.classList.toggle('active', i === (tab === 'list' ? 0 : 1));
+      });
+      
+      document.getElementById('pollListView').style.display = tab === 'list' ? 'block' : 'none';
+      document.getElementById('pollCreateView').style.display = tab === 'create' ? 'block' : 'none';
+      document.getElementById('pollVoteView').style.display = tab === 'vote' ? 'block' : 'none';
+      document.getElementById('pollResultView').style.display = tab === 'result' ? 'block' : 'none';
+      document.getElementById('pollTabs').style.display = ['list', 'create'].includes(tab) ? 'flex' : 'none';
+      document.getElementById('pollListActions').style.display = tab === 'list' ? 'flex' : 'none';
+      
+      if (tab === 'list') {
+        currentPollId = null;
+        currentPollData = null;
+        selectedPollOption = null;
+      }
+    }
+
+    async function loadPolls() {
+      try {
+        const res = await fetch('/api/polls');
+        const data = await res.json();
+        renderPollList(data.polls || []);
+      } catch (e) {
+        console.error('Load polls error:', e);
+      }
+    }
+
+    function renderPollList(polls) {
+      const container = document.getElementById('pollList');
+      if (!polls.length) {
+        container.innerHTML = '<p style="text-align: center; color: #94a3b8; padding: 20px;">아직 투표가 없습니다. 새 투표를 만들어보세요!</p>';
+        return;
+      }
+      
+      container.innerHTML = polls.map(poll => {
+        const date = new Date(poll.created_at).toLocaleDateString('ko-KR');
+        return `
+          <div class="poll-item ${poll.is_active ? '' : 'closed'}" onclick="openPollDetail(${poll.id})">
+            <div class="poll-item-header">
+              <span class="poll-item-title">${poll.title}</span>
+              <span class="poll-item-badge ${poll.is_active ? 'active' : 'closed'}">
+                ${poll.is_active ? '진행중' : '마감'}
+              </span>
+            </div>
+            <div class="poll-item-meta">
+              ${poll.created_by} • ${date} • ${poll.vote_count}명 참여
+            </div>
+          </div>
+        `;
+      }).join('');
+    }
+
+    async function openPollDetail(pollId) {
+      try {
+        const res = await fetch(`/api/polls/${pollId}`);
+        const data = await res.json();
+        currentPollId = pollId;
+        currentPollData = data.poll;
+        
+        if (data.poll.is_active) {
+          renderPollVoteView(data.poll, data.votes);
+        } else {
+          renderPollResultView(data.poll, data.votes);
+        }
+      } catch (e) {
+        alert('투표를 불러오는데 실패했습니다.');
+      }
+    }
+
+    function renderPollVoteView(poll, votes) {
+      const savedUser = localStorage.getItem('knockdog_selected_user');
+      let myVote = null;
+      if (savedUser) {
+        const userData = JSON.parse(savedUser);
+        myVote = votes.find(v => v.voter_name === userData.displayName);
+      }
+      
+      const voteCounts = {};
+      poll.options.forEach((_, i) => voteCounts[i] = []);
+      votes.forEach(v => {
+        if (voteCounts[v.selected_option]) {
+          voteCounts[v.selected_option].push(v.voter_name);
+        }
+      });
+      
+      selectedPollOption = myVote ? myVote.selected_option : null;
+      
+      let html = `
+        <h4 style="margin-bottom: 8px;">${poll.title}</h4>
+        ${poll.description ? `<p style="color: #64748b; margin-bottom: 16px; font-size: 0.9rem;">${poll.description}</p>` : ''}
+        <select id="pollVoterSelect" class="poll-voter-select">
+          <option value="">투표자 선택...</option>
+        </select>
+        <div class="poll-options-list">
+      `;
+      
+      poll.options.forEach((opt, i) => {
+        const isSelected = selectedPollOption === i;
+        const votersList = voteCounts[i].join(', ') || '-';
+        html += `
+          <div class="poll-option ${isSelected ? 'selected' : ''}" onclick="selectPollOption(${i})">
+            <div class="poll-option-radio"></div>
+            <span class="poll-option-text">${opt}</span>
+            <span class="poll-option-count">${voteCounts[i].length}명</span>
+          </div>
+          <div class="poll-voters-list" style="margin-top: -6px; margin-bottom: 8px;">
+            ${voteCounts[i].map(v => `<span class="poll-voter">${v}</span>`).join('')}
+          </div>
+        `;
+      });
+      
+      html += '</div>';
+      
+      document.getElementById('pollVoteContent').innerHTML = html;
+      switchPollTab('vote');
+      
+      // Populate voter select
+      populatePollVoterSelect();
+    }
+
+    function populatePollVoterSelect() {
+      const select = document.getElementById('pollVoterSelect');
+      if (!select) return;
+      
+      const savedUser = localStorage.getItem('knockdog_selected_user');
+      const members = window.cachedMembers || [];
+      
+      select.innerHTML = '<option value="">투표자 선택...</option>' + 
+        members.map(m => `<option value="${m.id}" data-name="${m.displayName}">${m.displayName}</option>`).join('');
+      
+      if (savedUser) {
+        const userData = JSON.parse(savedUser);
+        const option = Array.from(select.options).find(o => o.dataset.name === userData.displayName);
+        if (option) option.selected = true;
+      }
+    }
+
+    function populatePollCreatorSelect() {
+      const select = document.getElementById('pollCreator');
+      const members = window.cachedMembers || [];
+      
+      select.innerHTML = '<option value="">선택하세요...</option>' + 
+        members.map(m => `<option value="${m.displayName}">${m.displayName}</option>`).join('');
+      
+      const savedUser = localStorage.getItem('knockdog_selected_user');
+      if (savedUser) {
+        const userData = JSON.parse(savedUser);
+        const option = Array.from(select.options).find(o => o.value === userData.displayName);
+        if (option) option.selected = true;
+      }
+    }
+
+    function selectPollOption(index) {
+      selectedPollOption = index;
+      document.querySelectorAll('.poll-option').forEach((el, i) => {
+        el.classList.toggle('selected', i === index);
+      });
+    }
+
+    async function submitVote() {
+      const select = document.getElementById('pollVoterSelect');
+      const voterName = select.options[select.selectedIndex]?.dataset?.name;
+      
+      if (!voterName) {
+        alert('투표자를 선택해주세요.');
+        return;
+      }
+      if (selectedPollOption === null) {
+        alert('옵션을 선택해주세요.');
+        return;
+      }
+      
+      try {
+        const res = await fetch(`/api/polls/${currentPollId}/vote`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            voterName: voterName,
+            selectedOption: selectedPollOption
+          })
+        });
+        const data = await res.json();
+        if (data.success) {
+          alert('투표가 완료되었습니다!');
+          openPollDetail(currentPollId);
+        } else {
+          throw new Error(data.error);
+        }
+      } catch (e) {
+        alert('투표 실패: ' + e.message);
+      }
+    }
+
+    function renderPollResultView(poll, votes) {
+      const voteCounts = {};
+      poll.options.forEach((_, i) => voteCounts[i] = []);
+      votes.forEach(v => {
+        if (voteCounts[v.selected_option]) {
+          voteCounts[v.selected_option].push(v.voter_name);
+        }
+      });
+      
+      const totalVotes = votes.length;
+      
+      let html = `
+        <h4 style="margin-bottom: 8px;">${poll.title}</h4>
+        ${poll.description ? `<p style="color: #64748b; margin-bottom: 16px; font-size: 0.9rem;">${poll.description}</p>` : ''}
+        <p style="color: #94a3b8; font-size: 0.85rem; margin-bottom: 16px;">총 ${totalVotes}명 참여</p>
+        <div class="poll-results">
+      `;
+      
+      poll.options.forEach((opt, i) => {
+        const count = voteCounts[i].length;
+        const percentage = totalVotes > 0 ? Math.round((count / totalVotes) * 100) : 0;
+        html += `
+          <div class="poll-result-item">
+            <div class="poll-result-header">
+              <span class="poll-result-option">${opt}</span>
+              <span class="poll-result-count">${count}명 (${percentage}%)</span>
+            </div>
+            <div class="poll-result-bar">
+              <div class="poll-result-fill" style="width: ${percentage}%"></div>
+            </div>
+            <div class="poll-voters-list">
+              ${voteCounts[i].map(v => `<span class="poll-voter">${v}</span>`).join('')}
+            </div>
+          </div>
+        `;
+      });
+      
+      html += '</div>';
+      
+      document.getElementById('pollResultContent').innerHTML = html;
+      document.getElementById('closePollBtn').style.display = poll.is_active ? 'block' : 'none';
+      switchPollTab('result');
+    }
+
+    function addPollOption() {
+      const container = document.getElementById('pollCreateOptions');
+      const count = container.children.length + 1;
+      const div = document.createElement('div');
+      div.className = 'poll-create-option-row';
+      div.innerHTML = `
+        <input type="text" placeholder="옵션 ${count}">
+        <button onclick="removePollOption(this)">✕</button>
+      `;
+      container.appendChild(div);
+    }
+
+    function removePollOption(btn) {
+      const container = document.getElementById('pollCreateOptions');
+      if (container.children.length <= 2) {
+        alert('최소 2개의 옵션이 필요합니다.');
+        return;
+      }
+      btn.parentElement.remove();
+    }
+
+    async function createPoll() {
+      const title = document.getElementById('pollTitle').value.trim();
+      const description = document.getElementById('pollDescription').value.trim();
+      const createdBy = document.getElementById('pollCreator').value;
+      
+      const optionInputs = document.querySelectorAll('#pollCreateOptions input');
+      const options = Array.from(optionInputs).map(i => i.value.trim()).filter(v => v);
+      
+      if (!title) {
+        alert('제목을 입력해주세요.');
+        return;
+      }
+      if (options.length < 2) {
+        alert('최소 2개의 옵션이 필요합니다.');
+        return;
+      }
+      if (!createdBy) {
+        alert('작성자를 선택해주세요.');
+        return;
+      }
+      
+      try {
+        const res = await fetch('/api/polls', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ title, description, options, createdBy })
+        });
+        const data = await res.json();
+        if (data.success) {
+          alert('투표가 생성되었습니다!');
+          document.getElementById('pollTitle').value = '';
+          document.getElementById('pollDescription').value = '';
+          resetPollOptions();
+          switchPollTab('list');
+          loadPolls();
+        } else {
+          throw new Error(data.error);
+        }
+      } catch (e) {
+        alert('투표 생성 실패: ' + e.message);
+      }
+    }
+
+    function resetPollOptions() {
+      document.getElementById('pollCreateOptions').innerHTML = `
+        <div class="poll-create-option-row">
+          <input type="text" value="참석" placeholder="옵션 1">
+          <button onclick="removePollOption(this)">✕</button>
+        </div>
+        <div class="poll-create-option-row">
+          <input type="text" value="불참" placeholder="옵션 2">
+          <button onclick="removePollOption(this)">✕</button>
+        </div>
+        <div class="poll-create-option-row">
+          <input type="text" value="미정" placeholder="옵션 3">
+          <button onclick="removePollOption(this)">✕</button>
+        </div>
+      `;
+    }
+
+    async function closePoll() {
+      if (!confirm('이 투표를 마감하시겠습니까?')) return;
+      
+      try {
+        const res = await fetch(`/api/polls/${currentPollId}/close`, { method: 'PUT' });
+        const data = await res.json();
+        if (data.success) {
+          alert('투표가 마감되었습니다.');
+          openPollDetail(currentPollId);
+        } else {
+          throw new Error(data.error);
+        }
+      } catch (e) {
+        alert('마감 실패: ' + e.message);
+      }
+    }
+
+    // Close poll modal on overlay click
+    document.getElementById('pollModal').addEventListener('click', function(e) {
+      if (e.target === this) closePollModal();
+    });
   </script>
 </body>
 </html>
