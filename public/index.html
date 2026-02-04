@@ -1065,7 +1065,7 @@
       background: linear-gradient(135deg, #f59e0b, #ea580c);
       border-radius: 16px;
       padding: 18px 24px;
-      margin-bottom: 24px;
+      margin-bottom: 12px;
       display: flex;
       align-items: center;
       justify-content: space-between;
@@ -2484,20 +2484,20 @@
       try {
         const response = await fetch('/api/announcements');
         const data = await response.json();
-        renderAnnouncement(data.announcement);
+        renderAnnouncements(data.announcements || []);
       } catch (err) {
         console.error('Failed to load announcement:', err);
       }
     }
 
-    function renderAnnouncement(announcement) {
+    function renderAnnouncements(announcements) {
       const container = document.getElementById('announcementContainer');
-      if (!announcement) {
+      if (!announcements.length) {
         container.innerHTML = '';
         return;
       }
 
-      container.innerHTML = `
+      container.innerHTML = announcements.map(announcement => `
         <div class="announcement-banner">
           <div class="announcement-content">
             <span class="announcement-icon">📢</span>
@@ -2505,7 +2505,7 @@
           </div>
           <button class="announcement-close" onclick="deleteAnnouncement(${announcement.id})">×</button>
         </div>
-      `;
+      `).join('');
     }
 
     async function submitAnnouncement() {

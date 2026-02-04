@@ -82,7 +82,7 @@ const REPORT_CHANNEL_ID = process.env.REPORT_CHANNEL_ID;
 const CORE_ROLE_ID = process.env.CORE_ROLE_ID;
 const CONTRIBUTOR_ROLE_ID = process.env.CONTRIBUTOR_ROLE_ID;
 
-const REQUIRED_COUNT = 5;
+const REQUIRED_COUNT = 3;
 const THREAD_SCAN_LIMIT = 100;
 const GUILD_ID = process.env.GUILD_ID;
 const NOTION_LINK =
@@ -461,9 +461,9 @@ app.delete("/api/memos/:id", async (req, res) => {
 app.get("/api/announcements", async (req, res) => {
   try {
     const result = await pool.query(
-      "SELECT * FROM announcements WHERE is_active = true ORDER BY created_at DESC LIMIT 1"
+      "SELECT * FROM announcements WHERE is_active = true ORDER BY created_at DESC"
     );
-    res.json({ success: true, announcement: result.rows[0] || null });
+    res.json({ success: true, announcements: result.rows });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
@@ -475,7 +475,6 @@ app.post("/api/announcements", async (req, res) => {
     if (!content) {
       return res.status(400).json({ error: "content required" });
     }
-    await pool.query("UPDATE announcements SET is_active = false");
     const result = await pool.query(
       "INSERT INTO announcements (content) VALUES ($1) RETURNING *",
       [content]
