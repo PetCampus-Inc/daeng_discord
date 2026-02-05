@@ -812,6 +812,144 @@
       background: linear-gradient(135deg, #fde68a, #fcd34d) !important;
     }
 
+    .idea-btn {
+      border: 2px dashed #10b981 !important;
+      background: linear-gradient(135deg, #d1fae5, #a7f3d0) !important;
+    }
+
+    .idea-btn:hover {
+      background: linear-gradient(135deg, #a7f3d0, #6ee7b7) !important;
+    }
+
+    .idea-item {
+      background: #f8fafc;
+      border-radius: 12px;
+      padding: 16px;
+      margin-bottom: 12px;
+      border: 2px solid transparent;
+      transition: all 0.2s;
+    }
+
+    .idea-item:hover {
+      border-color: #10b981;
+      background: #ecfdf5;
+    }
+
+    .idea-item-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      margin-bottom: 8px;
+    }
+
+    .idea-item-title {
+      font-weight: 600;
+      color: #1e293b;
+      font-size: 1rem;
+    }
+
+    .idea-item-meta {
+      display: flex;
+      gap: 8px;
+      align-items: center;
+    }
+
+    .idea-category {
+      font-size: 0.75rem;
+      padding: 3px 8px;
+      border-radius: 6px;
+      background: #e0f2fe;
+      color: #0369a1;
+    }
+
+    .idea-status {
+      font-size: 0.75rem;
+      padding: 3px 8px;
+      border-radius: 6px;
+    }
+
+    .idea-status.pending { background: #fef3c7; color: #92400e; }
+    .idea-status.reviewing { background: #dbeafe; color: #1e40af; }
+    .idea-status.approved { background: #d1fae5; color: #065f46; }
+    .idea-status.rejected { background: #fee2e2; color: #991b1b; }
+
+    .idea-item-desc {
+      color: #64748b;
+      font-size: 0.9rem;
+      margin-bottom: 10px;
+      line-height: 1.5;
+    }
+
+    .idea-item-footer {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-size: 0.85rem;
+      color: #94a3b8;
+    }
+
+    .idea-like-btn {
+      display: flex;
+      align-items: center;
+      gap: 4px;
+      padding: 6px 12px;
+      border: 1px solid #e2e8f0;
+      border-radius: 8px;
+      background: #fff;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+
+    .idea-like-btn:hover {
+      background: #fef2f2;
+      border-color: #fca5a5;
+    }
+
+    .idea-like-btn.liked {
+      background: #fef2f2;
+      border-color: #f87171;
+      color: #dc2626;
+    }
+
+    .idea-list {
+      max-height: 400px;
+      overflow-y: auto;
+    }
+
+    .idea-form-group {
+      margin-bottom: 16px;
+    }
+
+    .idea-form-group label {
+      display: block;
+      font-weight: 500;
+      margin-bottom: 6px;
+      color: #374151;
+    }
+
+    .idea-form-group input,
+    .idea-form-group textarea,
+    .idea-form-group select {
+      width: 100%;
+      padding: 10px 12px;
+      border: 2px solid #e2e8f0;
+      border-radius: 10px;
+      font-size: 0.95rem;
+      transition: border-color 0.2s;
+    }
+
+    .idea-form-group input:focus,
+    .idea-form-group textarea:focus,
+    .idea-form-group select:focus {
+      border-color: #10b981;
+      outline: none;
+    }
+
+    .idea-form-group textarea {
+      min-height: 100px;
+      resize: vertical;
+    }
+
     .poll-tabs {
       display: flex;
       gap: 8px;
@@ -1769,6 +1907,10 @@
           <span style="font-size: 1.2rem;">🗳️</span>
           <span>투표</span>
         </button>
+        <button class="quick-link idea-btn" onclick="openIdeaModal()">
+          <span style="font-size: 1.2rem;">💡</span>
+          <span>아이디어</span>
+        </button>
       </div>
       <h1>Knockdog Admin</h1>
       <div class="status-badge">
@@ -2011,6 +2153,60 @@
       
       <div class="modal-actions" id="pollListActions">
         <button class="btn-cancel" onclick="closePollModal()">닫기</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Idea Modal -->
+  <div class="modal-overlay" id="ideaModal">
+    <div class="modal" style="max-width: 600px;">
+      <h3 id="ideaModalTitle">💡 마케팅 아이디어</h3>
+      <div class="poll-tabs" id="ideaTabs">
+        <button class="poll-tab active" onclick="switchIdeaTab('list')">아이디어 목록</button>
+        <button class="poll-tab" onclick="switchIdeaTab('create')">새 아이디어</button>
+      </div>
+      
+      <!-- Idea List View -->
+      <div id="ideaListView">
+        <div class="idea-list" id="ideaList">
+          <p style="text-align: center; color: #94a3b8;">아이디어가 없습니다</p>
+        </div>
+      </div>
+      
+      <!-- Idea Create View -->
+      <div id="ideaCreateView" style="display: none;">
+        <div class="idea-form-group">
+          <label>제목 *</label>
+          <input type="text" id="ideaTitle" placeholder="아이디어 제목을 입력하세요">
+        </div>
+        <div class="idea-form-group">
+          <label>카테고리</label>
+          <select id="ideaCategory">
+            <option value="marketing">마케팅</option>
+            <option value="product">제품</option>
+            <option value="event">이벤트</option>
+            <option value="partnership">제휴</option>
+            <option value="other">기타</option>
+          </select>
+        </div>
+        <div class="idea-form-group">
+          <label>상세 설명</label>
+          <textarea id="ideaDescription" placeholder="아이디어에 대한 자세한 설명을 작성해주세요"></textarea>
+        </div>
+        <div class="idea-form-group">
+          <label>작성자 *</label>
+          <select id="ideaAuthor" class="poll-voter-select">
+            <option value="">선택하세요...</option>
+          </select>
+        </div>
+        <div class="modal-actions">
+          <button class="btn-cancel" onclick="switchIdeaTab('list')">취소</button>
+          <button class="btn-submit" onclick="createIdea()" style="background: linear-gradient(135deg, #10b981, #059669);">아이디어 등록</button>
+        </div>
+      </div>
+      
+      <div class="modal-actions" id="ideaListActions">
+        <button class="btn-cancel" onclick="closeIdeaModal()">닫기</button>
       </div>
     </div>
   </div>
@@ -3328,6 +3524,185 @@
     // Close poll modal on overlay click
     document.getElementById('pollModal').addEventListener('click', function(e) {
       if (e.target === this) closePollModal();
+    });
+
+    // ============ IDEA FUNCTIONS ============
+    let ideasData = [];
+    const ideaUserName = localStorage.getItem('knockdog_user') || '';
+
+    function openIdeaModal() {
+      document.getElementById('ideaModal').style.display = 'flex';
+      loadIdeas();
+      populateIdeaAuthorSelect();
+    }
+
+    function closeIdeaModal() {
+      document.getElementById('ideaModal').style.display = 'none';
+    }
+
+    function switchIdeaTab(tab) {
+      const tabs = document.querySelectorAll('#ideaTabs .poll-tab');
+      tabs.forEach((t, i) => {
+        t.classList.toggle('active', (tab === 'list' && i === 0) || (tab === 'create' && i === 1));
+      });
+      document.getElementById('ideaListView').style.display = tab === 'list' ? 'block' : 'none';
+      document.getElementById('ideaCreateView').style.display = tab === 'create' ? 'block' : 'none';
+      document.getElementById('ideaListActions').style.display = tab === 'list' ? 'flex' : 'none';
+    }
+
+    function populateIdeaAuthorSelect() {
+      const select = document.getElementById('ideaAuthor');
+      const currentOptions = Array.from(select.options).map(o => o.value);
+      const memberNames = Array.from(document.querySelectorAll('.member-card h3')).map(h => h.textContent.trim());
+      
+      if (memberNames.length === 0 || (currentOptions.length > 1 && currentOptions[1] === memberNames[0])) return;
+      
+      select.innerHTML = '<option value="">선택하세요...</option>';
+      memberNames.forEach(name => {
+        const opt = document.createElement('option');
+        opt.value = name;
+        opt.textContent = name;
+        select.appendChild(opt);
+      });
+      
+      const savedUser = localStorage.getItem('knockdog_user');
+      if (savedUser && memberNames.includes(savedUser)) {
+        select.value = savedUser;
+      }
+    }
+
+    async function loadIdeas() {
+      try {
+        const res = await fetch('/api/ideas');
+        const data = await res.json();
+        if (data.success) {
+          ideasData = data.ideas;
+          renderIdeas();
+        }
+      } catch (e) {
+        console.error('Failed to load ideas:', e);
+      }
+    }
+
+    function getCategoryLabel(cat) {
+      const labels = {
+        marketing: '마케팅',
+        product: '제품',
+        event: '이벤트',
+        partnership: '제휴',
+        other: '기타'
+      };
+      return labels[cat] || cat;
+    }
+
+    function getStatusLabel(status) {
+      const labels = {
+        pending: '검토 대기',
+        reviewing: '검토 중',
+        approved: '승인됨',
+        rejected: '반려됨'
+      };
+      return labels[status] || status;
+    }
+
+    function renderIdeas() {
+      const list = document.getElementById('ideaList');
+      if (ideasData.length === 0) {
+        list.innerHTML = '<p style="text-align: center; color: #94a3b8;">아이디어가 없습니다. 새 아이디어를 등록해보세요!</p>';
+        return;
+      }
+
+      list.innerHTML = ideasData.map(idea => `
+        <div class="idea-item" data-id="${idea.id}">
+          <div class="idea-item-header">
+            <div class="idea-item-title">${escapeHtml(idea.title)}</div>
+            <div class="idea-item-meta">
+              <span class="idea-category">${getCategoryLabel(idea.category)}</span>
+              <span class="idea-status ${idea.status}">${getStatusLabel(idea.status)}</span>
+            </div>
+          </div>
+          ${idea.description ? `<div class="idea-item-desc">${escapeHtml(idea.description)}</div>` : ''}
+          <div class="idea-item-footer">
+            <span>👤 ${escapeHtml(idea.author)} · ${formatDate(idea.created_at)}</span>
+            <button class="idea-like-btn" onclick="toggleIdeaLike(${idea.id}, this)">
+              ❤️ <span class="like-count">${idea.like_count || 0}</span>
+            </button>
+          </div>
+        </div>
+      `).join('');
+    }
+
+    function formatDate(dateStr) {
+      const d = new Date(dateStr);
+      return `${d.getMonth() + 1}/${d.getDate()}`;
+    }
+
+    async function createIdea() {
+      const title = document.getElementById('ideaTitle').value.trim();
+      const category = document.getElementById('ideaCategory').value;
+      const description = document.getElementById('ideaDescription').value.trim();
+      const author = document.getElementById('ideaAuthor').value;
+
+      if (!title) {
+        alert('제목을 입력해주세요.');
+        return;
+      }
+      if (!author) {
+        alert('작성자를 선택해주세요.');
+        return;
+      }
+
+      try {
+        const res = await fetch('/api/ideas', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ title, category, description, author })
+        });
+        const data = await res.json();
+        if (data.success) {
+          document.getElementById('ideaTitle').value = '';
+          document.getElementById('ideaDescription').value = '';
+          document.getElementById('ideaCategory').value = 'marketing';
+          localStorage.setItem('knockdog_user', author);
+          switchIdeaTab('list');
+          loadIdeas();
+          alert('아이디어가 등록되었습니다!');
+        } else {
+          throw new Error(data.error);
+        }
+      } catch (e) {
+        alert('등록 실패: ' + e.message);
+      }
+    }
+
+    async function toggleIdeaLike(ideaId, btn) {
+      const userName = localStorage.getItem('knockdog_user');
+      if (!userName) {
+        alert('먼저 데일리 작성 탭에서 사용자를 선택해주세요.');
+        return;
+      }
+
+      try {
+        const isLiked = btn.classList.contains('liked');
+        const method = isLiked ? 'DELETE' : 'POST';
+        const res = await fetch(`/api/ideas/${ideaId}/like`, {
+          method,
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ userName })
+        });
+        const data = await res.json();
+        if (data.success) {
+          btn.querySelector('.like-count').textContent = data.likeCount;
+          btn.classList.toggle('liked');
+        }
+      } catch (e) {
+        console.error('Like toggle failed:', e);
+      }
+    }
+
+    // Close idea modal on overlay click
+    document.getElementById('ideaModal').addEventListener('click', function(e) {
+      if (e.target === this) closeIdeaModal();
     });
   </script>
 </body>

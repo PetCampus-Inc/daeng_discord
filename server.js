@@ -68,6 +68,27 @@ async function initDatabase() {
         UNIQUE(poll_id, voter_name)
       )
     `);
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS ideas (
+        id SERIAL PRIMARY KEY,
+        title VARCHAR(200) NOT NULL,
+        description TEXT,
+        category VARCHAR(50) DEFAULT 'general',
+        author VARCHAR(100) NOT NULL,
+        likes INTEGER DEFAULT 0,
+        status VARCHAR(20) DEFAULT 'pending',
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      )
+    `);
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS idea_likes (
+        id SERIAL PRIMARY KEY,
+        idea_id INTEGER REFERENCES ideas(id) ON DELETE CASCADE,
+        user_name VARCHAR(100) NOT NULL,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        UNIQUE(idea_id, user_name)
+      )
+    `);
     console.log("Database initialized");
   } catch (err) {
     console.error("Database init error:", err.message);
@@ -828,6 +849,132 @@ app.delete("/api/polls/:id", async (req, res) => {
     res.json({ success: true });
   } catch (err) {
     console.error("Delete poll error:", err.message);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Ideas API
+app.get("/api/ideas", async (req, res) => {
+  try {
+    const result = await pool.query(`
+      SELECT i.*, 
+        (SELECT COUNT(*) FROM idea_likes WHERE idea_id = i.id) as like_count
+      FROM ideas i 
+      ORDER BY created_at DESC
+    `);
+    res.json({ success: true, ideas: result.rows });
+  } catch (err) {
+    console.error("Get ideas error:", err.message);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.post("/api/ideas", async (req, res) => {
+  try {
+    const { title, description, category, author } = req.body;
+    if (!title || !author) {
+      return res.status(400).json({ error: "title and author required" });
+    }
+    const result = await pool.query(`
+      INSERT INTO ideas (title, description, category, author)
+      VALUES ($1, $2, $3, $4) RETURNING *
+    `, [title, description || '', category || 'general', author]);
+    res.json({ success: true, idea: result.rows[0] });
+  } catch (err) {
+    console.error("Create idea error:", err.message);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.post("/api/ideas/:id/like", async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { userName } = req.body;
+    if (!userName) {
+      return res.status(400).json({ error: "userName required" });
+    }
+    await pool.query(`
+      INSERT INTO idea_likes (idea_id, user_name)
+      VALUES ($1, $2)
+      ON CONFLICT (idea_id, user_name) DO NOTHING
+    `, [id, userName]);
+    const countResult = await pool.query(
+      `SELECT COUNT(*) as count FROM idea_likes WHERE idea_id = $1`, [id]
+    );
+    res.json({ success: true, likeCount: parseInt(countResult.rows[0].count) });
+  } catch (err) {
+    console.error("Like idea error:", err.message);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.delete("/api/ideas/:id/like", async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { userName } = req.body;
+    if (!userName) {
+      return res.status(400).json({ error: "userName required" });
+    }
+    await pool.query(`
+      DELETE FROM idea_likes WHERE idea_id = $1 AND user_name = $2
+    `, [id, userName]);
+    const countResult = await pool.query(
+      `SELECT COUNT(*) as count FROM idea_likes WHERE idea_id = $1`, [id]
+    );
+    res.json({ success: true, likeCount: parseInt(countResult.rows[0].count) });
+  } catch (err) {
+    console.error("Unlike idea error:", err.message);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.get("/api/ideas/:id/likes", async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { userName } = req.query;
+    const likesResult = await pool.query(
+      `SELECT user_name FROM idea_likes WHERE idea_id = $1`, [id]
+    );
+    const hasLiked = userName ? likesResult.rows.some(r => r.user_name === userName) : false;
+    res.json({ 
+      success: true, 
+      likeCount: likesResult.rows.length,
+      hasLiked,
+      likers: likesResult.rows.map(r => r.user_name)
+    });
+  } catch (err) {
+    console.error("Get idea likes error:", err.message);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.patch("/api/ideas/:id/status", async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { status } = req.body;
+    if (!['pending', 'reviewing', 'approved', 'rejected'].includes(status)) {
+      return res.status(400).json({ error: "Invalid status" });
+    }
+    const result = await pool.query(`
+      UPDATE ideas SET status = $1 WHERE id = $2 RETURNING *
+    `, [status, id]);
+    if (result.rows.length === 0) {
+      return res.status(404).json({ error: "Idea not found" });
+    }
+    res.json({ success: true, idea: result.rows[0] });
+  } catch (err) {
+    console.error("Update idea status error:", err.message);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.delete("/api/ideas/:id", async (req, res) => {
+  try {
+    const { id } = req.params;
+    await pool.query(`DELETE FROM ideas WHERE id = $1`, [id]);
+    res.json({ success: true });
+  } catch (err) {
+    console.error("Delete idea error:", err.message);
     res.status(500).json({ error: err.message });
   }
 });
