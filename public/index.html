@@ -1244,6 +1244,44 @@
       background: rgba(255,255,255,0.3);
     }
 
+    .announcement-readers {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-top: 8px;
+      flex-wrap: wrap;
+    }
+
+    .announcement-read-btn {
+      padding: 4px 12px;
+      border: 1px solid rgba(255,255,255,0.5);
+      border-radius: 20px;
+      background: rgba(255,255,255,0.2);
+      color: #fff;
+      font-size: 0.8rem;
+      cursor: pointer;
+      transition: all 0.2s;
+      white-space: nowrap;
+    }
+
+    .announcement-read-btn:hover {
+      background: rgba(255,255,255,0.35);
+    }
+
+    .announcement-read-btn.read {
+      background: rgba(255,255,255,0.4);
+      border-color: rgba(255,255,255,0.7);
+      cursor: default;
+    }
+
+    .announcement-reader-tag {
+      font-size: 0.75rem;
+      padding: 2px 8px;
+      border-radius: 12px;
+      background: rgba(255,255,255,0.25);
+      color: #fff;
+    }
+
     .announcement-edit {
       display: flex;
       gap: 12px;
@@ -2693,15 +2731,32 @@
         return;
       }
 
-      container.innerHTML = announcements.map(announcement => `
-        <div class="announcement-banner">
-          <div class="announcement-content">
-            <span class="announcement-icon">📢</span>
-            <span class="announcement-text">${escapeHtml(announcement.content)}</span>
+      const currentUser = localStorage.getItem('knockdog_user') || '';
+      container.innerHTML = announcements.map(announcement => {
+        const readers = announcement.readers || [];
+        const hasRead = readers.some(r => r.user_name === currentUser);
+        const readerNames = readers.map(r => r.user_name);
+        
+        return `
+          <div class="announcement-banner">
+            <div style="flex:1;">
+              <div class="announcement-content">
+                <span class="announcement-icon">📢</span>
+                <span class="announcement-text">${escapeHtml(announcement.content)}</span>
+              </div>
+              <div class="announcement-readers">
+                <button class="announcement-read-btn ${hasRead ? 'read' : ''}" 
+                  onclick="${hasRead ? '' : `markAnnouncementRead(${announcement.id}, this)`}"
+                  ${!currentUser ? 'title="데일리 작성에서 사용자를 먼저 선택하세요"' : ''}>
+                  ${hasRead ? '✓ 읽음' : '👁 읽음 표시'}
+                </button>
+                ${readerNames.length > 0 ? readerNames.map(name => `<span class="announcement-reader-tag">${escapeHtml(name)}</span>`).join('') : '<span style="font-size:0.75rem;color:rgba(255,255,255,0.6);">아직 읽은 사람 없음</span>'}
+              </div>
+            </div>
+            <button class="announcement-close" onclick="deleteAnnouncement(${announcement.id})">×</button>
           </div>
-          <button class="announcement-close" onclick="deleteAnnouncement(${announcement.id})">×</button>
-        </div>
-      `).join('');
+        `;
+      }).join('');
     }
 
     async function submitAnnouncement() {
@@ -2740,6 +2795,27 @@
       } catch (err) {
         console.error('Failed to save announcement:', err);
         alert('공지사항 등록에 실패했습니다.');
+      }
+    }
+
+    async function markAnnouncementRead(id, btn) {
+      const userName = localStorage.getItem('knockdog_user');
+      if (!userName) {
+        alert('먼저 데일리 작성 탭에서 사용자를 선택해주세요.');
+        return;
+      }
+      try {
+        const res = await fetch(`/api/announcements/${id}/read`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ userName })
+        });
+        const data = await res.json();
+        if (data.success) {
+          loadAnnouncement();
+        }
+      } catch (err) {
+        console.error('Failed to mark as read:', err);
       }
     }
 

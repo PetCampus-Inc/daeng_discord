@@ -89,6 +89,15 @@ async function initDatabase() {
         UNIQUE(idea_id, user_name)
       )
     `);
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS announcement_reads (
+        id SERIAL PRIMARY KEY,
+        announcement_id INTEGER REFERENCES announcements(id) ON DELETE CASCADE,
+        user_name VARCHAR(100) NOT NULL,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        UNIQUE(announcement_id, user_name)
+      )
+    `);
     console.log("Database initialized");
   } catch (err) {
     console.error("Database init error:", err.message);
@@ -484,7 +493,15 @@ app.get("/api/announcements", async (req, res) => {
     const result = await pool.query(
       "SELECT * FROM announcements WHERE is_active = true ORDER BY created_at DESC"
     );
-    res.json({ success: true, announcements: result.rows });
+    const announcements = result.rows;
+    for (const ann of announcements) {
+      const reads = await pool.query(
+        "SELECT user_name, created_at FROM announcement_reads WHERE announcement_id = $1 ORDER BY created_at",
+        [ann.id]
+      );
+      ann.readers = reads.rows;
+    }
+    res.json({ success: true, announcements });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
@@ -528,6 +545,28 @@ app.delete("/api/announcements/:id", async (req, res) => {
     const { id } = req.params;
     await pool.query("UPDATE announcements SET is_active = false WHERE id = $1", [id]);
     res.json({ success: true });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.post("/api/announcements/:id/read", async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { userName } = req.body;
+    if (!userName) {
+      return res.status(400).json({ error: "userName required" });
+    }
+    await pool.query(`
+      INSERT INTO announcement_reads (announcement_id, user_name)
+      VALUES ($1, $2)
+      ON CONFLICT (announcement_id, user_name) DO NOTHING
+    `, [id, userName]);
+    const reads = await pool.query(
+      "SELECT user_name, created_at FROM announcement_reads WHERE announcement_id = $1 ORDER BY created_at",
+      [id]
+    );
+    res.json({ success: true, readers: reads.rows });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
