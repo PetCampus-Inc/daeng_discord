@@ -1282,6 +1282,22 @@
       color: #fff;
     }
 
+    .announcement-name-select {
+      padding: 4px 8px;
+      border: 1px solid rgba(255,255,255,0.5);
+      border-radius: 8px;
+      background: rgba(255,255,255,0.25);
+      color: #fff;
+      font-size: 0.8rem;
+      cursor: pointer;
+      appearance: auto;
+    }
+
+    .announcement-name-select option {
+      color: #333;
+      background: #fff;
+    }
+
     .announcement-edit {
       display: flex;
       gap: 12px;
@@ -2745,11 +2761,16 @@
                 <span class="announcement-text">${escapeHtml(announcement.content)}</span>
               </div>
               <div class="announcement-readers">
-                <button class="announcement-read-btn ${hasRead ? 'read' : ''}" 
-                  onclick="${hasRead ? '' : `markAnnouncementRead(${announcement.id}, this)`}"
-                  ${!currentUser ? 'title="데일리 작성에서 사용자를 먼저 선택하세요"' : ''}>
-                  ${hasRead ? '✓ 읽음' : '👁 읽음 표시'}
-                </button>
+                ${hasRead ? `
+                  <span class="announcement-read-btn read">✓ 읽음</span>
+                ` : `
+                  <select class="announcement-name-select" id="annReadSelect_${announcement.id}" onchange="saveAnnUser(this)">
+                    <option value="">내 이름 선택</option>
+                  </select>
+                  <button class="announcement-read-btn" onclick="markAnnouncementRead(${announcement.id})">
+                    👁 읽음 표시
+                  </button>
+                `}
                 ${readerNames.length > 0 ? readerNames.map(name => `<span class="announcement-reader-tag">${escapeHtml(name)}</span>`).join('') : '<span style="font-size:0.75rem;color:rgba(255,255,255,0.6);">아직 읽은 사람 없음</span>'}
               </div>
             </div>
@@ -2757,6 +2778,7 @@
           </div>
         `;
       }).join('');
+      setTimeout(populateAnnSelects, 100);
     }
 
     async function submitAnnouncement() {
@@ -2798,12 +2820,37 @@
       }
     }
 
-    async function markAnnouncementRead(id, btn) {
-      const userName = localStorage.getItem('knockdog_user');
+    function saveAnnUser(select) {
+      if (select.value) {
+        localStorage.setItem('knockdog_user', select.value);
+      }
+    }
+
+    function populateAnnSelects() {
+      const selects = document.querySelectorAll('.announcement-name-select');
+      const memberNames = Array.from(document.querySelectorAll('.member-card h3')).map(h => h.textContent.trim());
+      const savedUser = localStorage.getItem('knockdog_user') || '';
+      
+      selects.forEach(select => {
+        if (select.options.length > 1) return;
+        memberNames.forEach(name => {
+          const opt = document.createElement('option');
+          opt.value = name;
+          opt.textContent = name;
+          select.appendChild(opt);
+        });
+        if (savedUser) select.value = savedUser;
+      });
+    }
+
+    async function markAnnouncementRead(id) {
+      const select = document.getElementById(`annReadSelect_${id}`);
+      const userName = select ? select.value : localStorage.getItem('knockdog_user');
       if (!userName) {
-        alert('먼저 데일리 작성 탭에서 사용자를 선택해주세요.');
+        alert('이름을 선택해주세요.');
         return;
       }
+      localStorage.setItem('knockdog_user', userName);
       try {
         const res = await fetch(`/api/announcements/${id}/read`, {
           method: 'POST',
