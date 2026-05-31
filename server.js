@@ -98,6 +98,22 @@ async function initDatabase() {
         UNIQUE(announcement_id, user_name)
       )
     `);
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS checkins (
+        id SERIAL PRIMARY KEY,
+        check_date DATE NOT NULL DEFAULT CURRENT_DATE,
+        user_name VARCHAR(100) NOT NULL,
+        start_time VARCHAR(5),
+        end_time VARCHAR(5),
+        work_mode VARCHAR(20) DEFAULT 'office',
+        tasks TEXT,
+        blockers TEXT,
+        mood VARCHAR(20),
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        UNIQUE(check_date, user_name)
+      )
+    `);
     console.log("Database initialized");
   } catch (err) {
     console.error("Database init error:", err.message);
@@ -105,6 +121,34 @@ async function initDatabase() {
 }
 
 initDatabase();
+
+const todayKST = () => {
+  const kst = new Date(Date.now() + 9 * 60 * 60 * 1000);
+  return kst.toISOString().slice(0, 10);
+};
+function getWeekRange(weekStartParam) {
+  let monday;
+  if (weekStartParam) {
+    monday = new Date(weekStartParam + "T00:00:00Z");
+  } else {
+    monday = new Date(Date.now() + 9 * 60 * 60 * 1000);
+    const day = monday.getUTCDay();
+    const diff = (day + 6) % 7;
+    monday.setUTCDate(monday.getUTCDate() - diff);
+  }
+  monday.setUTCHours(0, 0, 0, 0);
+  const dates = [];
+  for (let i = 0; i < 7; i++) {
+    const d = new Date(monday);
+    d.setUTCDate(monday.getUTCDate() + i);
+    dates.push(d.toISOString().slice(0, 10));
+  }
+  return {
+    weekStart: monday.toISOString().slice(0, 10),
+    weekEnd: dates[6],
+    dates,
+  };
+}
 
 const BOT_TOKEN = process.env.BOT_TOKEN;
 const FORUM_CHANNEL_ID = process.env.FORUM_CHANNEL_ID;
@@ -382,6 +426,129 @@ async function generateReport() {
 }
 
 app.use(express.static(path.join(__dirname, "public")));
+
+app.post("/api/checkin", async (req, res) => {
+  try {
+    const { userName, startTime, endTime, tasks, blockers } = req.body || {};
+
+    if (!userName || !startTime || !endTime) {
+      return res
+        .status(400)
+        .json({ error: "userName, startTime, endTime required" });
+    }
+
+    const date = todayKST();
+    const payload = {
+      userName,
+      startTime,
+      endTime,
+      tasks: tasks || "",
+      blockers: blockers || "",
+      updatedAt: new Date().toISOString(),
+    };
+
+    await pool.query(
+      `INSERT INTO checkins
+        (check_date, user_name, start_time, end_time, tasks, blockers)
+       VALUES (CURRENT_DATE, $1, $2, $3, $4, $5)
+       ON CONFLICT (check_date, user_name) DO UPDATE SET
+         start_time = EXCLUDED.start_time,
+         end_time = EXCLUDED.end_time,
+         tasks = EXCLUDED.tasks,
+         blockers = EXCLUDED.blockers,
+         updated_at = CURRENT_TIMESTAMP`,
+      [userName, startTime, endTime, payload.tasks, payload.blockers]
+    );
+
+    res.json({ success: true, checkDate: date, checkin: payload });
+  } catch (err) {
+    console.error("Checkin error:", err.message);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.get("/api/checkin/today", async (req, res) => {
+  try {
+    const result = await pool.query(
+      `SELECT user_name, start_time, end_time, tasks, blockers, updated_at
+       FROM checkins WHERE check_date = CURRENT_DATE ORDER BY updated_at DESC`
+    );
+    res.json({
+      checkDate: todayKST(),
+      checkins: result.rows.map((r) => ({
+        userName: r.user_name,
+        startTime: r.start_time,
+        endTime: r.end_time,
+        tasks: r.tasks,
+        blockers: r.blockers,
+        updatedAt: r.updated_at,
+      })),
+    });
+  } catch (err) {
+    console.error("Checkin today error:", err.message);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.get("/api/checkin/me", async (req, res) => {
+  const userName = (req.query.userName || "").toString();
+  if (!userName) return res.json({ checkin: null });
+  try {
+    const result = await pool.query(
+      `SELECT user_name, start_time, end_time, tasks, blockers, updated_at
+       FROM checkins WHERE check_date = CURRENT_DATE AND user_name = $1`,
+      [userName]
+    );
+    if (!result.rows.length) return res.json({ checkin: null });
+    const r = result.rows[0];
+    res.json({
+      checkin: {
+        userName: r.user_name,
+        startTime: r.start_time,
+        endTime: r.end_time,
+        tasks: r.tasks,
+        blockers: r.blockers,
+        updatedAt: r.updated_at,
+      },
+    });
+  } catch (err) {
+    console.error("Checkin me error:", err.message);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.get("/api/checkin/week", async (req, res) => {
+  const { weekStart, weekEnd, dates } = getWeekRange(req.query.weekStart);
+  try {
+    const result = await pool.query(
+      `SELECT user_name, check_date, start_time, end_time
+       FROM checkins
+       WHERE check_date BETWEEN $1 AND $2
+       ORDER BY user_name, check_date`,
+      [weekStart, weekEnd]
+    );
+    const byUser = new Map();
+    for (const row of result.rows) {
+      const dateStr =
+        row.check_date instanceof Date
+          ? row.check_date.toISOString().slice(0, 10)
+          : String(row.check_date).slice(0, 10);
+      if (!byUser.has(row.user_name)) byUser.set(row.user_name, []);
+      byUser.get(row.user_name).push({
+        date: dateStr,
+        startTime: row.start_time,
+        endTime: row.end_time,
+      });
+    }
+    const users = [...byUser.entries()]
+      .map(([userName, entries]) => ({ userName, entries }))
+      .sort((a, b) => b.entries.length - a.entries.length);
+    res.json({ weekStart, weekEnd, dates, users });
+  } catch (err) {
+    console.error("Checkin week error:", err.message);
+    res.status(500).json({ error: err.message });
+  }
+});
 
 app.get("/api/sync-data", async (req, res) => {
   try {
@@ -1044,6 +1211,95 @@ cron.schedule(
   },
   { timezone: "Asia/Seoul" }
 );
+
+/* -------------------- Check-in reminder -------------------- */
+
+const REMINDER_CHANNEL_ID =
+  process.env.CHECKIN_REMINDER_CHANNEL_ID || REPORT_CHANNEL_ID;
+const REMINDER_CRON = process.env.CHECKIN_REMINDER_CRON || "30 10 * * 1-5";
+
+function normalizeName(s) {
+  return String(s || "").trim().toLowerCase();
+}
+
+async function getCheckedInNamesToday() {
+  const result = await pool.query(
+    `SELECT user_name FROM checkins WHERE check_date = CURRENT_DATE`
+  );
+  return new Set(result.rows.map((r) => normalizeName(r.user_name)));
+}
+
+async function computeMissingMembers() {
+  if (!client.isReady()) throw new Error("Bot not connected");
+  if (!CORE_ROLE_ID) throw new Error("CORE_ROLE_ID not configured");
+
+  const guild = await getGuild();
+  if (!guild) throw new Error("Guild not found");
+  await fetchMembersWithCache(guild);
+
+  const coreMembers = guild.members.cache.filter(
+    (m) => !m.user.bot && m.roles.cache.has(CORE_ROLE_ID)
+  );
+  const checkedIn = await getCheckedInNamesToday();
+
+  const missing = [];
+  for (const member of coreMembers.values()) {
+    if (!checkedIn.has(normalizeName(member.displayName))) {
+      missing.push({ id: member.id, displayName: member.displayName });
+    }
+  }
+  return { date: todayKST(), totalCore: coreMembers.size, missing };
+}
+
+async function sendCheckinReminder() {
+  const date = todayKST();
+  // Skip weekends (cron already restricts but safe-guard manual runs)
+  const dow = new Date(Date.now() + 9 * 60 * 60 * 1000).getUTCDay();
+  if (dow === 0 || dow === 6) {
+    return { skipped: true, reason: "weekend", date };
+  }
+
+  const { totalCore, missing } = await computeMissingMembers();
+  if (!REMINDER_CHANNEL_ID) {
+    return { sent: false, reason: "REMINDER_CHANNEL_ID not set", missing };
+  }
+  if (!missing.length) {
+    return { sent: false, reason: "all checked in", totalCore, missing };
+  }
+
+  const publicUrl = process.env.PUBLIC_URL || `http://localhost:${PORT}/`;
+  const mentions = missing.map((m) => `<@${m.id}>`).join(" ");
+  const message =
+    `☀️ 아침 체크인 리마인더 — ${date}\n` +
+    `아직 체크인 안 한 분: ${mentions}\n` +
+    `오늘 작업 시간 / 할 일 / 블락커를 30초만 남겨주세요 → ${publicUrl}`;
+
+  const channel = await client.channels.fetch(REMINDER_CHANNEL_ID);
+  if (channel?.isTextBased()) {
+    await channel.send(message);
+  }
+  return { sent: true, totalCore, missing };
+}
+
+cron.schedule(REMINDER_CRON, sendCheckinReminder, { timezone: "Asia/Seoul" });
+
+app.get("/api/checkin/missing", async (req, res) => {
+  try {
+    const data = await computeMissingMembers();
+    res.json({ success: true, ...data });
+  } catch (err) {
+    res.status(503).json({ success: false, error: err.message });
+  }
+});
+
+app.post("/api/reminder/run", async (req, res) => {
+  try {
+    const result = await sendCheckinReminder();
+    res.json({ success: true, ...result });
+  } catch (err) {
+    res.status(503).json({ success: false, error: err.message });
+  }
+});
 
 app.listen(PORT, "0.0.0.0", () => {
   console.log(`Dashboard running at http://0.0.0.0:${PORT}`);
