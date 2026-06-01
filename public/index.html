@@ -262,101 +262,15 @@
       border-color: var(--accent);
     }
 
-    /* Todo list */
-    .todo-list {
-      display: flex; flex-direction: column; gap: 8px;
-      margin-bottom: 8px;
-    }
-    .todo-row {
-      display: grid;
-      grid-template-columns: 130px 1fr auto;
-      gap: 8px;
-      align-items: center;
-      padding: 8px 10px;
-      background: #fffdfa;
-      border: 1.5px solid #ecdbc1;
-      border-radius: 12px;
-      transition: border-color .15s, background .15s;
-    }
-    .todo-row:focus-within {
-      border-color: var(--accent);
-      background: #fff;
-    }
-    .todo-jira {
-      width: 100%;
-      padding: 6px 8px;
-      border-radius: 8px;
-      border: 1px solid transparent;
-      background: #faf3e6;
-      font: inherit;
-      font-family: 'SF Mono', Menlo, Consolas, monospace;
-      font-size: 0.82rem;
-      color: var(--accent-strong);
-      font-weight: 600;
-      letter-spacing: 0.02em;
-      text-transform: uppercase;
-    }
-    .todo-jira::placeholder { color: #c8a981; text-transform: none; font-weight: 500; }
-    .todo-jira:focus { outline: none; background: #fff; border-color: var(--accent); }
-    .todo-desc {
-      width: 100%;
-      padding: 6px 8px;
-      border-radius: 8px;
-      border: 1px solid transparent;
-      background: transparent;
-      font: inherit;
+    /* Team board task rendering */
+    .team-tasks {
+      font-size: 0.88rem;
+      line-height: 1.55;
+      white-space: pre-wrap;
       color: var(--ink);
     }
-    .todo-desc:focus { outline: none; background: #fff; border-color: var(--accent); }
-    .todo-remove {
-      width: 28px; height: 28px;
-      border-radius: 8px;
-      border: none; cursor: pointer;
-      background: transparent;
-      color: var(--ink-mute);
-      font-size: 1.1rem;
-      transition: background .15s, color .15s;
-    }
-    .todo-remove:hover { background: #fde7e7; color: #dc2626; }
-    .todo-add {
-      display: inline-flex; align-items: center; gap: 6px;
-      padding: 8px 14px;
-      background: #fef6e7;
-      border: 1.5px dashed #f59e0b80;
-      color: var(--accent-strong);
-      border-radius: 12px;
-      font: inherit; font-weight: 600; font-size: 0.88rem;
-      cursor: pointer;
-      transition: background .15s, transform .15s;
-    }
-    .todo-add:hover { background: #fde7c8; transform: translateY(-1px); }
-    .todo-empty {
-      padding: 14px 12px;
-      text-align: center;
-      color: var(--ink-mute);
-      font-size: 0.88rem;
-      background: #fffaf2;
-      border: 1px dashed #f1ddc4;
-      border-radius: 10px;
-    }
-    @media (max-width: 520px) {
-      .todo-row { grid-template-columns: 100px 1fr auto; }
-    }
-
-    /* Team board todo rendering */
-    .team-todos { display: flex; flex-direction: column; gap: 4px; }
-    .team-todo-item {
-      display: flex; align-items: center; gap: 8px;
-      font-size: 0.86rem;
-      line-height: 1.45;
-    }
-    .team-todo-item::before {
-      content: "•";
-      color: var(--accent);
-      flex-shrink: 0;
-      font-weight: 700;
-    }
-    .team-todo-item .jira {
+    .team-tasks .jira {
+      display: inline-block;
       font-family: 'SF Mono', Menlo, Consolas, monospace;
       font-size: 0.74rem;
       color: var(--accent-strong);
@@ -364,6 +278,7 @@
       padding: 1px 6px;
       border-radius: 4px;
       font-weight: 600;
+      margin-right: 2px;
     }
 
     .submit-row {
@@ -626,27 +541,28 @@
       <div class="field">
         <label class="field-label">
           오늘 작업 시간
-          <span class="hint">예상 시작·종료 시간을 입력해주세요</span>
+          <span class="hint">형식: 10:00-19:00 (또는 10-19, 10:30~19:30)</span>
         </label>
-        <div class="row cols-2">
-          <input class="input" id="startTime" type="time" value="10:00" />
-          <input class="input" id="endTime" type="time" value="19:00" />
-        </div>
+        <input class="input" id="workHours" type="text" placeholder="10:00-19:00" autocomplete="off" />
         <div class="presets" id="timePresets">
-          <button class="preset" type="button" data-start="09:00" data-end="18:00">9 – 18</button>
-          <button class="preset" type="button" data-start="10:00" data-end="19:00">10 – 19</button>
-          <button class="preset" type="button" data-start="10:30" data-end="19:30">10:30 – 19:30</button>
-          <button class="preset" type="button" data-start="13:00" data-end="22:00">오후 시작</button>
+          <button class="preset" type="button" data-hours="09:00-18:00">9-18</button>
+          <button class="preset" type="button" data-hours="10:00-19:00">10-19</button>
+          <button class="preset" type="button" data-hours="10:30-19:30">10:30-19:30</button>
+          <button class="preset" type="button" data-hours="13:00-22:00">오후 시작</button>
         </div>
       </div>
 
       <div class="field">
         <label class="field-label">
-          오늘 할 일 (Todo)
-          <span class="hint">Jira 티켓 + 짧은 설명으로 적어주세요</span>
+          오늘 할 일
+          <span class="hint">자유롭게 작성. Jira 티켓이 있으면 키를 같이 적어주세요 (예: KDQA-1234)</span>
         </label>
-        <div class="todo-list" id="todoList"></div>
-        <button class="todo-add" type="button" id="todoAddBtn">+ 항목 추가</button>
+        <textarea
+          class="textarea"
+          id="tasks"
+          placeholder="KDQA-1234 결제 모듈 PR 리뷰&#10;디자인 싱크 참여&#10;1on1 준비"
+          style="min-height: 130px;"
+        ></textarea>
       </div>
 
       <div class="field">
@@ -732,83 +648,30 @@
 
     /* ---------------- State ---------------- */
     const STORAGE_USER = "knockdog_user";
-    let todos = [{ jira: "", desc: "" }];
 
-    /* ---------------- Todos ---------------- */
-    const todoListEl = document.getElementById("todoList");
-
-    function renderTodos() {
-      if (!todos.length) {
-        todoListEl.innerHTML = `<div class="todo-empty">아직 항목이 없어요. "+ 항목 추가"를 눌러 시작하세요.</div>`;
-        return;
-      }
-      todoListEl.innerHTML = todos
-        .map(
-          (t, i) => `
-          <div class="todo-row" data-i="${i}">
-            <input class="todo-jira" data-action="jira" placeholder="KDQA-1234" value="${esc(t.jira)}" />
-            <input class="todo-desc" data-action="desc" placeholder="짧은 설명 (예: 결제 모듈 PR 리뷰)" value="${esc(t.desc)}" />
-            <button class="todo-remove" data-action="remove" type="button" title="삭제">×</button>
-          </div>`
-        )
-        .join("");
+    /* ---------------- Time parsing ---------------- */
+    const TIME_RANGE_RE = /^\s*(\d{1,2})(?::(\d{2}))?\s*[-~–—]\s*(\d{1,2})(?::(\d{2}))?\s*$/;
+    function parseWorkHours(text) {
+      const m = (text || "").match(TIME_RANGE_RE);
+      if (!m) return null;
+      const sh = Number(m[1]);
+      const sm = Number(m[2] || 0);
+      const eh = Number(m[3]);
+      const em = Number(m[4] || 0);
+      if (sh > 24 || eh > 24 || sm > 59 || em > 59) return null;
+      const pad = (n) => String(n).padStart(2, "0");
+      return { startTime: `${pad(sh)}:${pad(sm)}`, endTime: `${pad(eh)}:${pad(em)}` };
     }
-
-    todoListEl.addEventListener("click", (e) => {
-      const row = e.target.closest(".todo-row");
-      if (!row) return;
-      const i = Number(row.dataset.i);
-      if (e.target.dataset.action === "remove") {
-        todos.splice(i, 1);
-        renderTodos();
-      }
-    });
-
-    todoListEl.addEventListener("input", (e) => {
-      const row = e.target.closest(".todo-row");
-      if (!row) return;
-      const i = Number(row.dataset.i);
-      const action = e.target.dataset.action;
-      if (action === "jira") {
-        todos[i].jira = e.target.value.trim().toUpperCase();
-      } else if (action === "desc") {
-        todos[i].desc = e.target.value;
-      }
-    });
-
-    document.getElementById("todoAddBtn").addEventListener("click", () => {
-      todos.push({ jira: "", desc: "" });
-      renderTodos();
-      const inputs = todoListEl.querySelectorAll(".todo-jira");
-      const last = inputs[inputs.length - 1];
-      if (last) last.focus();
-    });
-
-    function serializeTodos(items) {
-      return items
-        .filter((t) => t.jira || t.desc)
-        .map((t) => (t.jira ? `${t.jira} ${t.desc}`.trimEnd() : t.desc))
-        .join("\n");
+    function formatRange(startTime, endTime) {
+      if (!startTime && !endTime) return "";
+      return `${startTime || ""}-${endTime || ""}`;
     }
-
-    function parseTodos(text) {
-      if (!text) return [];
-      const lines = text.split(/\r?\n/).map((s) => s.trim()).filter(Boolean);
-      const re = /^(?:\[[ xX]\]\s*)?(?:([A-Z][A-Z0-9]+-\d+)\s+)?(.*)$/;
-      return lines.map((line) => {
-        const m = line.match(re);
-        return m ? { jira: m[1] || "", desc: m[2] || "" } : { jira: "", desc: line };
-      });
-    }
-
-    renderTodos();
 
     /* ---------------- Time presets ---------------- */
     document.getElementById("timePresets").addEventListener("click", (e) => {
       const btn = e.target.closest(".preset");
       if (!btn) return;
-      document.getElementById("startTime").value = btn.dataset.start;
-      document.getElementById("endTime").value = btn.dataset.end;
+      document.getElementById("workHours").value = btn.dataset.hours;
     });
 
     /* ---------------- Username persistence ---------------- */
@@ -833,13 +696,9 @@
         const data = await r.json();
         if (!data.checkin) return;
         const c = data.checkin;
-        if (c.startTime) document.getElementById("startTime").value = c.startTime;
-        if (c.endTime) document.getElementById("endTime").value = c.endTime;
-        if (c.tasks) {
-          const parsed = parseTodos(c.tasks);
-          todos = parsed.length ? parsed : todos;
-          renderTodos();
-        }
+        const range = formatRange(c.startTime, c.endTime);
+        if (range) document.getElementById("workHours").value = range;
+        if (c.tasks) document.getElementById("tasks").value = c.tasks;
         if (c.blockers) document.getElementById("blockers").value = c.blockers;
         markSaved("오늘 이미 체크인했어요. 수정 가능합니다.");
       } catch (e) { /* silent */ }
@@ -849,13 +708,18 @@
     const submitBtn = document.getElementById("submitBtn");
     submitBtn.addEventListener("click", async () => {
       const userName = userInput.value.trim();
-      const startTime = document.getElementById("startTime").value;
-      const endTime = document.getElementById("endTime").value;
-      const tasks = serializeTodos(todos);
+      const workHoursEl = document.getElementById("workHours");
+      const tasks = document.getElementById("tasks").value.trim();
       const blockers = document.getElementById("blockers").value.trim();
 
       if (!userName) { toast("이름을 입력해주세요"); userInput.focus(); return; }
-      if (!startTime || !endTime) { toast("작업 시간을 입력해주세요"); return; }
+      const parsed = parseWorkHours(workHoursEl.value);
+      if (!parsed) {
+        toast("작업 시간 형식을 확인해주세요 (예: 10:00-19:00)");
+        workHoursEl.focus();
+        return;
+      }
+      const { startTime, endTime } = parsed;
 
       localStorage.setItem(STORAGE_USER, userName);
       submitBtn.disabled = true;
@@ -902,6 +766,12 @@
         "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;",
       })[c]);
     }
+    function highlightJira(text) {
+      return esc(text).replace(
+        /\b([A-Z][A-Z0-9]+-\d+)\b/g,
+        '<span class="jira">$1</span>'
+      );
+    }
     async function loadBoard() {
       const board = document.getElementById("teamBoard");
       board.innerHTML = `<div class="empty">불러오는 중...</div>`;
@@ -916,17 +786,8 @@
         }
         board.innerHTML = `<div class="board-grid">${list
           .map((c) => {
-            const items = parseTodos(c.tasks || "");
-            const todoHtml = items.length
-              ? `<div class="team-todos">${items
-                  .map(
-                    (t) => `
-                    <div class="team-todo-item">
-                      ${t.jira ? `<span class="jira">${esc(t.jira)}</span>` : ""}
-                      <span class="text">${esc(t.desc)}</span>
-                    </div>`
-                  )
-                  .join("")}</div>`
+            const tasksHtml = c.tasks
+              ? `<div class="team-tasks">${highlightJira(c.tasks)}</div>`
               : "";
             return `
             <div class="team-card">
@@ -934,10 +795,10 @@
                 <span class="team-name">${esc(c.userName)}</span>
                 <span class="team-time">${esc(c.startTime || "")} – ${esc(c.endTime || "")}</span>
               </div>
-              ${todoHtml ? `
+              ${tasksHtml ? `
                 <div class="team-section">
-                  <div class="team-section-label">Todo</div>
-                  ${todoHtml}
+                  <div class="team-section-label">오늘 할 일</div>
+                  ${tasksHtml}
                 </div>` : ""}
               ${c.blockers ? `
                 <div class="team-section">
