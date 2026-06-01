@@ -425,6 +425,68 @@
       font-weight: 600;
       white-space: nowrap;
     }
+    .week-table tr.mine td:first-child {
+      color: var(--accent-strong);
+      font-weight: 700;
+    }
+    .week-table tr.mine td.day-cell { cursor: pointer; }
+    .week-table tr.mine td.day-cell:hover .day-mark {
+      transform: scale(1.08);
+      box-shadow: 0 0 0 2px var(--accent-soft);
+    }
+    .day-mark { transition: transform .12s ease, box-shadow .12s ease; }
+
+    /* Date chips for form */
+    .date-chips {
+      display: flex; flex-wrap: wrap; gap: 6px;
+      margin-bottom: 10px;
+    }
+    .date-chip {
+      display: inline-flex; flex-direction: column; align-items: center;
+      gap: 0;
+      padding: 8px 12px; min-width: 56px;
+      border: 1.5px solid #ecdbc1;
+      background: #faf6f0;
+      border-radius: 12px;
+      cursor: pointer;
+      font: inherit;
+      transition: all .15s ease;
+    }
+    .date-chip .lbl {
+      font-size: 0.7rem;
+      color: var(--ink-mute);
+      font-weight: 600;
+      letter-spacing: 0.02em;
+      text-transform: uppercase;
+    }
+    .date-chip .val {
+      font-size: 0.95rem;
+      font-weight: 700;
+      color: var(--ink);
+      font-variant-numeric: tabular-nums;
+    }
+    .date-chip:hover { background: #fff; transform: translateY(-1px); }
+    .date-chip.active {
+      background: linear-gradient(135deg, #ffedd5, #fed7aa);
+      border-color: var(--accent);
+      box-shadow: 0 4px 12px rgba(245, 158, 11, 0.18);
+    }
+    .date-chip.active .lbl { color: var(--accent-strong); }
+    .date-chip.future .val::after { content: " ›"; color: var(--accent-strong); }
+    .date-picker-row {
+      display: flex; gap: 8px; align-items: center; margin-top: 6px;
+    }
+    .date-picker-row input[type="date"] {
+      padding: 8px 10px;
+      border-radius: 10px;
+      border: 1.5px solid #ecdbc1;
+      background: #fffdfa;
+      font: inherit;
+    }
+    .date-picker-row input[type="date"]:focus {
+      outline: none; border-color: var(--accent);
+      box-shadow: 0 0 0 3px rgba(245, 158, 11, 0.15);
+    }
     .week-meta {
       display: flex; gap: 12px; align-items: center; flex-wrap: wrap;
       font-size: 0.85rem; color: var(--ink-soft);
@@ -524,10 +586,22 @@
     </section>
 
     <!-- Check-in form -->
-    <section class="checkin-card">
+    <section class="checkin-card" id="checkinCard">
       <div class="checkin-head">
-        <h2>오늘의 체크인</h2>
+        <h2 id="formTitle">오늘의 체크인</h2>
         <span class="badge" id="todayBadge">—</span>
+      </div>
+
+      <div class="field">
+        <label class="field-label">
+          체크인 날짜
+          <span class="hint">미래 날짜를 미리 입력하거나 지난 날짜를 수정할 수 있어요</span>
+        </label>
+        <div class="date-chips" id="dateChips"></div>
+        <div class="date-picker-row">
+          <input class="input" id="datePicker" type="date" style="max-width:170px;" />
+          <span class="hint" style="color:var(--ink-mute);">직접 선택</span>
+        </div>
       </div>
 
       <div class="field">
@@ -648,6 +722,90 @@
 
     /* ---------------- State ---------------- */
     const STORAGE_USER = "knockdog_user";
+    const DOW_NAMES = ["일", "월", "화", "수", "목", "금", "토"]; // JS getUTCDay-indexed
+    let selectedDate = todayKSTStr(); // YYYY-MM-DD
+
+    function todayKSTStr() {
+      const kst = new Date(Date.now() + 9 * 60 * 60 * 1000);
+      return kst.toISOString().slice(0, 10);
+    }
+    function addDaysISO(iso, days) {
+      const d = new Date(iso + "T00:00:00Z");
+      d.setUTCDate(d.getUTCDate() + days);
+      return d.toISOString().slice(0, 10);
+    }
+    function dowOf(iso) {
+      const d = new Date(iso + "T00:00:00Z");
+      return DOW_NAMES[d.getUTCDay()];
+    }
+    function shortDate(iso) {
+      return iso.slice(5).replace("-", "/"); // 06/01
+    }
+
+    /* ---------------- Date chips ---------------- */
+    function renderDateChips() {
+      const today = todayKSTStr();
+      const chips = [
+        { iso: today, label: "오늘" },
+        { iso: addDaysISO(today, 1), label: "내일" },
+        { iso: addDaysISO(today, 2), label: dowOf(addDaysISO(today, 2)) },
+        { iso: addDaysISO(today, 3), label: dowOf(addDaysISO(today, 3)) },
+        { iso: addDaysISO(today, 4), label: dowOf(addDaysISO(today, 4)) },
+        { iso: addDaysISO(today, 5), label: dowOf(addDaysISO(today, 5)) },
+        { iso: addDaysISO(today, 6), label: dowOf(addDaysISO(today, 6)) },
+      ];
+      const el = document.getElementById("dateChips");
+      el.innerHTML = chips
+        .map((c) => {
+          const active = c.iso === selectedDate ? "active" : "";
+          const future = c.iso > today ? "future" : "";
+          return `<button type="button" class="date-chip ${active} ${future}" data-iso="${c.iso}">
+            <span class="lbl">${c.label}</span>
+            <span class="val">${shortDate(c.iso)}</span>
+          </button>`;
+        })
+        .join("");
+      document.getElementById("datePicker").value = selectedDate;
+      updateFormHeader();
+    }
+    function updateFormHeader() {
+      const today = todayKSTStr();
+      const titleEl = document.getElementById("formTitle");
+      const submitEl = document.getElementById("submitBtn");
+      if (selectedDate === today) {
+        titleEl.textContent = "오늘의 체크인";
+        submitEl.textContent = "오늘 체크인 ✨";
+      } else if (selectedDate > today) {
+        titleEl.textContent = `${selectedDate} 미리 체크인`;
+        submitEl.textContent = `${shortDate(selectedDate)} 저장`;
+      } else {
+        titleEl.textContent = `${selectedDate} 체크인 수정`;
+        submitEl.textContent = `${shortDate(selectedDate)} 저장`;
+      }
+    }
+    document.getElementById("dateChips").addEventListener("click", (e) => {
+      const btn = e.target.closest(".date-chip");
+      if (!btn) return;
+      changeDate(btn.dataset.iso);
+    });
+    document.getElementById("datePicker").addEventListener("change", (e) => {
+      if (e.target.value) changeDate(e.target.value);
+    });
+    function changeDate(iso) {
+      selectedDate = iso;
+      renderDateChips();
+      clearFormBody();
+      const name = document.getElementById("userName").value.trim();
+      if (name) prefillFromServer(name);
+    }
+    function clearFormBody() {
+      document.getElementById("workHours").value = "";
+      document.getElementById("tasks").value = "";
+      document.getElementById("blockers").value = "";
+      const note = document.getElementById("saveNote");
+      note.textContent = "아직 저장되지 않음";
+      note.classList.remove("saved");
+    }
 
     /* ---------------- Time parsing ---------------- */
     const TIME_RANGE_RE = /^\s*(\d{1,2})(?::(\d{2}))?\s*[-~–—]\s*(\d{1,2})(?::(\d{2}))?\s*$/;
@@ -692,15 +850,24 @@
     /* ---------------- Prefill from server ---------------- */
     async function prefillFromServer(userName) {
       try {
-        const r = await fetch(`/api/checkin/me?userName=${encodeURIComponent(userName)}`);
+        const r = await fetch(
+          `/api/checkin/me?userName=${encodeURIComponent(userName)}&date=${selectedDate}`
+        );
         const data = await r.json();
         if (!data.checkin) return;
         const c = data.checkin;
         const range = formatRange(c.startTime, c.endTime);
         if (range) document.getElementById("workHours").value = range;
-        if (c.tasks) document.getElementById("tasks").value = c.tasks;
-        if (c.blockers) document.getElementById("blockers").value = c.blockers;
-        markSaved("오늘 이미 체크인했어요. 수정 가능합니다.");
+        document.getElementById("tasks").value = c.tasks || "";
+        document.getElementById("blockers").value = c.blockers || "";
+        const today = todayKSTStr();
+        const label =
+          selectedDate === today
+            ? "오늘 이미 체크인했어요. 수정 가능합니다."
+            : selectedDate > today
+            ? `${selectedDate} 입력해둔 내용이 있어요. 수정 가능합니다.`
+            : `${selectedDate} 체크인 내용입니다. 수정 가능합니다.`;
+        markSaved(label);
       } catch (e) { /* silent */ }
     }
 
@@ -729,10 +896,18 @@
         const r = await fetch("/api/checkin", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ userName, startTime, endTime, tasks, blockers }),
+          body: JSON.stringify({
+            userName, startTime, endTime, tasks, blockers,
+            checkDate: selectedDate,
+          }),
         });
         if (!r.ok) throw new Error((await r.json()).error || "fail");
-        toast("체크인 완료! 좋은 하루 보내세요 ☀️");
+        const today = todayKSTStr();
+        toast(
+          selectedDate === today
+            ? "체크인 완료! 좋은 하루 보내세요 ☀️"
+            : `${selectedDate} 저장 완료 ✨`
+        );
         markSaved(`${new Date().toLocaleTimeString("ko-KR")} 에 저장됨`);
         loadBoard();
         loadWeek();
@@ -740,7 +915,7 @@
         toast("저장 실패: " + e.message);
       } finally {
         submitBtn.disabled = false;
-        submitBtn.textContent = "오늘 체크인 ✨";
+        updateFormHeader();
       }
     });
 
@@ -865,8 +1040,10 @@
           return;
         }
 
+        const myName = (localStorage.getItem(STORAGE_USER) || "").trim().toLowerCase();
         const body = users
           .map((u) => {
+            const isMine = myName && u.userName.trim().toLowerCase() === myName;
             const dateSet = new Set(u.entries.map((e) => e.date));
             const cells = dates
               .map((d, i) => {
@@ -877,16 +1054,20 @@
                 const dom = d.slice(8);
                 const tip = entry
                   ? `${d} · ${entry.startTime || ""}–${entry.endTime || ""}`
+                  : isMine
+                  ? `${d} · 클릭해서 입력`
                   : `${d} · 미체크인`;
-                return `<td class="day-cell ${isToday ? "today" : ""} ${isWeekend ? "weekend" : ""}">
+                return `<td class="day-cell ${isToday ? "today" : ""} ${isWeekend ? "weekend" : ""}" ${
+                  isMine ? `data-iso="${d}"` : ""
+                }>
                   <span class="day-mark ${checked ? "checked" : "miss"}" title="${esc(tip)}">${
                   checked ? dom : "·"
                 }</span>
                 </td>`;
               })
               .join("");
-            return `<tr>
-              <td>${esc(u.userName)}</td>
+            return `<tr class="${isMine ? "mine" : ""}">
+              <td>${esc(u.userName)}${isMine ? " (나)" : ""}</td>
               ${cells}
               <td class="count">${dateSet.size} / ${dates.length}</td>
             </tr>`;
@@ -904,6 +1085,15 @@
         board.innerHTML = `<div class="empty">불러오기 실패: ${esc(e.message)}</div>`;
       }
     }
+    document.getElementById("weekBoard").addEventListener("click", (e) => {
+      const cell = e.target.closest("td.day-cell[data-iso]");
+      if (!cell) return;
+      const iso = cell.dataset.iso;
+      changeDate(iso);
+      document
+        .getElementById("checkinCard")
+        .scrollIntoView({ behavior: "smooth", block: "start" });
+    });
     document.getElementById("weekPrev").addEventListener("click", () => {
       if (!viewWeekStart) return;
       viewWeekStart = shiftWeek(viewWeekStart, -1);
@@ -918,6 +1108,7 @@
       viewWeekStart = null;
       loadWeek();
     });
+    renderDateChips();
     loadWeek();
   </script>
 </body>

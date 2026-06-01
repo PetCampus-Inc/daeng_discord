@@ -429,7 +429,8 @@ app.use(express.static(path.join(__dirname, "public")));
 
 app.post("/api/checkin", async (req, res) => {
   try {
-    const { userName, startTime, endTime, tasks, blockers } = req.body || {};
+    const { userName, startTime, endTime, tasks, blockers, checkDate } =
+      req.body || {};
 
     if (!userName || !startTime || !endTime) {
       return res
@@ -437,7 +438,14 @@ app.post("/api/checkin", async (req, res) => {
         .json({ error: "userName, startTime, endTime required" });
     }
 
-    const date = todayKST();
+    let date = todayKST();
+    if (checkDate) {
+      if (!/^\d{4}-\d{2}-\d{2}$/.test(checkDate)) {
+        return res.status(400).json({ error: "checkDate must be YYYY-MM-DD" });
+      }
+      date = checkDate;
+    }
+
     const payload = {
       userName,
       startTime,
@@ -450,14 +458,14 @@ app.post("/api/checkin", async (req, res) => {
     await pool.query(
       `INSERT INTO checkins
         (check_date, user_name, start_time, end_time, tasks, blockers)
-       VALUES (CURRENT_DATE, $1, $2, $3, $4, $5)
+       VALUES ($1, $2, $3, $4, $5, $6)
        ON CONFLICT (check_date, user_name) DO UPDATE SET
          start_time = EXCLUDED.start_time,
          end_time = EXCLUDED.end_time,
          tasks = EXCLUDED.tasks,
          blockers = EXCLUDED.blockers,
          updated_at = CURRENT_TIMESTAMP`,
-      [userName, startTime, endTime, payload.tasks, payload.blockers]
+      [date, userName, startTime, endTime, payload.tasks, payload.blockers]
     );
 
     res.json({ success: true, checkDate: date, checkin: payload });
@@ -493,15 +501,19 @@ app.get("/api/checkin/today", async (req, res) => {
 app.get("/api/checkin/me", async (req, res) => {
   const userName = (req.query.userName || "").toString();
   if (!userName) return res.json({ checkin: null });
+  const dateParam = (req.query.date || "").toString();
+  const date =
+    dateParam && /^\d{4}-\d{2}-\d{2}$/.test(dateParam) ? dateParam : todayKST();
   try {
     const result = await pool.query(
       `SELECT user_name, start_time, end_time, tasks, blockers, updated_at
-       FROM checkins WHERE check_date = CURRENT_DATE AND user_name = $1`,
-      [userName]
+       FROM checkins WHERE check_date = $1 AND user_name = $2`,
+      [date, userName]
     );
-    if (!result.rows.length) return res.json({ checkin: null });
+    if (!result.rows.length) return res.json({ checkin: null, checkDate: date });
     const r = result.rows[0];
     res.json({
+      checkDate: date,
       checkin: {
         userName: r.user_name,
         startTime: r.start_time,
