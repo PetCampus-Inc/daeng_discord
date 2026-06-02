@@ -585,17 +585,17 @@
       </aside>
     </section>
 
-    <!-- Check-in form -->
-    <section class="checkin-card" id="checkinCard">
+    <!-- Date selector + name (shared) -->
+    <section class="checkin-card" id="dateCard">
       <div class="checkin-head">
-        <h2 id="formTitle">오늘의 체크인</h2>
+        <h2 id="formTitle">오늘</h2>
         <span class="badge" id="todayBadge">—</span>
       </div>
 
       <div class="field">
         <label class="field-label">
-          체크인 날짜
-          <span class="hint">미래 날짜를 미리 입력하거나 지난 날짜를 수정할 수 있어요</span>
+          날짜
+          <span class="hint">미래는 미리, 지난 건 수정 가능</span>
         </label>
         <div class="date-chips" id="dateChips"></div>
         <div class="date-picker-row">
@@ -604,17 +604,25 @@
         </div>
       </div>
 
-      <div class="field">
+      <div class="field" style="margin-bottom:0;">
         <label class="field-label">
           이름
           <span class="hint">한 번 입력하면 다음에도 자동으로 불러와요</span>
         </label>
         <input class="input" id="userName" placeholder="예: 진요" autocomplete="off" />
       </div>
+    </section>
 
-      <div class="field">
+    <!-- Work hours card -->
+    <section class="checkin-card" id="checkinCard" style="margin-top:18px;">
+      <div class="checkin-head">
+        <h2>작업 가능한 시간</h2>
+        <span class="badge" style="background:#e0f2fe; color:#0369a1;">언제든 수정 가능</span>
+      </div>
+
+      <div class="field" style="margin-bottom: 14px;">
         <label class="field-label">
-          오늘 작업 시간
+          시간대
           <span class="hint">형식: 10:00-19:00 (또는 10-19, 10:30~19:30)</span>
         </label>
         <input class="input" id="workHours" type="text" placeholder="10:00-19:00" autocomplete="off" />
@@ -626,10 +634,36 @@
         </div>
       </div>
 
+      <div class="submit-row" style="margin-top:0; padding-top:14px;">
+        <span class="save-note" id="hoursNote">저장 안 됨</span>
+        <button class="submit" id="saveHoursBtn" type="button" style="padding:10px 22px; font-size:0.92rem;">시간 저장</button>
+      </div>
+    </section>
+
+    <!-- Check-in card -->
+    <section class="checkin-card" id="standupCard" style="margin-top:18px;">
+      <div class="checkin-head">
+        <h2 id="standupTitle">오늘 체크인</h2>
+        <span class="badge">출석</span>
+      </div>
+
       <div class="field">
         <label class="field-label">
-          오늘 할 일
-          <span class="hint">자유롭게 작성. Jira 티켓이 있으면 키를 같이 적어주세요 (예: KDQA-1234)</span>
+          한 일
+          <span class="hint">최근(어제·지난 작업 시간)에 완료한 일</span>
+        </label>
+        <textarea
+          class="textarea"
+          id="done"
+          placeholder="KDQA-1101 어드민 검색 필터 마무리&#10;디자인 리뷰 회의"
+          style="min-height: 100px;"
+        ></textarea>
+      </div>
+
+      <div class="field">
+        <label class="field-label">
+          할 일
+          <span class="hint">자유롭게. Jira 티켓이 있으면 키를 같이 (예: KDQA-1234)</span>
         </label>
         <textarea
           class="textarea"
@@ -653,8 +687,8 @@
       </div>
 
       <div class="submit-row">
-        <span class="save-note" id="saveNote">아직 저장되지 않음</span>
-        <button class="submit" id="submitBtn" type="button">오늘 체크인 ✨</button>
+        <span class="save-note" id="saveNote">아직 체크인 안 함</span>
+        <button class="submit" id="submitBtn" type="button">체크인 ✨</button>
       </div>
     </section>
 
@@ -771,15 +805,19 @@
     function updateFormHeader() {
       const today = todayKSTStr();
       const titleEl = document.getElementById("formTitle");
+      const standupEl = document.getElementById("standupTitle");
       const submitEl = document.getElementById("submitBtn");
       if (selectedDate === today) {
-        titleEl.textContent = "오늘의 체크인";
-        submitEl.textContent = "오늘 체크인 ✨";
+        titleEl.textContent = "오늘";
+        standupEl.textContent = "오늘 체크인";
+        submitEl.textContent = "체크인 ✨";
       } else if (selectedDate > today) {
-        titleEl.textContent = `${selectedDate} 미리 체크인`;
+        titleEl.textContent = `${shortDate(selectedDate)} (${dowOf(selectedDate)}) · 미리 입력`;
+        standupEl.textContent = `${shortDate(selectedDate)} 미리 체크인`;
         submitEl.textContent = `${shortDate(selectedDate)} 저장`;
       } else {
-        titleEl.textContent = `${selectedDate} 체크인 수정`;
+        titleEl.textContent = `${shortDate(selectedDate)} (${dowOf(selectedDate)}) · 수정`;
+        standupEl.textContent = `${shortDate(selectedDate)} 체크인 수정`;
         submitEl.textContent = `${shortDate(selectedDate)} 저장`;
       }
     }
@@ -800,11 +838,15 @@
     }
     function clearFormBody() {
       document.getElementById("workHours").value = "";
+      document.getElementById("done").value = "";
       document.getElementById("tasks").value = "";
       document.getElementById("blockers").value = "";
       const note = document.getElementById("saveNote");
-      note.textContent = "아직 저장되지 않음";
+      note.textContent = "아직 체크인 안 함";
       note.classList.remove("saved");
+      const hNote = document.getElementById("hoursNote");
+      hNote.textContent = "저장 안 됨";
+      hNote.classList.remove("saved");
     }
 
     /* ---------------- Time parsing ---------------- */
@@ -857,36 +899,84 @@
         if (!data.checkin) return;
         const c = data.checkin;
         const range = formatRange(c.startTime, c.endTime);
-        if (range) document.getElementById("workHours").value = range;
+        if (range) {
+          document.getElementById("workHours").value = range;
+          markHoursSaved("저장된 시간 불러옴");
+        }
+        document.getElementById("done").value = c.done || "";
         document.getElementById("tasks").value = c.tasks || "";
         document.getElementById("blockers").value = c.blockers || "";
-        const today = todayKSTStr();
-        const label =
-          selectedDate === today
-            ? "오늘 이미 체크인했어요. 수정 가능합니다."
-            : selectedDate > today
-            ? `${selectedDate} 입력해둔 내용이 있어요. 수정 가능합니다.`
-            : `${selectedDate} 체크인 내용입니다. 수정 가능합니다.`;
-        markSaved(label);
+        const hasCheckin = c.done || c.tasks || c.blockers;
+        if (hasCheckin) {
+          const today = todayKSTStr();
+          const label =
+            selectedDate === today
+              ? "오늘 이미 체크인했어요. 수정 가능합니다."
+              : selectedDate > today
+              ? `${selectedDate} 입력해둔 내용이 있어요. 수정 가능합니다.`
+              : `${selectedDate} 체크인 내용입니다. 수정 가능합니다.`;
+          markSaved(label);
+        }
       } catch (e) { /* silent */ }
     }
+    function markHoursSaved(text) {
+      const note = document.getElementById("hoursNote");
+      note.textContent = text;
+      note.classList.add("saved");
+    }
 
-    /* ---------------- Submit ---------------- */
+    /* ---------------- Save work hours ---------------- */
+    const saveHoursBtn = document.getElementById("saveHoursBtn");
+    saveHoursBtn.addEventListener("click", async () => {
+      const userName = userInput.value.trim();
+      const workHoursEl = document.getElementById("workHours");
+      if (!userName) { toast("이름을 입력해주세요"); userInput.focus(); return; }
+      const parsed = parseWorkHours(workHoursEl.value);
+      if (!parsed) {
+        toast("형식을 확인해주세요 (예: 10:00-19:00)");
+        workHoursEl.focus();
+        return;
+      }
+      localStorage.setItem(STORAGE_USER, userName);
+      saveHoursBtn.disabled = true;
+      saveHoursBtn.textContent = "저장 중...";
+      try {
+        const r = await fetch("/api/checkin", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            userName,
+            checkDate: selectedDate,
+            startTime: parsed.startTime,
+            endTime: parsed.endTime,
+          }),
+        });
+        if (!r.ok) throw new Error((await r.json()).error || "fail");
+        toast("작업 시간 저장됨 ⏰");
+        markHoursSaved(`${new Date().toLocaleTimeString("ko-KR")} 에 저장됨`);
+        loadBoard();
+        loadWeek();
+      } catch (e) {
+        toast("저장 실패: " + e.message);
+      } finally {
+        saveHoursBtn.disabled = false;
+        saveHoursBtn.textContent = "시간 저장";
+      }
+    });
+
+    /* ---------------- Submit check-in ---------------- */
     const submitBtn = document.getElementById("submitBtn");
     submitBtn.addEventListener("click", async () => {
       const userName = userInput.value.trim();
-      const workHoursEl = document.getElementById("workHours");
+      const done = document.getElementById("done").value.trim();
       const tasks = document.getElementById("tasks").value.trim();
       const blockers = document.getElementById("blockers").value.trim();
 
       if (!userName) { toast("이름을 입력해주세요"); userInput.focus(); return; }
-      const parsed = parseWorkHours(workHoursEl.value);
-      if (!parsed) {
-        toast("작업 시간 형식을 확인해주세요 (예: 10:00-19:00)");
-        workHoursEl.focus();
+      if (!done && !tasks && !blockers) {
+        toast("한 일 / 할 일 / 블락커 중 하나는 입력해주세요");
         return;
       }
-      const { startTime, endTime } = parsed;
 
       localStorage.setItem(STORAGE_USER, userName);
       submitBtn.disabled = true;
@@ -897,7 +987,7 @@
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
-            userName, startTime, endTime, tasks, blockers,
+            userName, done, tasks, blockers,
             checkDate: selectedDate,
           }),
         });
@@ -961,6 +1051,12 @@
         }
         board.innerHTML = `<div class="board-grid">${list
           .map((c) => {
+            const timeText = (c.startTime || c.endTime)
+              ? `${esc(c.startTime || "")} – ${esc(c.endTime || "")}`
+              : "시간 미정";
+            const doneHtml = c.done
+              ? `<div class="team-tasks">${highlightJira(c.done)}</div>`
+              : "";
             const tasksHtml = c.tasks
               ? `<div class="team-tasks">${highlightJira(c.tasks)}</div>`
               : "";
@@ -968,11 +1064,16 @@
             <div class="team-card">
               <div class="team-head">
                 <span class="team-name">${esc(c.userName)}</span>
-                <span class="team-time">${esc(c.startTime || "")} – ${esc(c.endTime || "")}</span>
+                <span class="team-time">${timeText}</span>
               </div>
+              ${doneHtml ? `
+                <div class="team-section">
+                  <div class="team-section-label">한 일</div>
+                  ${doneHtml}
+                </div>` : ""}
               ${tasksHtml ? `
                 <div class="team-section">
-                  <div class="team-section-label">오늘 할 일</div>
+                  <div class="team-section-label">할 일</div>
                   ${tasksHtml}
                 </div>` : ""}
               ${c.blockers ? `

@@ -114,6 +114,7 @@ async function initDatabase() {
         UNIQUE(check_date, user_name)
       )
     `);
+    await pool.query(`ALTER TABLE checkins ADD COLUMN IF NOT EXISTS done TEXT DEFAULT ''`);
     console.log("Database initialized");
   } catch (err) {
     console.error("Database init error:", err.message);
@@ -429,13 +430,18 @@ app.use(express.static(path.join(__dirname, "public")));
 
 app.post("/api/checkin", async (req, res) => {
   try {
-    const { userName, startTime, endTime, tasks, blockers, checkDate } =
-      req.body || {};
+    const {
+      userName,
+      checkDate,
+      startTime,
+      endTime,
+      done,
+      tasks,
+      blockers,
+    } = req.body || {};
 
-    if (!userName || !startTime || !endTime) {
-      return res
-        .status(400)
-        .json({ error: "userName, startTime, endTime required" });
+    if (!userName) {
+      return res.status(400).json({ error: "userName required" });
     }
 
     let date = todayKST();
@@ -446,29 +452,48 @@ app.post("/api/checkin", async (req, res) => {
       date = checkDate;
     }
 
-    const payload = {
-      userName,
-      startTime,
-      endTime,
-      tasks: tasks || "",
-      blockers: blockers || "",
-      updatedAt: new Date().toISOString(),
-    };
+    const fields = { start_time: startTime, end_time: endTime, done, tasks, blockers };
+    const provided = Object.entries(fields).filter(([, v]) => v !== undefined);
+    if (!provided.length) {
+      return res.status(400).json({ error: "no fields to update" });
+    }
 
     await pool.query(
-      `INSERT INTO checkins
-        (check_date, user_name, start_time, end_time, tasks, blockers)
-       VALUES ($1, $2, $3, $4, $5, $6)
-       ON CONFLICT (check_date, user_name) DO UPDATE SET
-         start_time = EXCLUDED.start_time,
-         end_time = EXCLUDED.end_time,
-         tasks = EXCLUDED.tasks,
-         blockers = EXCLUDED.blockers,
-         updated_at = CURRENT_TIMESTAMP`,
-      [date, userName, startTime, endTime, payload.tasks, payload.blockers]
+      `INSERT INTO checkins (check_date, user_name)
+       VALUES ($1, $2)
+       ON CONFLICT (check_date, user_name) DO NOTHING`,
+      [date, userName]
     );
 
-    res.json({ success: true, checkDate: date, checkin: payload });
+    const setClause = provided
+      .map(([col], i) => `${col} = $${i + 3}`)
+      .join(", ");
+    const params = [date, userName, ...provided.map(([, v]) => v)];
+    await pool.query(
+      `UPDATE checkins SET ${setClause}, updated_at = CURRENT_TIMESTAMP
+       WHERE check_date = $1 AND user_name = $2`,
+      params
+    );
+
+    const result = await pool.query(
+      `SELECT start_time, end_time, done, tasks, blockers, updated_at
+       FROM checkins WHERE check_date = $1 AND user_name = $2`,
+      [date, userName]
+    );
+    const r = result.rows[0] || {};
+    res.json({
+      success: true,
+      checkDate: date,
+      checkin: {
+        userName,
+        startTime: r.start_time || "",
+        endTime: r.end_time || "",
+        done: r.done || "",
+        tasks: r.tasks || "",
+        blockers: r.blockers || "",
+        updatedAt: r.updated_at,
+      },
+    });
   } catch (err) {
     console.error("Checkin error:", err.message);
     res.status(500).json({ error: err.message });
@@ -478,7 +503,7 @@ app.post("/api/checkin", async (req, res) => {
 app.get("/api/checkin/today", async (req, res) => {
   try {
     const result = await pool.query(
-      `SELECT user_name, start_time, end_time, tasks, blockers, updated_at
+      `SELECT user_name, start_time, end_time, done, tasks, blockers, updated_at
        FROM checkins WHERE check_date = CURRENT_DATE ORDER BY updated_at DESC`
     );
     res.json({
@@ -487,6 +512,7 @@ app.get("/api/checkin/today", async (req, res) => {
         userName: r.user_name,
         startTime: r.start_time,
         endTime: r.end_time,
+        done: r.done,
         tasks: r.tasks,
         blockers: r.blockers,
         updatedAt: r.updated_at,
@@ -506,7 +532,7 @@ app.get("/api/checkin/me", async (req, res) => {
     dateParam && /^\d{4}-\d{2}-\d{2}$/.test(dateParam) ? dateParam : todayKST();
   try {
     const result = await pool.query(
-      `SELECT user_name, start_time, end_time, tasks, blockers, updated_at
+      `SELECT user_name, start_time, end_time, done, tasks, blockers, updated_at
        FROM checkins WHERE check_date = $1 AND user_name = $2`,
       [date, userName]
     );
@@ -518,6 +544,7 @@ app.get("/api/checkin/me", async (req, res) => {
         userName: r.user_name,
         startTime: r.start_time,
         endTime: r.end_time,
+        done: r.done,
         tasks: r.tasks,
         blockers: r.blockers,
         updatedAt: r.updated_at,
