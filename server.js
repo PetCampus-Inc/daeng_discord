@@ -119,6 +119,23 @@ async function initDatabase() {
     `);
     await pool.query(`ALTER TABLE checkins ADD COLUMN IF NOT EXISTS done TEXT DEFAULT ''`);
     await pool.query(`ALTER TABLE checkins ADD COLUMN IF NOT EXISTS hours_text TEXT DEFAULT ''`);
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS team_members (
+        id SERIAL PRIMARY KEY,
+        name VARCHAR(100) UNIQUE NOT NULL,
+        archived BOOLEAN DEFAULT FALSE,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      )
+    `);
+    const memberCount = await pool.query(`SELECT COUNT(*) FROM team_members`);
+    if (parseInt(memberCount.rows[0].count, 10) === 0) {
+      for (const name of ["손흥민", "하정우", "민지", "진영"]) {
+        await pool.query(
+          `INSERT INTO team_members (name) VALUES ($1) ON CONFLICT (name) DO NOTHING`,
+          [name]
+        );
+      }
+    }
     console.log("Database initialized");
   } catch (err) {
     console.error("Database init error:", err.message);
@@ -438,6 +455,52 @@ app.get("/api/config", (req, res) => {
   });
 });
 
+app.get("/api/members", async (req, res) => {
+  try {
+    const result = await pool.query(
+      `SELECT name FROM team_members WHERE archived = FALSE ORDER BY id`
+    );
+    res.json({ members: result.rows.map((r) => r.name) });
+  } catch (err) {
+    console.error("Members GET error:", err.message);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.post("/api/members", async (req, res) => {
+  try {
+    const name = (req.body?.name || "").trim();
+    if (!name) return res.status(400).json({ error: "name required" });
+    if (name.length > 100) {
+      return res.status(400).json({ error: "이름이 너무 깁니다 (100자 제한)" });
+    }
+    await pool.query(
+      `INSERT INTO team_members (name) VALUES ($1)
+       ON CONFLICT (name) DO UPDATE SET archived = FALSE`,
+      [name]
+    );
+    res.json({ success: true });
+  } catch (err) {
+    console.error("Members POST error:", err.message);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.delete("/api/members/:name", async (req, res) => {
+  try {
+    const name = decodeURIComponent(req.params.name || "").trim();
+    if (!name) return res.status(400).json({ error: "name required" });
+    await pool.query(
+      `UPDATE team_members SET archived = TRUE WHERE name = $1`,
+      [name]
+    );
+    res.json({ success: true });
+  } catch (err) {
+    console.error("Members DELETE error:", err.message);
+    res.status(500).json({ error: err.message });
+  }
+});
+
 app.post("/api/checkin", async (req, res) => {
   try {
     const {
@@ -532,7 +595,10 @@ app.get("/api/checkin/today", async (req, res) => {
   try {
     const result = await pool.query(
       `SELECT user_name, start_time, end_time, done, tasks, blockers, updated_at
-       FROM checkins WHERE check_date = CURRENT_DATE ORDER BY updated_at DESC`
+       FROM checkins
+       WHERE check_date = CURRENT_DATE
+         AND (COALESCE(done, '') <> '' OR COALESCE(tasks, '') <> '' OR COALESCE(blockers, '') <> '')
+       ORDER BY updated_at DESC`
     );
     res.json({
       checkDate: todayKST(),
@@ -637,7 +703,8 @@ app.get("/api/checkin/week", async (req, res) => {
   const { weekStart, weekEnd, dates } = getWeekRange(req.query.weekStart);
   try {
     const result = await pool.query(
-      `SELECT user_name, check_date, start_time, end_time, hours_text
+      `SELECT user_name, check_date, start_time, end_time, hours_text,
+              (COALESCE(done,'') <> '' OR COALESCE(tasks,'') <> '' OR COALESCE(blockers,'') <> '') AS has_checkin
        FROM checkins
        WHERE check_date BETWEEN $1 AND $2
        ORDER BY user_name, check_date`,
@@ -655,6 +722,7 @@ app.get("/api/checkin/week", async (req, res) => {
         startTime: row.start_time,
         endTime: row.end_time,
         hoursText: row.hours_text,
+        hasCheckin: row.has_checkin,
       });
     }
     const users = [...byUser.entries()]

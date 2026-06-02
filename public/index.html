@@ -326,6 +326,7 @@
       gap: 14px;
     }
     .team-card {
+      position: relative;
       background: #fffaf2;
       border: 1px solid #f3e3c8;
       border-radius: 18px;
@@ -333,6 +334,19 @@
       transition: transform .15s ease, box-shadow .15s ease;
     }
     .team-card:hover { transform: translateY(-2px); box-shadow: var(--shadow-sm); }
+    .team-card.mine { border-color: #fcd9a0; box-shadow: 0 0 0 1px #fcd9a0 inset; }
+    .team-card-delete {
+      position: absolute;
+      top: 10px; right: 10px;
+      width: 24px; height: 24px;
+      border: none; cursor: pointer;
+      background: transparent;
+      color: var(--ink-mute);
+      font-size: 1rem; line-height: 1;
+      border-radius: 6px;
+      transition: background .15s, color .15s;
+    }
+    .team-card-delete:hover { background: #fde7e7; color: #dc2626; }
     .team-head {
       display: flex; align-items: center; justify-content: space-between;
       margin-bottom: 10px;
@@ -474,7 +488,7 @@
     }
     .wh-row {
       display: grid;
-      grid-template-columns: 80px 1fr;
+      grid-template-columns: 80px 1fr 32px;
       gap: 12px;
       align-items: center;
       padding: 8px 10px;
@@ -483,6 +497,17 @@
       border-radius: 12px;
       transition: border-color .15s, background .15s;
     }
+    .wh-clear {
+      width: 28px; height: 28px;
+      border-radius: 8px;
+      border: none; cursor: pointer;
+      background: transparent;
+      color: var(--ink-mute);
+      font-size: 1.1rem; line-height: 1;
+      transition: background .15s, color .15s;
+    }
+    .wh-clear:hover { background: #fde7e7; color: #dc2626; }
+    .wh-clear:disabled { opacity: 0.3; cursor: default; }
     .wh-row.weekend {
       background: #fbf5ea;
       border-style: dashed;
@@ -600,6 +625,112 @@
     .week-nav button:hover { background: #fff; color: var(--ink); }
     .week-nav .label { padding: 4px 8px; font-weight: 600; color: var(--ink); }
 
+    /* Modal */
+    .modal-backdrop {
+      position: fixed; inset: 0;
+      background: rgba(15, 23, 42, 0.45);
+      display: none;
+      align-items: center; justify-content: center;
+      z-index: 100;
+      padding: 20px;
+    }
+    .modal-backdrop.show { display: flex; }
+    .modal-content {
+      background: #fff;
+      border-radius: 22px;
+      padding: 26px 26px 22px;
+      max-width: 520px; width: 100%;
+      max-height: 88vh; overflow-y: auto;
+      box-shadow: 0 30px 80px rgba(15, 23, 42, 0.25);
+    }
+    .modal-content h3 {
+      font-size: 1.15rem; font-weight: 800;
+      margin-bottom: 16px; color: var(--ink);
+    }
+    .modal-content h3 .who {
+      color: var(--accent-strong);
+    }
+    .modal-actions {
+      display: flex; justify-content: flex-end; gap: 8px;
+      margin-top: 18px;
+    }
+    .modal-actions .ghost {
+      padding: 10px 18px;
+      background: #fff;
+      border: 1.5px solid #e2e8f0;
+      color: var(--ink-soft);
+      border-radius: 12px;
+      font: inherit; font-weight: 600;
+      cursor: pointer;
+    }
+    .modal-actions .ghost:hover { background: #f8fafc; }
+
+    /* Weekly cell inline edit */
+    .day-cell.editable { cursor: text; }
+    .day-cell-edit {
+      width: 100%;
+      max-width: 130px;
+      padding: 4px 6px;
+      border: 1.5px solid var(--accent);
+      border-radius: 8px;
+      background: #fff;
+      font: inherit;
+      font-size: 0.78rem;
+      text-align: center;
+      color: var(--ink);
+    }
+    .day-cell-edit:focus { outline: none; box-shadow: 0 0 0 3px rgba(245, 158, 11, 0.18); }
+
+    /* Summary modal table */
+    .summary-table {
+      width: 100%;
+      border-collapse: separate;
+      border-spacing: 0;
+      font-size: 0.92rem;
+      margin-top: 10px;
+    }
+    .summary-table th, .summary-table td {
+      padding: 10px 12px;
+      text-align: left;
+      border-bottom: 1px solid #f1ddc4;
+    }
+    .summary-table th {
+      font-weight: 700;
+      color: var(--ink-soft);
+      font-size: 0.82rem;
+      background: #fffaf2;
+    }
+    .summary-table td.num {
+      text-align: center;
+      font-variant-numeric: tabular-nums;
+    }
+    .summary-badge {
+      display: inline-flex; align-items: center; gap: 4px;
+      font-size: 0.82rem; font-weight: 700;
+      padding: 4px 10px; border-radius: 999px;
+    }
+    .summary-badge.pass { background: #dcfce7; color: #166534; }
+    .summary-badge.fail { background: #fee2e2; color: #991b1b; }
+    .summary-meta {
+      font-size: 0.85rem;
+      color: var(--ink-soft);
+      margin-bottom: 8px;
+    }
+
+    /* Team card edit button */
+    .team-card-edit {
+      position: absolute;
+      top: 10px; right: 40px;
+      width: 24px; height: 24px;
+      border: none; cursor: pointer;
+      background: transparent;
+      color: var(--ink-mute);
+      font-size: 0.95rem; line-height: 1;
+      border-radius: 6px;
+      transition: background .15s, color .15s;
+    }
+    .team-card-edit:hover { background: #fef3c7; color: var(--accent-strong); }
+
     .toast {
       position: fixed; bottom: 28px; left: 50%; transform: translateX(-50%);
       background: #1f2937; color: #fff;
@@ -691,9 +822,13 @@
       <div class="field">
         <label class="field-label">
           이름
-          <span class="hint">한 번 입력하면 다음에도 자동으로 불러와요</span>
+          <span class="hint">팀원 목록에서 선택</span>
         </label>
-        <input class="input" id="userName" placeholder="예: 손흥민" autocomplete="off" />
+        <div style="display:flex; gap:8px; align-items:center; flex-wrap:wrap;">
+          <select class="select" id="userName" style="flex:1; min-width:140px;"></select>
+          <button type="button" id="manageMembersBtn" class="preset" style="white-space:nowrap;">팀원 관리</button>
+          <button type="button" id="loadMineBtn" class="preset" style="white-space:nowrap;">내 데이터 불러오기</button>
+        </div>
       </div>
 
       <div class="field" style="margin-bottom: 12px;">
@@ -708,7 +843,7 @@
         <button class="preset" type="button" data-bulk="09:00-18:00">평일 일괄 9-18</button>
         <button class="preset" type="button" data-bulk="10:00-19:00">평일 일괄 10-19</button>
         <button class="preset" type="button" data-bulk="10:30-19:30">평일 일괄 10:30-19:30</button>
-        <button class="preset" type="button" id="clearAllBtn" style="background:#fff; color:var(--ink-soft); border-color:#e2e8f0;">전체 초기화</button>
+        <button class="preset" type="button" id="clearAllBtn" style="background:#fff; color:#dc2626; border-color:#fecaca;">전체 삭제</button>
       </div>
 
       <div class="submit-row" style="margin-top:14px; padding-top:14px;">
@@ -797,6 +932,7 @@
       <div class="board-head">
         <h2>이번 주 팀 작업 시간</h2>
         <div class="week-meta">
+          <button type="button" id="summaryBtn" class="preset" style="background:#fff; border-color:#fcd9a0; color:var(--accent-strong); font-weight:700;">📊 주간 요약</button>
           <div class="week-nav">
             <button type="button" id="weekPrev">← 이전</button>
             <span class="label" id="weekLabel">—</span>
@@ -814,6 +950,52 @@
   </div>
 
   <div class="toast" id="toast">저장되었습니다 ✨</div>
+
+  <div class="modal-backdrop" id="editModal">
+    <div class="modal-content">
+      <h3>체크인 수정 — <span class="who" id="editModalName"></span></h3>
+      <div class="field">
+        <label class="field-label">한 일</label>
+        <textarea class="textarea" id="editDone" style="min-height: 80px;"></textarea>
+      </div>
+      <div class="field">
+        <label class="field-label">할 일</label>
+        <textarea class="textarea" id="editTasks" style="min-height: 100px;"></textarea>
+      </div>
+      <div class="field" style="margin-bottom:0;">
+        <label class="field-label">Blockers</label>
+        <textarea class="textarea" id="editBlockers" style="min-height: 60px;"></textarea>
+      </div>
+      <div class="modal-actions">
+        <button class="ghost" type="button" id="editCancelBtn">취소</button>
+        <button class="submit" type="button" id="editSaveBtn" style="padding:10px 22px; font-size:0.92rem;">저장</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="modal-backdrop" id="membersModal">
+    <div class="modal-content" style="max-width: 460px;">
+      <h3>팀원 관리</h3>
+      <div id="membersList" style="margin-bottom:14px;"></div>
+      <div style="display:flex; gap:8px;">
+        <input class="input" id="newMemberInput" placeholder="새 팀원 이름" autocomplete="off" style="flex:1;" />
+        <button class="submit" type="button" id="addMemberBtn" style="padding:10px 18px; font-size:0.92rem;">추가</button>
+      </div>
+      <div class="modal-actions">
+        <button class="ghost" type="button" id="membersCloseBtn">닫기</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="modal-backdrop" id="summaryModal">
+    <div class="modal-content" style="max-width: 620px;">
+      <h3>주간 요약 <span class="who" id="summaryWeekLabel"></span></h3>
+      <div id="summaryBody"></div>
+      <div class="modal-actions">
+        <button class="ghost" type="button" id="summaryCloseBtn">닫기</button>
+      </div>
+    </div>
+  </div>
 
   <script>
     /* ---------------- Time + greeting ---------------- */
@@ -840,7 +1022,11 @@
 
     /* ---------------- State ---------------- */
     const STORAGE_USER = "knockdog_user";
-    const DEFAULT_NAME = "손흥민";
+
+    // 팀원 목록은 서버 /api/members 에서 받아옴
+    let TEAM_MEMBERS = [];
+    let DEFAULT_NAME = "";
+    const CHECKIN_PASS_THRESHOLD = 4; // 주 N일 이상 체크인 = 합격
     let CHECKIN_CUTOFF_HOUR = 11; // KST, may be overridden by /api/config
     const DOW_NAMES = ["일", "월", "화", "수", "목", "금", "토"]; // JS getUTCDay-indexed
     const WEEK_DOW_LABELS = ["월", "화", "수", "목", "금", "토", "일"]; // Mon-first
@@ -895,6 +1081,7 @@
                 <span class="dom">${monthDay(iso)}</span>
               </div>
               <input class="wh-input" type="text" placeholder="${placeholder}" value="${esc(val)}" />
+              <button class="wh-clear" type="button" title="이 날 삭제">×</button>
             </div>`;
         })
         .join("");
@@ -952,14 +1139,76 @@
 
     /* ---------------- Username persistence ---------------- */
     const userInput = document.getElementById("userName");
-    const savedUser = localStorage.getItem(STORAGE_USER) || DEFAULT_NAME;
-    userInput.value = savedUser;
-    prefillAll(savedUser);
     userInput.addEventListener("change", () => {
+      const v = userInput.value || DEFAULT_NAME;
+      localStorage.setItem(STORAGE_USER, v);
+      prefillAll(v);
+    });
+
+    async function loadMembers({ keepValue = true } = {}) {
+      try {
+        const r = await fetch("/api/members");
+        const data = await r.json();
+        TEAM_MEMBERS = data.members || [];
+      } catch (e) {
+        TEAM_MEMBERS = [];
+      }
+      DEFAULT_NAME = TEAM_MEMBERS[0] || "";
+      const stored = localStorage.getItem(STORAGE_USER) || "";
+      const desired = keepValue && userInput.value ? userInput.value : stored;
+      const initial = TEAM_MEMBERS.includes(desired)
+        ? desired
+        : TEAM_MEMBERS.includes(stored)
+        ? stored
+        : DEFAULT_NAME;
+      userInput.innerHTML = TEAM_MEMBERS.length
+        ? TEAM_MEMBERS.map((n) => `<option value="${esc(n)}">${esc(n)}</option>`).join("")
+        : `<option value="">팀원을 먼저 추가하세요</option>`;
+      if (initial) userInput.value = initial;
+    }
+
+    // Initial load: members → then prefill for the resolved name
+    (async () => {
+      await loadMembers({ keepValue: false });
+      if (userInput.value) prefillAll(userInput.value);
+    })();
+    document.getElementById("loadMineBtn").addEventListener("click", () => {
       const v = userInput.value.trim() || DEFAULT_NAME;
       userInput.value = v;
       localStorage.setItem(STORAGE_USER, v);
-      prefillAll(v);
+      prefillWeekHoursFor(v, { force: true });
+      prefillCheckinFor(v);
+      toast(`${v} 데이터 불러옴`);
+    });
+
+    /* ---------------- Dirty indicators ---------------- */
+    function markHoursDirty() {
+      const note = document.getElementById("hoursNote");
+      note.textContent = "수정됨 — 저장하세요";
+      note.classList.remove("saved");
+    }
+    function markCheckinDirty() {
+      const note = document.getElementById("saveNote");
+      if (note.textContent.includes("체크인 안 함")) return;
+      note.textContent = "수정됨 — 다시 체크인하세요";
+      note.classList.remove("saved");
+    }
+    document
+      .getElementById("weekHoursList")
+      .addEventListener("input", (e) => {
+        if (e.target.classList.contains("wh-input")) markHoursDirty();
+      });
+    document
+      .getElementById("weekHoursList")
+      .addEventListener("click", (e) => {
+        if (!e.target.classList.contains("wh-clear")) return;
+        const row = e.target.closest(".wh-row");
+        if (!row) return;
+        row.querySelector(".wh-input").value = "";
+        markHoursDirty();
+      });
+    ["done", "tasks", "blockers"].forEach((id) => {
+      document.getElementById(id).addEventListener("input", markCheckinDirty);
     });
 
     /* ---------------- Prefill ---------------- */
@@ -967,14 +1216,16 @@
       prefillWeekHoursFor(userName);
       prefillCheckinFor(userName); // always today
     }
-    async function prefillWeekHoursFor(userName) {
+    async function prefillWeekHoursFor(userName, { force = false } = {}) {
       try {
         const r = await fetch(
           `/api/checkin/week?weekStart=${activeWeekStart()}`
         );
         const data = await r.json();
         const me = (data.users || []).find(
-          (u) => (u.userName || "").trim().toLowerCase() === userName.trim().toLowerCase()
+          (u) =>
+            (u.userName || "").trim().toLowerCase() ===
+            userName.trim().toLowerCase()
         );
         const prefill = {};
         if (me) {
@@ -986,16 +1237,25 @@
             if (text) prefill[entry.date] = text;
           }
         }
-        renderWeekHoursInputs(prefill);
+        const rows = document.querySelectorAll(".wh-row");
+        if (force || !rows.length) {
+          renderWeekHoursInputs(prefill);
+        } else {
+          rows.forEach((row) => {
+            const iso = row.dataset.iso;
+            const input = row.querySelector(".wh-input");
+            if (force) {
+              input.value = prefill[iso] || "";
+            } else if (!input.value && prefill[iso]) {
+              input.value = prefill[iso];
+            }
+          });
+        }
         if (Object.keys(prefill).length) {
           markHoursSaved("저장된 시간 불러옴");
-        } else {
-          const note = document.getElementById("hoursNote");
-          note.textContent = "저장 안 됨";
-          note.classList.remove("saved");
         }
       } catch (e) {
-        renderWeekHoursInputs();
+        if (force) renderWeekHoursInputs();
       }
     }
     async function prefillCheckinFor(userName) {
@@ -1155,6 +1415,9 @@
           board.innerHTML = `<div class="empty">아직 아무도 체크인하지 않았어요.<br/>첫 체크인을 남겨보세요! 🐶</div>`;
           return;
         }
+        const myName = (localStorage.getItem(STORAGE_USER) || "")
+          .trim()
+          .toLowerCase();
         board.innerHTML = `<div class="board-grid">${list
           .map((c) => {
             const timeText = (c.startTime || c.endTime)
@@ -1166,10 +1429,18 @@
             const tasksHtml = c.tasks
               ? `<div class="team-tasks">${highlightJira(c.tasks)}</div>`
               : "";
+            const isMine =
+              myName && (c.userName || "").trim().toLowerCase() === myName;
             return `
-            <div class="team-card">
+            <div class="team-card ${isMine ? "mine" : ""}"
+                 data-user="${esc(c.userName)}"
+                 data-done="${esc(c.done || "")}"
+                 data-tasks="${esc(c.tasks || "")}"
+                 data-blockers="${esc(c.blockers || "")}">
+              <button class="team-card-edit" type="button" title="체크인 수정">✎</button>
+              <button class="team-card-delete" type="button" data-user="${esc(c.userName)}" title="체크인 삭제">✕</button>
               <div class="team-head">
-                <span class="team-name">${esc(c.userName)}</span>
+                <span class="team-name">${esc(c.userName)}${isMine ? " (나)" : ""}</span>
                 <span class="team-time">${timeText}</span>
               </div>
               ${doneHtml ? `
@@ -1195,6 +1466,237 @@
       }
     }
     document.getElementById("refreshBtn").addEventListener("click", loadBoard);
+    document.getElementById("teamBoard").addEventListener("click", async (e) => {
+      const editBtn = e.target.closest(".team-card-edit");
+      if (editBtn) {
+        const card = editBtn.closest(".team-card");
+        if (!card) return;
+        openEditModal({
+          userName: card.dataset.user,
+          done: card.dataset.done || "",
+          tasks: card.dataset.tasks || "",
+          blockers: card.dataset.blockers || "",
+        });
+        return;
+      }
+      const btn = e.target.closest(".team-card-delete");
+      if (!btn) return;
+      if (!isCheckinOpen()) {
+        toast("체크인 시간이 마감되어 삭제할 수 없습니다 (오전 11시 마감)");
+        return;
+      }
+      const userName = btn.dataset.user;
+      if (!confirm(`${userName}의 오늘 체크인을 삭제할까요?`)) return;
+      try {
+        const r = await fetch("/api/checkin", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            userName,
+            checkDate: todayKSTStr(),
+            done: "",
+            tasks: "",
+            blockers: "",
+          }),
+        });
+        if (!r.ok) throw new Error((await r.json()).error || "fail");
+        clearCheckinOnly();
+        toast("체크인 삭제됨");
+        loadBoard();
+        loadWeek();
+      } catch (e) {
+        toast("삭제 실패: " + e.message);
+      }
+    });
+
+    /* ---------------- Edit modal (today's team board) ---------------- */
+    let editTargetUser = null;
+    function openEditModal({ userName, done, tasks, blockers }) {
+      editTargetUser = userName;
+      document.getElementById("editModalName").textContent = userName;
+      document.getElementById("editDone").value = done || "";
+      document.getElementById("editTasks").value = tasks || "";
+      document.getElementById("editBlockers").value = blockers || "";
+      document.getElementById("editModal").classList.add("show");
+    }
+    function closeEditModal() {
+      editTargetUser = null;
+      document.getElementById("editModal").classList.remove("show");
+    }
+    document.getElementById("editCancelBtn").addEventListener("click", closeEditModal);
+    document.getElementById("editModal").addEventListener("click", (e) => {
+      if (e.target.id === "editModal") closeEditModal();
+    });
+    /* ---------------- Members manage modal ---------------- */
+    document.getElementById("manageMembersBtn").addEventListener("click", () => {
+      renderMembersList();
+      document.getElementById("membersModal").classList.add("show");
+      document.getElementById("newMemberInput").value = "";
+      setTimeout(() => document.getElementById("newMemberInput").focus(), 50);
+    });
+    document.getElementById("membersCloseBtn").addEventListener("click", () => {
+      document.getElementById("membersModal").classList.remove("show");
+    });
+    document.getElementById("membersModal").addEventListener("click", (e) => {
+      if (e.target.id === "membersModal") {
+        document.getElementById("membersModal").classList.remove("show");
+      }
+    });
+    function renderMembersList() {
+      const list = document.getElementById("membersList");
+      if (!TEAM_MEMBERS.length) {
+        list.innerHTML = `<div class="empty" style="padding:18px;">아직 팀원이 없어요. 아래에서 추가해주세요.</div>`;
+        return;
+      }
+      list.innerHTML = `<div style="display:flex; flex-direction:column; gap:6px;">${TEAM_MEMBERS
+        .map(
+          (n) => `
+          <div style="display:flex; align-items:center; justify-content:space-between; padding:8px 12px; background:#fffdfa; border:1px solid #ecdbc1; border-radius:10px;">
+            <span style="font-weight:600;">${esc(n)}</span>
+            <button type="button" class="preset member-remove" data-name="${esc(n)}" style="background:#fff; color:#dc2626; border-color:#fecaca; padding:4px 10px;">삭제</button>
+          </div>`
+        )
+        .join("")}</div>`;
+    }
+    document.getElementById("membersList").addEventListener("click", async (e) => {
+      const btn = e.target.closest(".member-remove");
+      if (!btn) return;
+      const name = btn.dataset.name;
+      if (!confirm(`'${name}' 팀원을 삭제할까요?\n(기존 데이터는 보존되며 목록에서만 빠집니다)`)) return;
+      try {
+        const r = await fetch(`/api/members/${encodeURIComponent(name)}`, {
+          method: "DELETE",
+        });
+        if (!r.ok) throw new Error((await r.json()).error || "fail");
+        toast(`${name} 삭제됨`);
+        await loadMembers();
+        renderMembersList();
+        loadWeek();
+      } catch (err) {
+        toast("삭제 실패: " + err.message);
+      }
+    });
+    document.getElementById("addMemberBtn").addEventListener("click", addMember);
+    document.getElementById("newMemberInput").addEventListener("keydown", (e) => {
+      if (e.key === "Enter") { e.preventDefault(); addMember(); }
+    });
+    async function addMember() {
+      const input = document.getElementById("newMemberInput");
+      const name = input.value.trim();
+      if (!name) { toast("이름을 입력해주세요"); input.focus(); return; }
+      try {
+        const r = await fetch("/api/members", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ name }),
+        });
+        if (!r.ok) throw new Error((await r.json()).error || "fail");
+        input.value = "";
+        toast(`${name} 추가됨`);
+        await loadMembers();
+        renderMembersList();
+        loadWeek();
+      } catch (err) {
+        toast("추가 실패: " + err.message);
+      }
+    }
+
+    /* ---------------- Summary modal ---------------- */
+    document.getElementById("summaryBtn").addEventListener("click", openSummaryModal);
+    document.getElementById("summaryCloseBtn").addEventListener("click", () => {
+      document.getElementById("summaryModal").classList.remove("show");
+    });
+    document.getElementById("summaryModal").addEventListener("click", (e) => {
+      if (e.target.id === "summaryModal") {
+        document.getElementById("summaryModal").classList.remove("show");
+      }
+    });
+
+    async function openSummaryModal() {
+      const weekStart = activeWeekStart();
+      document.getElementById("summaryWeekLabel").textContent = `${weekStart} 주차`;
+      document.getElementById("summaryBody").innerHTML =
+        `<div class="summary-meta">불러오는 중...</div>`;
+      document.getElementById("summaryModal").classList.add("show");
+      try {
+        const r = await fetch(`/api/checkin/week?weekStart=${weekStart}`);
+        const data = await r.json();
+        const byUser = new Map();
+        for (const u of data.users || []) byUser.set(u.userName, u.entries);
+
+        const rows = TEAM_MEMBERS.map((name) => {
+          const entries = byUser.get(name) || [];
+          const checkinCount = entries.filter((e) => e.hasCheckin).length;
+          const passed = checkinCount >= CHECKIN_PASS_THRESHOLD;
+          return { name, checkinCount, passed };
+        });
+
+        const passCount = rows.filter((r) => r.passed).length;
+        const meta = `
+          <div class="summary-meta">
+            기준: 주 ${CHECKIN_PASS_THRESHOLD}일 이상 체크인 ·
+            기준 달성 ${passCount}명 / 전체 ${rows.length}명
+          </div>`;
+
+        const tableHtml = `
+          <table class="summary-table">
+            <thead><tr>
+              <th>이름</th>
+              <th class="num">체크인 일수</th>
+              <th>결과</th>
+            </tr></thead>
+            <tbody>
+              ${rows
+                .map(
+                  (r) => `
+                <tr>
+                  <td>${esc(r.name)}</td>
+                  <td class="num">${r.checkinCount} / 7</td>
+                  <td>
+                    <span class="summary-badge ${r.passed ? "pass" : "fail"}">
+                      ${r.passed ? "✅ 기준 달성" : "❌ 기준 미달"}
+                    </span>
+                  </td>
+                </tr>`
+                )
+                .join("")}
+            </tbody>
+          </table>`;
+        document.getElementById("summaryBody").innerHTML = meta + tableHtml;
+      } catch (e) {
+        document.getElementById("summaryBody").innerHTML =
+          `<div class="summary-meta">불러오기 실패: ${esc(e.message)}</div>`;
+      }
+    }
+
+    document.getElementById("editSaveBtn").addEventListener("click", async () => {
+      if (!editTargetUser) return;
+      if (!isCheckinOpen()) {
+        toast("체크인 시간이 마감되어 수정할 수 없습니다 (오전 11시 마감)");
+        return;
+      }
+      const done = document.getElementById("editDone").value.trim();
+      const tasks = document.getElementById("editTasks").value.trim();
+      const blockers = document.getElementById("editBlockers").value.trim();
+      try {
+        const r = await fetch("/api/checkin", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            userName: editTargetUser,
+            checkDate: todayKSTStr(),
+            done, tasks, blockers,
+          }),
+        });
+        if (!r.ok) throw new Error((await r.json()).error || "fail");
+        toast(`${editTargetUser} 체크인 수정 완료`);
+        closeEditModal();
+        loadBoard();
+        loadWeek();
+      } catch (e) {
+        toast("수정 실패: " + e.message);
+      }
+    });
     loadBoard();
     setInterval(loadBoard, 60_000);
 
@@ -1283,8 +1785,12 @@
                 const tip = hasHours
                   ? `${d} · ${hoursText}${showCheckin ? " · 체크인 완료" : ""}`
                   : `${d} · 시간 미입력`;
-                return `<td class="day-cell ${isToday ? "today" : ""} ${isWeekend ? "weekend" : ""}">
-                  <div class="day-cell-content" title="${esc(tip)}">
+                return `<td class="day-cell editable ${isToday ? "today" : ""} ${isWeekend ? "weekend" : ""}"
+                  data-user="${esc(u.userName)}"
+                  data-iso="${d}"
+                  data-text="${esc(rawText)}"
+                  title="${esc(tip)} · 클릭해서 수정">
+                  <div class="day-cell-content">
                     <span class="${pillClass}">${esc(hoursText)}</span>
                     ${showCheckin ? `<span class="day-checkmark" aria-label="체크인 완료"></span>` : ""}
                   </div>
@@ -1309,6 +1815,63 @@
         board.innerHTML = `<div class="empty">불러오기 실패: ${esc(e.message)}</div>`;
       }
     }
+    /* ---------------- Weekly cell inline edit ---------------- */
+    document.getElementById("weekBoard").addEventListener("click", (e) => {
+      const cell = e.target.closest("td.day-cell.editable");
+      if (!cell || cell.querySelector(".day-cell-edit")) return;
+      const userName = cell.dataset.user;
+      const iso = cell.dataset.iso;
+      const current = cell.dataset.text || "";
+      const original = cell.innerHTML;
+
+      const input = document.createElement("input");
+      input.type = "text";
+      input.className = "day-cell-edit";
+      input.value = current;
+      input.placeholder = "예: 10-19 · 비우면 삭제";
+      cell.innerHTML = "";
+      cell.appendChild(input);
+      input.focus();
+      input.select();
+
+      let done = false;
+      const finalize = async (commit) => {
+        if (done) return;
+        done = true;
+        if (!commit) {
+          cell.innerHTML = original;
+          return;
+        }
+        const next = input.value.trim();
+        if (next === current) {
+          cell.innerHTML = original;
+          return;
+        }
+        cell.innerHTML = `<span class="day-hours-pill empty">저장 중...</span>`;
+        try {
+          const r = await fetch("/api/checkin/week-hours", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              userName,
+              hours: [{ date: iso, text: next }],
+            }),
+          });
+          if (!r.ok) throw new Error((await r.json()).error || "fail");
+          toast(next ? "수정됨" : "삭제됨");
+          loadWeek();
+        } catch (err) {
+          toast("저장 실패: " + err.message);
+          cell.innerHTML = original;
+        }
+      };
+      input.addEventListener("blur", () => finalize(true));
+      input.addEventListener("keydown", (k) => {
+        if (k.key === "Enter") { k.preventDefault(); input.blur(); }
+        else if (k.key === "Escape") { k.preventDefault(); finalize(false); }
+      });
+    });
+
     document.getElementById("weekPrev").addEventListener("click", () => {
       if (!viewWeekStart) return;
       viewWeekStart = shiftWeek(viewWeekStart, -1);
