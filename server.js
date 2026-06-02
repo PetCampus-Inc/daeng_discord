@@ -458,6 +458,23 @@ app.post("/api/checkin", async (req, res) => {
       return res.status(400).json({ error: "no fields to update" });
     }
 
+    const isCheckinWrite =
+      done !== undefined || tasks !== undefined || blockers !== undefined;
+    if (isCheckinWrite) {
+      const today = todayKST();
+      if (date !== today) {
+        return res
+          .status(400)
+          .json({ error: "체크인은 오늘 날짜에만 가능합니다" });
+      }
+      const kstHour = new Date(Date.now() + 9 * 60 * 60 * 1000).getUTCHours();
+      if (kstHour >= 11) {
+        return res
+          .status(400)
+          .json({ error: "체크인은 오전 11시 이전까지만 가능합니다" });
+      }
+    }
+
     await pool.query(
       `INSERT INTO checkins (check_date, user_name)
        VALUES ($1, $2)
