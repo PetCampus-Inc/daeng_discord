@@ -2,7 +2,10 @@ const express = require("express");
 const path = require("path");
 const { Client, GatewayIntentBits, Partials } = require("discord.js");
 const cron = require("node-cron");
-const { Pool } = require("pg");
+const { Pool, types: pgTypes } = require("pg");
+
+// Keep DATE (OID 1082) as raw "YYYY-MM-DD" string to avoid TZ shifts
+pgTypes.setTypeParser(1082, (val) => val);
 const { getAssigneeStats, getProjects, getProjectStatuses, getMyIssues } = require("./src/jira-client");
 
 const app = express();
@@ -115,6 +118,7 @@ async function initDatabase() {
       )
     `);
     await pool.query(`ALTER TABLE checkins ADD COLUMN IF NOT EXISTS done TEXT DEFAULT ''`);
+    await pool.query(`ALTER TABLE checkins ADD COLUMN IF NOT EXISTS hours_text TEXT DEFAULT ''`);
     console.log("Database initialized");
   } catch (err) {
     console.error("Database init error:", err.message);
@@ -428,6 +432,12 @@ async function generateReport() {
 
 app.use(express.static(path.join(__dirname, "public")));
 
+app.get("/api/config", (req, res) => {
+  res.json({
+    checkinCutoffHour: parseInt(process.env.CHECKIN_CUTOFF_HOUR || "11", 10),
+  });
+});
+
 app.post("/api/checkin", async (req, res) => {
   try {
     const {
@@ -468,10 +478,11 @@ app.post("/api/checkin", async (req, res) => {
           .json({ error: "체크인은 오늘 날짜에만 가능합니다" });
       }
       const kstHour = new Date(Date.now() + 9 * 60 * 60 * 1000).getUTCHours();
-      if (kstHour >= 11) {
+      const cutoff = parseInt(process.env.CHECKIN_CUTOFF_HOUR || "11", 10);
+      if (kstHour >= cutoff) {
         return res
           .status(400)
-          .json({ error: "체크인은 오전 11시 이전까지만 가능합니다" });
+          .json({ error: `체크인은 오전 ${cutoff}시 이전까지만 가능합니다` });
       }
     }
 
@@ -573,11 +584,60 @@ app.get("/api/checkin/me", async (req, res) => {
   }
 });
 
+const FREEFORM_RANGE_RE = /(\d{1,2})(?::(\d{2}))?\s*[-~–—]\s*(\d{1,2})(?::(\d{2}))?/;
+function parseRangeFromText(text) {
+  if (!text) return { start: null, end: null };
+  const m = text.match(FREEFORM_RANGE_RE);
+  if (!m) return { start: null, end: null };
+  const sh = Number(m[1]);
+  const sm = Number(m[2] || 0);
+  const eh = Number(m[3]);
+  const em = Number(m[4] || 0);
+  if (sh > 24 || eh > 24 || sm > 59 || em > 59) return { start: null, end: null };
+  const pad = (n) => String(n).padStart(2, "0");
+  return { start: `${pad(sh)}:${pad(sm)}`, end: `${pad(eh)}:${pad(em)}` };
+}
+
+app.post("/api/checkin/week-hours", async (req, res) => {
+  try {
+    const { userName, hours } = req.body || {};
+    if (!userName) return res.status(400).json({ error: "userName required" });
+    if (!Array.isArray(hours)) {
+      return res.status(400).json({ error: "hours must be an array" });
+    }
+    for (const h of hours) {
+      if (!h.date || !/^\d{4}-\d{2}-\d{2}$/.test(h.date)) {
+        return res
+          .status(400)
+          .json({ error: `invalid date: ${h.date}` });
+      }
+    }
+    for (const h of hours) {
+      const text = (h.text || "").trim();
+      const parsed = parseRangeFromText(text);
+      await pool.query(
+        `INSERT INTO checkins (check_date, user_name, hours_text, start_time, end_time)
+         VALUES ($1, $2, $3, $4, $5)
+         ON CONFLICT (check_date, user_name) DO UPDATE SET
+           hours_text = EXCLUDED.hours_text,
+           start_time = EXCLUDED.start_time,
+           end_time = EXCLUDED.end_time,
+           updated_at = CURRENT_TIMESTAMP`,
+        [h.date, userName, text, parsed.start, parsed.end]
+      );
+    }
+    res.json({ success: true, saved: hours.length });
+  } catch (err) {
+    console.error("Week hours error:", err.message);
+    res.status(500).json({ error: err.message });
+  }
+});
+
 app.get("/api/checkin/week", async (req, res) => {
   const { weekStart, weekEnd, dates } = getWeekRange(req.query.weekStart);
   try {
     const result = await pool.query(
-      `SELECT user_name, check_date, start_time, end_time
+      `SELECT user_name, check_date, start_time, end_time, hours_text
        FROM checkins
        WHERE check_date BETWEEN $1 AND $2
        ORDER BY user_name, check_date`,
@@ -594,6 +654,7 @@ app.get("/api/checkin/week", async (req, res) => {
         date: dateStr,
         startTime: row.start_time,
         endTime: row.end_time,
+        hoursText: row.hours_text,
       });
     }
     const users = [...byUser.entries()]
