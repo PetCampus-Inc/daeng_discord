@@ -449,12 +449,6 @@ async function generateReport() {
 
 app.use(express.static(path.join(__dirname, "public")));
 
-app.get("/api/config", (req, res) => {
-  res.json({
-    checkinCutoffHour: parseInt(process.env.CHECKIN_CUTOFF_HOUR || "11", 10),
-  });
-});
-
 app.get("/api/members", async (req, res) => {
   try {
     const result = await pool.query(
@@ -533,20 +527,10 @@ app.post("/api/checkin", async (req, res) => {
 
     const isCheckinWrite =
       done !== undefined || tasks !== undefined || blockers !== undefined;
-    if (isCheckinWrite) {
-      const today = todayKST();
-      if (date !== today) {
-        return res
-          .status(400)
-          .json({ error: "체크인은 오늘 날짜에만 가능합니다" });
-      }
-      const kstHour = new Date(Date.now() + 9 * 60 * 60 * 1000).getUTCHours();
-      const cutoff = parseInt(process.env.CHECKIN_CUTOFF_HOUR || "11", 10);
-      if (kstHour >= cutoff) {
-        return res
-          .status(400)
-          .json({ error: `체크인은 오전 ${cutoff}시 이전까지만 가능합니다` });
-      }
+    if (isCheckinWrite && date !== todayKST()) {
+      return res
+        .status(400)
+        .json({ error: "체크인은 오늘 날짜에만 가능합니다" });
     }
 
     await pool.query(

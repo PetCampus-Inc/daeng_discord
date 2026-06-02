@@ -852,18 +852,14 @@
       </div>
     </section>
 
-    <!-- Section 2: Check-in (today only, before 11AM) -->
+    <!-- Section 2: Check-in (today only) -->
     <section class="checkin-card" id="standupCard" style="margin-top:18px;">
       <div class="checkin-head">
         <h2 id="standupTitle">오늘 체크인</h2>
-        <span class="badge" id="checkinBadge">오전 11시 마감</span>
+        <span class="badge">출석</span>
       </div>
 
-      <div id="checkinLockedBanner" style="display:none; padding:14px 16px; background:#fef2f2; border:1px solid #fecaca; border-radius:12px; color:#991b1b; font-size:0.92rem; margin-bottom:16px;">
-        🔒 <strong>오늘 체크인 시간 마감</strong> — 오전 11시 이전까지만 가능했어요. 내일 다시 오세요.
-      </div>
-
-      <fieldset id="checkinFields" style="border:none; padding:0; margin:0;">
+      <div>
         <div class="field">
           <label class="field-label">
             한 일
@@ -907,7 +903,7 @@
           <span class="save-note" id="saveNote">아직 체크인 안 함</span>
           <button class="submit" id="submitBtn" type="button">체크인 ✨</button>
         </div>
-      </fieldset>
+      </div>
     </section>
 
     <!-- Team board -->
@@ -1026,8 +1022,7 @@
     // 팀원 목록은 서버 /api/members 에서 받아옴
     let TEAM_MEMBERS = [];
     let DEFAULT_NAME = "";
-    const CHECKIN_PASS_THRESHOLD = 4; // 주 N일 이상 체크인 = 합격
-    let CHECKIN_CUTOFF_HOUR = 11; // KST, may be overridden by /api/config
+    const CHECKIN_PASS_THRESHOLD = 4; // 주 N일 이상 체크인 = 기준 달성
     const DOW_NAMES = ["일", "월", "화", "수", "목", "금", "토"]; // JS getUTCDay-indexed
     const WEEK_DOW_LABELS = ["월", "화", "수", "목", "금", "토", "일"]; // Mon-first
     let viewWeekStart = null; // YYYY-MM-DD (Monday). null = current week.
@@ -1284,26 +1279,6 @@
       note.classList.add("saved");
     }
 
-    /* ---------------- Check-in lock (11AM KST) ---------------- */
-    function isCheckinOpen() {
-      const kst = new Date(Date.now() + 9 * 60 * 60 * 1000);
-      return kst.getUTCHours() < CHECKIN_CUTOFF_HOUR;
-    }
-    function applyCheckinLock() {
-      const open = isCheckinOpen();
-      const fieldset = document.getElementById("checkinFields");
-      const banner = document.getElementById("checkinLockedBanner");
-      const badge = document.getElementById("checkinBadge");
-      fieldset.disabled = !open;
-      banner.style.display = open ? "none" : "block";
-      badge.textContent = open ? "오전 11시 마감" : "마감됨";
-      badge.style.background = open ? "" : "#fee2e2";
-      badge.style.color = open ? "" : "#991b1b";
-      const submitEl = document.getElementById("submitBtn");
-      submitEl.style.opacity = open ? "1" : "0.5";
-      submitEl.style.cursor = open ? "pointer" : "not-allowed";
-    }
-
     /* ---------------- Save week hours (batch) ---------------- */
     const saveHoursBtn = document.getElementById("saveHoursBtn");
     saveHoursBtn.addEventListener("click", async () => {
@@ -1335,10 +1310,6 @@
     /* ---------------- Submit check-in ---------------- */
     const submitBtn = document.getElementById("submitBtn");
     submitBtn.addEventListener("click", async () => {
-      if (!isCheckinOpen()) {
-        toast("오늘 체크인 시간이 마감되었습니다 (오전 11시 마감)");
-        return;
-      }
       const userName = userInput.value.trim() || DEFAULT_NAME;
       const done = document.getElementById("done").value.trim();
       const tasks = document.getElementById("tasks").value.trim();
@@ -1481,10 +1452,6 @@
       }
       const btn = e.target.closest(".team-card-delete");
       if (!btn) return;
-      if (!isCheckinOpen()) {
-        toast("체크인 시간이 마감되어 삭제할 수 없습니다 (오전 11시 마감)");
-        return;
-      }
       const userName = btn.dataset.user;
       if (!confirm(`${userName}의 오늘 체크인을 삭제할까요?`)) return;
       try {
@@ -1671,10 +1638,6 @@
 
     document.getElementById("editSaveBtn").addEventListener("click", async () => {
       if (!editTargetUser) return;
-      if (!isCheckinOpen()) {
-        toast("체크인 시간이 마감되어 수정할 수 없습니다 (오전 11시 마감)");
-        return;
-      }
       const done = document.getElementById("editDone").value.trim();
       const tasks = document.getElementById("editTasks").value.trim();
       const blockers = document.getElementById("editBlockers").value.trim();
@@ -1893,16 +1856,6 @@
       if (userName) prefillWeekHoursFor(userName);
     });
     renderWeekHoursInputs();
-    fetch("/api/config")
-      .then((r) => r.json())
-      .then((cfg) => {
-        if (typeof cfg.checkinCutoffHour === "number") {
-          CHECKIN_CUTOFF_HOUR = cfg.checkinCutoffHour;
-        }
-        applyCheckinLock();
-      })
-      .catch(() => applyCheckinLock());
-    setInterval(applyCheckinLock, 30_000);
     loadWeek();
   </script>
 </body>
