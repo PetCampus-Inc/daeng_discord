@@ -450,19 +450,39 @@
       overflow-wrap: anywhere;
       text-align: center;
     }
-    .day-hours-pill.has-checkin {
-      background: var(--accent-soft);
-      border-color: #f59e0b80;
-      color: var(--accent-strong);
-      font-weight: 600;
-    }
     .day-hours-pill.empty { opacity: 0.35; }
-    .day-checkmark {
-      width: 8px; height: 8px; border-radius: 50%;
-      background: var(--accent);
-      box-shadow: 0 0 0 2px #fef3c7;
+
+    /* ---- Per-day check-in status badge ---- */
+    .ci-badge {
+      display: inline-flex; align-items: center; justify-content: center;
+      width: 26px; height: 26px; border-radius: 50%;
+      font-size: 0.82rem; font-weight: 800; line-height: 1;
     }
-    .day-checkmark.miss { background: transparent; box-shadow: none; }
+    .ci-badge.checked { background: var(--good); color: #fff; box-shadow: 0 0 0 3px #dcfce7; }
+    .ci-badge.missed  { background: #fff; color: var(--warn); box-shadow: inset 0 0 0 2px #fecaca; }
+    .ci-badge.pending { background: var(--accent-soft); color: var(--accent-strong); box-shadow: inset 0 0 0 2px #fcd9a0; font-size: 0.6rem; font-weight: 700; }
+    .ci-badge.none    { background: transparent; color: #d8dee8; box-shadow: none; font-size: 0.9rem; }
+    td.day-cell.ci-checked { background: #f0faf2; }
+    td.day-cell.ci-missed  { background: #fdf1f1; }
+    td.day-cell.ci-checked.today,
+    td.day-cell.ci-missed.today { box-shadow: inset 0 2px 0 var(--accent); }
+    .row-name { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+    .ci-count {
+      font-size: 0.72rem; font-weight: 700; padding: 2px 9px; border-radius: 999px;
+      background: #f1f5f9; color: var(--ink-soft); white-space: nowrap;
+    }
+    .ci-count.good { background: #dcfce7; color: #15803d; }
+    .ci-count.warn { background: #fee2e2; color: #b91c1c; }
+    /* ---- Summary modal: per-day dots ---- */
+    .day-dots { display: inline-flex; gap: 4px; flex-wrap: wrap; }
+    .day-dots .d {
+      width: 18px; height: 18px; border-radius: 5px; font-size: 0.62rem; font-weight: 800;
+      display: inline-flex; align-items: center; justify-content: center; color: #fff;
+    }
+    .day-dots .d.checked { background: var(--good); }
+    .day-dots .d.missed  { background: #fff; color: var(--warn); box-shadow: inset 0 0 0 1.5px #fecaca; }
+    .day-dots .d.pending { background: var(--accent-soft); color: var(--accent-strong); }
+    .day-dots .d.none    { background: #f1f5f9; color: #cbd5e1; }
     .week-table .count {
       font-variant-numeric: tabular-nums;
       color: var(--ink-soft);
@@ -938,8 +958,11 @@
         </div>
       </div>
       <div id="weekBoard"></div>
-      <div style="margin-top:10px; font-size:0.78rem; color:var(--ink-mute);">
-        ● = 그날 체크인함 · 셀의 숫자 = 작업 가능 시간대
+      <div style="margin-top:10px; font-size:0.78rem; color:var(--ink-mute); display:flex; flex-wrap:wrap; gap:14px; align-items:center;">
+        <span style="display:inline-flex; align-items:center; gap:6px;"><i style="width:14px;height:14px;border-radius:50%;background:var(--good);display:inline-block;"></i> 체크인 완료</span>
+        <span style="display:inline-flex; align-items:center; gap:6px;"><i style="width:14px;height:14px;border-radius:50%;background:#fff;box-shadow:inset 0 0 0 2px #fecaca;display:inline-block;"></i> 미체크 (지난 평일)</span>
+        <span style="display:inline-flex; align-items:center; gap:6px;"><i style="width:14px;height:14px;border-radius:50%;background:var(--accent-soft);box-shadow:inset 0 0 0 2px #fcd9a0;display:inline-block;"></i> 오늘 아직</span>
+        <span>· 셀 안 숫자 = 작업 가능 시간대</span>
       </div>
     </section>
 
@@ -1026,6 +1049,18 @@
     const DOW_NAMES = ["일", "월", "화", "수", "목", "금", "토"]; // JS getUTCDay-indexed
     const WEEK_DOW_LABELS = ["월", "화", "수", "목", "금", "토", "일"]; // Mon-first
     let viewWeekStart = null; // YYYY-MM-DD (Monday). null = current week.
+
+    /* Per-day check-in state, shared by weekly board + summary.
+       checked = 체크인함 · missed = 지난 평일 미체크 · pending = 오늘(평일) 아직 · none = 주말/미래 */
+    const CI_BADGE = { checked: "✓", missed: "✗", pending: "오늘", none: "·" };
+    function checkinState(entry, dayIso, dayIndex) {
+      if (entry && entry.hasCheckin) return "checked";
+      const today = todayKSTStr();
+      if (dayIndex >= 5) return "none";        // 주말
+      if (dayIso === today) return "pending";  // 오늘 평일, 아직
+      if (dayIso < today) return "missed";     // 지난 평일
+      return "none";                           // 미래 평일
+    }
 
     function todayKSTStr() {
       const kst = new Date(Date.now() + 9 * 60 * 60 * 1000);
@@ -1588,14 +1623,19 @@
       try {
         const r = await fetch(`/api/checkin/week?weekStart=${weekStart}`);
         const data = await r.json();
+        const dates = data.dates || [];
         const byUser = new Map();
         for (const u of data.users || []) byUser.set(u.userName, u.entries);
 
         const rows = TEAM_MEMBERS.map((name) => {
           const entries = byUser.get(name) || [];
-          const checkinCount = entries.filter((e) => e.hasCheckin).length;
+          const perDay = dates.map((d, i) => {
+            const entry = entries.find((e) => e.date === d);
+            return checkinState(entry, d, i);
+          });
+          const checkinCount = perDay.filter((s) => s === "checked").length;
           const passed = checkinCount >= CHECKIN_PASS_THRESHOLD;
-          return { name, checkinCount, passed };
+          return { name, checkinCount, passed, perDay };
         });
 
         const passCount = rows.filter((r) => r.passed).length;
@@ -1609,7 +1649,8 @@
           <table class="summary-table">
             <thead><tr>
               <th>이름</th>
-              <th class="num">체크인 일수</th>
+              <th>요일별 체크인</th>
+              <th class="num">일수</th>
               <th>결과</th>
             </tr></thead>
             <tbody>
@@ -1618,7 +1659,10 @@
                   (r) => `
                 <tr>
                   <td>${esc(r.name)}</td>
-                  <td class="num">${r.checkinCount} / 7</td>
+                  <td><div class="day-dots">${r.perDay
+                    .map((s, i) => `<span class="d ${s}" title="${WEEK_DOW_LABELS[i]}">${WEEK_DOW_LABELS[i]}</span>`)
+                    .join("")}</div></td>
+                  <td class="num">${r.checkinCount} / 5</td>
                   <td>
                     <span class="summary-badge ${r.passed ? "pass" : "fail"}">
                       ${r.passed ? "✅ 기준 달성" : "❌ 기준 미달"}
@@ -1702,17 +1746,6 @@
               .join("")}
           </tr></thead>`;
 
-        // Fetch today's check-ins for the check-in dot
-        let checkinsToday = new Set();
-        try {
-          const t = await fetch("/api/checkin/today").then((x) => x.json());
-          for (const c of t.checkins || []) {
-            if (c.done || c.tasks || c.blockers) {
-              checkinsToday.add((c.userName || "").trim().toLowerCase());
-            }
-          }
-        } catch (e) {}
-
         if (!users.length) {
           board.innerHTML = `<div class="week-table-wrap"><table class="week-table">${head}</table></div>
             <div class="empty" style="margin-top:14px;">이번 주 작업 시간을 입력한 멤버가 없어요.</div>`;
@@ -1720,10 +1753,12 @@
         }
 
         const myName = (localStorage.getItem(STORAGE_USER) || "").trim().toLowerCase();
+        const stateTip = { checked: "체크인 완료", missed: "미체크인", pending: "오늘 — 아직 체크인 전", none: "" };
         const body = users
           .map((u) => {
             const isMine =
               myName && u.userName.trim().toLowerCase() === myName;
+            let checkCount = 0;
             const cells = dates
               .map((d, i) => {
                 const isToday = d === todayStr;
@@ -1737,31 +1772,26 @@
                   : "";
                 const hasHours = !!rawText;
                 const hoursText = hasHours ? rawText : "—";
-                const showCheckin =
-                  isToday &&
-                  checkinsToday.has(u.userName.trim().toLowerCase());
-                const pillClass = hasHours
-                  ? showCheckin
-                    ? "day-hours-pill has-checkin"
-                    : "day-hours-pill"
-                  : "day-hours-pill empty";
-                const tip = hasHours
-                  ? `${d} · ${hoursText}${showCheckin ? " · 체크인 완료" : ""}`
-                  : `${d} · 시간 미입력`;
-                return `<td class="day-cell editable ${isToday ? "today" : ""} ${isWeekend ? "weekend" : ""}"
+                const state = checkinState(entry, d, i);
+                if (state === "checked") checkCount++;
+                const tip = `${d}${hasHours ? " · " + rawText : " · 시간 미입력"}` +
+                  `${stateTip[state] ? " · " + stateTip[state] : ""} · 클릭해서 수정`;
+                return `<td class="day-cell editable ci-${state} ${isToday ? "today" : ""} ${isWeekend ? "weekend" : ""}"
                   data-user="${esc(u.userName)}"
                   data-iso="${d}"
                   data-text="${esc(rawText)}"
-                  title="${esc(tip)} · 클릭해서 수정">
+                  title="${esc(tip)}">
                   <div class="day-cell-content">
-                    <span class="${pillClass}">${esc(hoursText)}</span>
-                    ${showCheckin ? `<span class="day-checkmark" aria-label="체크인 완료"></span>` : ""}
+                    <span class="ci-badge ${state}">${CI_BADGE[state]}</span>
+                    <span class="day-hours-pill ${hasHours ? "" : "empty"}">${esc(hoursText)}</span>
                   </div>
                 </td>`;
               })
               .join("");
+            const countClass = checkCount >= CHECKIN_PASS_THRESHOLD ? "good" : (checkCount === 0 ? "warn" : "");
             return `<tr class="${isMine ? "mine" : ""}">
-              <td>${esc(u.userName)}${isMine ? " (나)" : ""}</td>
+              <td><div class="row-name"><span>${esc(u.userName)}${isMine ? " (나)" : ""}</span>
+                <span class="ci-count ${countClass}">체크인 ${checkCount}일</span></div></td>
               ${cells}
             </tr>`;
           })
