@@ -517,6 +517,48 @@
       border-radius: 12px;
       transition: border-color .15s, background .15s;
     }
+    .wh-inputs {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      min-width: 0;
+    }
+    .wh-input-group {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      min-width: 0;
+    }
+    .wh-input-label {
+      flex: 0 0 32px;
+      font-size: 0.72rem;
+      font-weight: 700;
+      color: var(--ink-mute);
+      letter-spacing: 0.02em;
+    }
+    .wh-input-label.unavail { color: #b91c1c; }
+    .wh-input.wh-unavailable {
+      border-color: #f4cccc;
+      background: #fffafa;
+    }
+    .wh-input.wh-unavailable::placeholder { color: #d99595; }
+    .wh-input.wh-unavailable:focus {
+      border-color: #dc2626;
+      box-shadow: 0 0 0 3px rgba(220, 38, 38, 0.12);
+    }
+    .day-hours-unavail {
+      display: inline-block;
+      margin-top: 2px;
+      padding: 2px 6px;
+      font-size: 0.72rem;
+      color: #b91c1c;
+      background: #fdecec;
+      border: 1px solid #f4cccc;
+      border-radius: 6px;
+      line-height: 1.25;
+      max-width: 100%;
+      overflow-wrap: anywhere;
+    }
     .wh-clear {
       width: 28px; height: 28px;
       border-radius: 8px;
@@ -1093,7 +1135,7 @@
       const start = activeWeekStart();
       return [0, 1, 2, 3, 4, 5, 6].map((i) => addDaysISO(start, i));
     }
-    function renderWeekHoursInputs(prefill = {}) {
+    function renderWeekHoursInputs(prefill = {}, prefillUnavail = {}) {
       const today = todayKSTStr();
       const dates = activeWeekDates();
       const html = dates
@@ -1101,6 +1143,7 @@
           const isWeekend = i >= 5;
           const isToday = iso === today;
           const val = prefill[iso] || "";
+          const unavailVal = prefillUnavail[iso] || "";
           const placeholder = isWeekend
             ? "휴무 (또는 자유롭게)"
             : "예: 10:00-19:00, 9-12/14-19, 재택 10-19, 외근";
@@ -1110,7 +1153,16 @@
                 <span class="dow">${WEEK_DOW_LABELS[i]}${isToday ? " · 오늘" : ""}</span>
                 <span class="dom">${monthDay(iso)}</span>
               </div>
-              <input class="wh-input" type="text" placeholder="${placeholder}" value="${esc(val)}" />
+              <div class="wh-inputs">
+                <div class="wh-input-group">
+                  <span class="wh-input-label">가능</span>
+                  <input class="wh-input wh-available" type="text" placeholder="${placeholder}" value="${esc(val)}" />
+                </div>
+                <div class="wh-input-group">
+                  <span class="wh-input-label unavail">불가</span>
+                  <input class="wh-input wh-unavailable" type="text" placeholder="예: 13:00-13:30 회의 (없으면 비우기)" value="${esc(unavailVal)}" />
+                </div>
+              </div>
               <button class="wh-clear" type="button" title="이 날 삭제">×</button>
             </div>`;
         })
@@ -1123,8 +1175,9 @@
       const items = [];
       rows.forEach((row) => {
         const iso = row.dataset.iso;
-        const raw = row.querySelector(".wh-input").value.trim();
-        items.push({ date: iso, text: raw });
+        const raw = row.querySelector(".wh-available").value.trim();
+        const unavail = row.querySelector(".wh-unavailable").value.trim();
+        items.push({ date: iso, text: raw, unavailable: unavail });
       });
       return { items };
     }
@@ -1133,7 +1186,7 @@
       if (!btn) return;
       const value = btn.dataset.bulk;
       document.querySelectorAll(".wh-row").forEach((row, i) => {
-        if (i < 5) row.querySelector(".wh-input").value = value;
+        if (i < 5) row.querySelector(".wh-available").value = value;
       });
     });
     document.getElementById("clearAllBtn").addEventListener("click", () => {
@@ -1234,7 +1287,7 @@
         if (!e.target.classList.contains("wh-clear")) return;
         const row = e.target.closest(".wh-row");
         if (!row) return;
-        row.querySelector(".wh-input").value = "";
+        row.querySelectorAll(".wh-input").forEach((el) => (el.value = ""));
         markHoursDirty();
       });
     ["done", "tasks", "blockers"].forEach((id) => {
@@ -1258,6 +1311,7 @@
             userName.trim().toLowerCase()
         );
         const prefill = {};
+        const prefillUnavail = {};
         if (me) {
           for (const entry of me.entries) {
             const text =
@@ -1265,23 +1319,27 @@
               formatRange(entry.startTime, entry.endTime) ||
               "";
             if (text) prefill[entry.date] = text;
+            if (entry.unavailableText) prefillUnavail[entry.date] = entry.unavailableText;
           }
         }
         const rows = document.querySelectorAll(".wh-row");
         if (force || !rows.length) {
-          renderWeekHoursInputs(prefill);
+          renderWeekHoursInputs(prefill, prefillUnavail);
         } else {
           rows.forEach((row) => {
             const iso = row.dataset.iso;
-            const input = row.querySelector(".wh-input");
+            const availInput = row.querySelector(".wh-available");
+            const unavailInput = row.querySelector(".wh-unavailable");
             if (force) {
-              input.value = prefill[iso] || "";
-            } else if (!input.value && prefill[iso]) {
-              input.value = prefill[iso];
+              availInput.value = prefill[iso] || "";
+              unavailInput.value = prefillUnavail[iso] || "";
+            } else {
+              if (!availInput.value && prefill[iso]) availInput.value = prefill[iso];
+              if (!unavailInput.value && prefillUnavail[iso]) unavailInput.value = prefillUnavail[iso];
             }
           });
         }
-        if (Object.keys(prefill).length) {
+        if (Object.keys(prefill).length || Object.keys(prefillUnavail).length) {
           markHoursSaved("저장된 시간 불러옴");
         }
       } catch (e) {
@@ -1770,20 +1828,26 @@
                       ? `${entry.startTime || ""}-${entry.endTime || ""}`
                       : "")
                   : "";
+                const unavailText = entry ? (entry.unavailableText || "") : "";
                 const hasHours = !!rawText;
                 const hoursText = hasHours ? rawText : "—";
                 const state = checkinState(entry, d, i);
                 if (state === "checked") checkCount++;
-                const tip = `${d}${hasHours ? " · " + rawText : " · 시간 미입력"}` +
-                  `${stateTip[state] ? " · " + stateTip[state] : ""} · 클릭해서 수정`;
+                const tipParts = [d];
+                tipParts.push(hasHours ? rawText : "시간 미입력");
+                if (unavailText) tipParts.push(`불가: ${unavailText}`);
+                if (stateTip[state]) tipParts.push(stateTip[state]);
+                const tip = `${tipParts.join(" · ")} · 클릭해서 수정`;
                 return `<td class="day-cell editable ci-${state} ${isToday ? "today" : ""} ${isWeekend ? "weekend" : ""}"
                   data-user="${esc(u.userName)}"
                   data-iso="${d}"
                   data-text="${esc(rawText)}"
+                  data-unavail="${esc(unavailText)}"
                   title="${esc(tip)}">
                   <div class="day-cell-content">
                     <span class="ci-badge ${state}">${CI_BADGE[state]}</span>
                     <span class="day-hours-pill ${hasHours ? "" : "empty"}">${esc(hoursText)}</span>
+                    ${unavailText ? `<span class="day-hours-unavail" title="대응 불가">불가 ${esc(unavailText)}</span>` : ""}
                   </div>
                 </td>`;
               })
@@ -1815,28 +1879,48 @@
       const userName = cell.dataset.user;
       const iso = cell.dataset.iso;
       const current = cell.dataset.text || "";
+      const currentUnavail = cell.dataset.unavail || "";
       const original = cell.innerHTML;
 
-      const input = document.createElement("input");
-      input.type = "text";
-      input.className = "day-cell-edit";
-      input.value = current;
-      input.placeholder = "예: 10-19 · 비우면 삭제";
+      const wrap = document.createElement("div");
+      wrap.className = "day-cell-edit-wrap";
+      wrap.style.cssText = "display:flex; flex-direction:column; gap:4px;";
+
+      const availInput = document.createElement("input");
+      availInput.type = "text";
+      availInput.className = "day-cell-edit";
+      availInput.value = current;
+      availInput.placeholder = "가능 예: 10-19";
+
+      const unavailInput = document.createElement("input");
+      unavailInput.type = "text";
+      unavailInput.className = "day-cell-edit";
+      unavailInput.value = currentUnavail;
+      unavailInput.placeholder = "불가 예: 13-13:30";
+      unavailInput.style.cssText = "background:#fffafa; border-color:#f4cccc; color:#b91c1c;";
+
+      wrap.appendChild(availInput);
+      wrap.appendChild(unavailInput);
       cell.innerHTML = "";
-      cell.appendChild(input);
-      input.focus();
-      input.select();
+      cell.appendChild(wrap);
+      availInput.focus();
+      availInput.select();
 
       let done = false;
       const finalize = async (commit) => {
         if (done) return;
+        if (commit && document.activeElement &&
+            wrap.contains(document.activeElement)) {
+          return;
+        }
         done = true;
         if (!commit) {
           cell.innerHTML = original;
           return;
         }
-        const next = input.value.trim();
-        if (next === current) {
+        const next = availInput.value.trim();
+        const nextUnavail = unavailInput.value.trim();
+        if (next === current && nextUnavail === currentUnavail) {
           cell.innerHTML = original;
           return;
         }
@@ -1847,22 +1931,26 @@
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({
               userName,
-              hours: [{ date: iso, text: next }],
+              hours: [{ date: iso, text: next, unavailable: nextUnavail }],
             }),
           });
           if (!r.ok) throw new Error((await r.json()).error || "fail");
-          toast(next ? "수정됨" : "삭제됨");
+          toast(next || nextUnavail ? "수정됨" : "삭제됨");
           loadWeek();
         } catch (err) {
           toast("저장 실패: " + err.message);
           cell.innerHTML = original;
         }
       };
-      input.addEventListener("blur", () => finalize(true));
-      input.addEventListener("keydown", (k) => {
-        if (k.key === "Enter") { k.preventDefault(); input.blur(); }
+      const onBlur = () => setTimeout(() => finalize(true), 0);
+      const onKey = (k) => {
+        if (k.key === "Enter") { k.preventDefault(); done = false; finalize(true); }
         else if (k.key === "Escape") { k.preventDefault(); finalize(false); }
-      });
+      };
+      availInput.addEventListener("blur", onBlur);
+      unavailInput.addEventListener("blur", onBlur);
+      availInput.addEventListener("keydown", onKey);
+      unavailInput.addEventListener("keydown", onKey);
     });
 
     document.getElementById("weekPrev").addEventListener("click", () => {

@@ -119,6 +119,7 @@ async function initDatabase() {
     `);
     await pool.query(`ALTER TABLE checkins ADD COLUMN IF NOT EXISTS done TEXT DEFAULT ''`);
     await pool.query(`ALTER TABLE checkins ADD COLUMN IF NOT EXISTS hours_text TEXT DEFAULT ''`);
+    await pool.query(`ALTER TABLE checkins ADD COLUMN IF NOT EXISTS unavailable_text TEXT DEFAULT ''`);
     await pool.query(`
       CREATE TABLE IF NOT EXISTS team_members (
         id SERIAL PRIMARY KEY,
@@ -664,16 +665,18 @@ app.post("/api/checkin/week-hours", async (req, res) => {
     }
     for (const h of hours) {
       const text = (h.text || "").trim();
+      const unavailable = (h.unavailable || "").trim();
       const parsed = parseRangeFromText(text);
       await pool.query(
-        `INSERT INTO checkins (check_date, user_name, hours_text, start_time, end_time)
-         VALUES ($1, $2, $3, $4, $5)
+        `INSERT INTO checkins (check_date, user_name, hours_text, unavailable_text, start_time, end_time)
+         VALUES ($1, $2, $3, $4, $5, $6)
          ON CONFLICT (check_date, user_name) DO UPDATE SET
            hours_text = EXCLUDED.hours_text,
+           unavailable_text = EXCLUDED.unavailable_text,
            start_time = EXCLUDED.start_time,
            end_time = EXCLUDED.end_time,
            updated_at = CURRENT_TIMESTAMP`,
-        [h.date, userName, text, parsed.start, parsed.end]
+        [h.date, userName, text, unavailable, parsed.start, parsed.end]
       );
     }
     res.json({ success: true, saved: hours.length });
@@ -687,7 +690,7 @@ app.get("/api/checkin/week", async (req, res) => {
   const { weekStart, weekEnd, dates } = getWeekRange(req.query.weekStart);
   try {
     const result = await pool.query(
-      `SELECT user_name, check_date, start_time, end_time, hours_text,
+      `SELECT user_name, check_date, start_time, end_time, hours_text, unavailable_text,
               (COALESCE(done,'') <> '' OR COALESCE(tasks,'') <> '' OR COALESCE(blockers,'') <> '') AS has_checkin
        FROM checkins
        WHERE check_date BETWEEN $1 AND $2
@@ -706,6 +709,7 @@ app.get("/api/checkin/week", async (req, res) => {
         startTime: row.start_time,
         endTime: row.end_time,
         hoursText: row.hours_text,
+        unavailableText: row.unavailable_text || "",
         hasCheckin: row.has_checkin,
       });
     }
