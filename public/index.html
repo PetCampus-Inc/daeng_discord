@@ -131,6 +131,74 @@
       box-shadow: 0 10px 24px rgba(234, 88, 12, 0.18);
       font-size: 2.4rem;
     }
+    /* Hero announcement (notice) */
+    .notice {
+      margin-top: 18px;
+      background: rgba(255,255,255,0.7);
+      border: 1px solid rgba(245, 158, 11, 0.35);
+      border-radius: 16px;
+      padding: 14px 16px;
+      position: relative;
+      z-index: 1;
+      backdrop-filter: blur(2px);
+    }
+    .notice-head {
+      display: flex; align-items: center; justify-content: space-between;
+      gap: 12px; margin-bottom: 6px;
+    }
+    .notice-title {
+      display: inline-flex; align-items: center; gap: 6px;
+      font-size: 0.78rem; font-weight: 700;
+      color: var(--accent-strong); letter-spacing: 0.04em; text-transform: uppercase;
+    }
+    .notice-title::before { content: "📌"; font-size: 0.95rem; }
+    .notice-actions {
+      display: inline-flex; gap: 6px;
+    }
+    .notice-actions button {
+      background: transparent;
+      border: 1px solid rgba(245, 158, 11, 0.35);
+      color: var(--accent-strong);
+      font-size: 0.75rem; font-weight: 600;
+      padding: 4px 10px; border-radius: 999px;
+      cursor: pointer;
+      transition: background .15s, border-color .15s;
+    }
+    .notice-actions button:hover { background: var(--accent-soft); }
+    .notice-actions button.danger { color: #b91c1c; border-color: #fecaca; }
+    .notice-actions button.danger:hover { background: #fdecec; }
+    .notice-body {
+      color: var(--ink); font-size: 0.95rem; line-height: 1.55;
+      white-space: pre-wrap; overflow-wrap: anywhere;
+      font-weight: 500;
+    }
+    .notice-body.empty {
+      color: var(--ink-mute); font-weight: 400; font-style: italic;
+    }
+    .notice-edit {
+      width: 100%; min-height: 72px;
+      padding: 10px 12px;
+      border-radius: 12px; border: 1px solid rgba(245, 158, 11, 0.5);
+      background: #fff;
+      font: inherit; color: var(--ink);
+      resize: vertical;
+    }
+    .notice-edit:focus { outline: none; box-shadow: 0 0 0 3px rgba(245,158,11,0.15); }
+    .notice-edit-row {
+      display: flex; justify-content: flex-end; gap: 8px; margin-top: 8px;
+    }
+    .notice-edit-row .save {
+      background: var(--accent); color: #fff;
+      border: none; padding: 6px 14px;
+      border-radius: 999px; font-weight: 700; font-size: 0.82rem;
+      cursor: pointer;
+    }
+    .notice-edit-row .cancel {
+      background: transparent; color: var(--ink-soft);
+      border: 1px solid #e2e8f0;
+      padding: 6px 14px; border-radius: 999px; font-size: 0.82rem;
+      cursor: pointer;
+    }
 
     /* Quick links — re-uses brand assets from legacy page */
     .quick-card {
@@ -291,6 +359,23 @@
       font-size: 0.82rem; color: var(--ink-mute);
     }
     .save-note.saved { color: var(--good); font-weight: 600; }
+    .save-note.late {
+      color: #b91c1c;
+      font-weight: 700;
+      background: #fdecec;
+      border: 1px solid #f4cccc;
+      padding: 6px 10px;
+      border-radius: 8px;
+      line-height: 1.4;
+    }
+    .submit.locked {
+      background: #e5e7eb;
+      color: #6b7280;
+      box-shadow: none;
+      cursor: not-allowed;
+      filter: none;
+    }
+    .submit.locked:hover { transform: none; box-shadow: none; }
     .submit {
       padding: 14px 28px;
       background: linear-gradient(135deg, #fbbf24, #ea580c);
@@ -420,7 +505,12 @@
     .day-head .dow { font-size: 0.72rem; color: var(--ink-mute); }
     .day-head .dom { font-weight: 700; color: var(--ink); }
     .week-table th.today .day-head .dom { color: var(--accent-strong); }
-    .day-cell { font-variant-numeric: tabular-nums; }
+    .day-cell {
+      font-variant-numeric: tabular-nums;
+      position: relative;
+      padding: 10px 6px;
+      vertical-align: top;
+    }
     .day-mark {
       display: inline-flex; align-items: center; justify-content: center;
       width: 36px; height: 36px;
@@ -434,38 +524,85 @@
     }
     .day-mark.miss { background: #faf6f0; color: #cbd5e1; }
     .day-cell-content {
-      display: inline-flex; flex-direction: column; align-items: center; gap: 4px;
+      display: flex; flex-direction: column; align-items: center; gap: 4px;
+      padding-top: 2px;
     }
     .day-hours-pill {
-      font-size: 0.74rem;
+      font-size: 0.82rem;
+      font-weight: 600;
       font-variant-numeric: tabular-nums;
-      color: var(--ink-soft);
-      background: #fffdfa;
-      border: 1px solid #f1ddc4;
-      padding: 2px 8px;
+      color: var(--ink);
+      background: #fff;
+      border: 1px solid #ecdbc1;
+      padding: 4px 10px;
       border-radius: 10px;
-      line-height: 1.3;
+      line-height: 1.25;
       max-width: 140px;
       word-break: keep-all;
       overflow-wrap: anywhere;
       text-align: center;
+      letter-spacing: 0.01em;
     }
-    .day-hours-pill.empty { opacity: 0.35; }
+    .day-hours-pill.empty {
+      opacity: 0.4;
+      background: transparent;
+      border-style: dashed;
+      font-weight: 400;
+    }
 
-    /* ---- Per-day check-in status badge ---- */
-    .ci-badge {
+    /* ---- Per-day status: small corner dot ---- */
+    .day-status {
+      position: absolute;
+      top: 6px; left: 6px;
+      width: 14px; height: 14px;
+      border-radius: 50%;
       display: inline-flex; align-items: center; justify-content: center;
-      width: 26px; height: 26px; border-radius: 50%;
-      font-size: 0.82rem; font-weight: 800; line-height: 1;
+      font-size: 0.58rem; font-weight: 800; line-height: 1;
+      color: #fff;
+      pointer-events: none;
+      z-index: 1;
     }
-    .ci-badge.checked { background: var(--good); color: #fff; box-shadow: 0 0 0 3px #dcfce7; }
-    .ci-badge.missed  { background: #fff; color: var(--warn); box-shadow: inset 0 0 0 2px #fecaca; }
-    .ci-badge.pending { background: var(--accent-soft); color: var(--accent-strong); box-shadow: inset 0 0 0 2px #fcd9a0; font-size: 0.6rem; font-weight: 700; }
-    .ci-badge.none    { background: transparent; color: #d8dee8; box-shadow: none; font-size: 0.9rem; }
-    td.day-cell.ci-checked { background: #f0faf2; }
-    td.day-cell.ci-missed  { background: #fdf1f1; }
+    .day-status.checked { background: var(--good); }
+    .day-status.late    { background: #f59e0b; }
+    .day-status.missed  { background: #fff; color: var(--warn); box-shadow: inset 0 0 0 1.5px #fecaca; }
+    .day-status.pending { background: var(--accent); }
+
+    td.day-cell.ci-checked { background: rgba(34, 197, 94, 0.05); }
+    td.day-cell.ci-late    { background: rgba(245, 158, 11, 0.07); }
+    td.day-cell.ci-missed  { background: rgba(239, 68, 68, 0.04); }
     td.day-cell.ci-checked.today,
+    td.day-cell.ci-late.today,
     td.day-cell.ci-missed.today { box-shadow: inset 0 2px 0 var(--accent); }
+    .ci-count.late { background: #fef3c7; color: #92400e; }
+
+    /* ---- Per-cell meta lines (unavailable / delayed) ---- */
+    .day-meta {
+      display: inline-flex; align-items: center; gap: 3px;
+      font-size: 0.68rem;
+      font-weight: 600;
+      font-variant-numeric: tabular-nums;
+      line-height: 1.2;
+      letter-spacing: 0.01em;
+      white-space: nowrap;
+      max-width: 100%;
+      overflow-wrap: anywhere;
+    }
+    .day-meta.unavail { color: #b91c1c; }
+    .day-meta.unavail::before {
+      content: "—";
+      font-weight: 800;
+      opacity: 0.7;
+    }
+    .day-meta.delayed { color: #b45309; }
+    .day-meta.delayed::before {
+      content: "L";
+      display: inline-flex; align-items: center; justify-content: center;
+      width: 13px; height: 13px;
+      border-radius: 50%;
+      background: #f59e0b; color: #fff;
+      font-size: 0.55rem; font-weight: 800;
+      letter-spacing: 0;
+    }
     .row-name { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
     .ci-count {
       font-size: 0.72rem; font-weight: 700; padding: 2px 9px; border-radius: 999px;
@@ -480,6 +617,7 @@
       display: inline-flex; align-items: center; justify-content: center; color: #fff;
     }
     .day-dots .d.checked { background: var(--good); }
+    .day-dots .d.late    { background: #f59e0b; }
     .day-dots .d.missed  { background: #fff; color: var(--warn); box-shadow: inset 0 0 0 1.5px #fecaca; }
     .day-dots .d.pending { background: var(--accent-soft); color: var(--accent-strong); }
     .day-dots .d.none    { background: #f1f5f9; color: #cbd5e1; }
@@ -545,19 +683,6 @@
     .wh-input.wh-unavailable:focus {
       border-color: #dc2626;
       box-shadow: 0 0 0 3px rgba(220, 38, 38, 0.12);
-    }
-    .day-hours-unavail {
-      display: inline-block;
-      margin-top: 2px;
-      padding: 2px 6px;
-      font-size: 0.72rem;
-      color: #b91c1c;
-      background: #fdecec;
-      border: 1px solid #f4cccc;
-      border-radius: 6px;
-      line-height: 1.25;
-      max-width: 100%;
-      overflow-wrap: anywhere;
     }
     .wh-clear {
       width: 28px; height: 28px;
@@ -839,6 +964,13 @@
           체크인을 하면 동료들도 오늘 누가 무엇을 할지 한 눈에 볼 수 있어요.<br />
           블락커가 있다면 솔직하게 적어두세요 — 누군가 도와줄 수 있어요.
         </p>
+        <div class="notice" id="notice">
+          <div class="notice-head">
+            <span class="notice-title">공지사항</span>
+            <div class="notice-actions" id="noticeActions"></div>
+          </div>
+          <div id="noticeView"></div>
+        </div>
       </div>
 
       <aside class="quick-card">
@@ -1093,16 +1225,18 @@
     let viewWeekStart = null; // YYYY-MM-DD (Monday). null = current week.
 
     /* Per-day check-in state, shared by weekly board + summary.
-       checked = 체크인함 · missed = 지난 평일 미체크 · pending = 오늘(평일) 아직 · none = 주말/미래 */
-    const CI_BADGE = { checked: "✓", missed: "✗", pending: "오늘", none: "·" };
+       checked = 정시 체크인 · late = 컷오프 후 체크인 · missed = 지난 평일 미체크 · pending = 오늘(평일) 아직 · none = 주말/미래 */
+    const CI_BADGE = { checked: "✓", late: "L", missed: "✗", pending: "", none: "" };
     function checkinState(entry, dayIso, dayIndex) {
-      if (entry && entry.hasCheckin) return "checked";
+      if (entry && entry.hasCheckin) return entry.isLate ? "late" : "checked";
       const today = todayKSTStr();
       if (dayIndex >= 5) return "none";        // 주말
       if (dayIso === today) return "pending";  // 오늘 평일, 아직
       if (dayIso < today) return "missed";     // 지난 평일
       return "none";                           // 미래 평일
     }
+    const STATE_LABEL = { checked: "정시", late: "Delayed", missed: "미체크", pending: "오늘", none: "—" };
+    function stateLabel(s) { return STATE_LABEL[s] || s; }
 
     function todayKSTStr() {
       const kst = new Date(Date.now() + 9 * 60 * 60 * 1000);
@@ -1356,6 +1490,7 @@
         const c = data.checkin;
         if (!c) {
           clearCheckinOnly();
+          setCheckinCutoff(null);
           return;
         }
         document.getElementById("done").value = c.done || "";
@@ -1364,6 +1499,7 @@
         if (c.done || c.tasks || c.blockers) {
           markSaved("오늘 이미 체크인했어요. 수정 가능합니다.");
         }
+        setCheckinCutoff(c.startTime || null);
       } catch (e) { /* silent */ }
     }
     function markHoursSaved(text) {
@@ -1387,9 +1523,27 @@
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ userName, hours: items }),
         });
-        if (!r.ok) throw new Error((await r.json()).error || "fail");
+        const data = await r.json().catch(() => ({}));
+        if (!r.ok) {
+          if (data && data.code === "START_TIME_LOCKED") {
+            toast(data.error);
+            prefillWeekHoursFor(userName, { force: true });
+            return;
+          }
+          throw new Error((data && data.error) || "fail");
+        }
         toast("이번 주 작업 시간 저장됨 ⏰");
         markHoursSaved(`${new Date().toLocaleTimeString("ko-KR")} 에 저장됨`);
+        const todayItem = items.find((h) => h.date === todayKSTStr());
+        if (todayItem) {
+          const parsed = (todayItem.text || "").match(/(\d{1,2})(?::(\d{2}))?\s*[-~–—]/);
+          if (parsed) {
+            const pad = (n) => String(n).padStart(2, "0");
+            setCheckinCutoff(`${pad(Number(parsed[1]))}:${pad(Number(parsed[2] || 0))}`);
+          } else {
+            setCheckinCutoff(null);
+          }
+        }
         loadBoard();
         loadWeek();
       } catch (e) {
@@ -1399,6 +1553,55 @@
         saveHoursBtn.textContent = "이번 주 저장";
       }
     });
+
+    /* ---------------- Check-in cutoff (start_time + 30min) ---------------- */
+    const CHECKIN_GRACE_MIN = 30;
+    let checkinCutoff = null; // { startTime, cutoffMin, cutoffTime } or null
+    let cutoffTicker = null;
+
+    function nowMinKST() {
+      const k = new Date(Date.now() + 9 * 60 * 60 * 1000);
+      return k.getUTCHours() * 60 + k.getUTCMinutes();
+    }
+    function buildCutoff(startTime) {
+      if (!startTime) return null;
+      const m = String(startTime).match(/^(\d{1,2}):(\d{2})$/);
+      if (!m) return null;
+      const startMin = Number(m[1]) * 60 + Number(m[2]);
+      const cutoffMin = startMin + CHECKIN_GRACE_MIN;
+      const pad = (n) => String(n).padStart(2, "0");
+      const cutoffTime = `${pad(Math.floor(cutoffMin / 60) % 24)}:${pad(cutoffMin % 60)}`;
+      return { startTime, cutoffMin, cutoffTime };
+    }
+    function refreshCutoffUI() {
+      const btn = document.getElementById("submitBtn");
+      const note = document.getElementById("saveNote");
+      const isLate =
+        !!checkinCutoff && nowMinKST() > checkinCutoff.cutoffMin;
+      btn.disabled = false;
+      btn.classList.remove("locked");
+      if (isLate) {
+        btn.textContent = "체크인 (Delayed로 기록)";
+        note.textContent =
+          `시작 ${checkinCutoff.startTime} 기준 마감(${checkinCutoff.cutoffTime})을 지났어요. 지금 체크인은 Delayed로 기록됩니다.`;
+        note.classList.remove("saved");
+        note.classList.add("late");
+      } else {
+        if (btn.textContent === "체크인 (Delayed로 기록)") btn.textContent = "체크인 ✨";
+        note.classList.remove("late");
+        if (checkinCutoff && !note.classList.contains("saved")) {
+          note.textContent = `체크인 마감 ${checkinCutoff.cutoffTime}까지 (시작 ${checkinCutoff.startTime} + ${CHECKIN_GRACE_MIN}분, 이후엔 Delayed)`;
+        }
+      }
+    }
+    function setCheckinCutoff(startTime) {
+      checkinCutoff = buildCutoff(startTime);
+      refreshCutoffUI();
+      if (cutoffTicker) clearInterval(cutoffTicker);
+      if (checkinCutoff) {
+        cutoffTicker = setInterval(refreshCutoffUI, 20_000);
+      }
+    }
 
     /* ---------------- Submit check-in ---------------- */
     const submitBtn = document.getElementById("submitBtn");
@@ -1411,6 +1614,15 @@
       if (!done && !tasks && !blockers) {
         toast("한 일 / 할 일 / 블락커 중 하나는 입력해주세요");
         return;
+      }
+
+      const willBeLate =
+        !!checkinCutoff && nowMinKST() > checkinCutoff.cutoffMin;
+      if (willBeLate) {
+        const ok = confirm(
+          `체크인 마감(${checkinCutoff.cutoffTime})을 지났습니다.\n지금 체크인은 Delayed로 기록됩니다. 진행할까요?`
+        );
+        if (!ok) return;
       }
 
       localStorage.setItem(STORAGE_USER, userName);
@@ -1426,8 +1638,13 @@
             checkDate: todayKSTStr(),
           }),
         });
-        if (!r.ok) throw new Error((await r.json()).error || "fail");
-        toast("체크인 완료! 좋은 하루 보내세요 ☀️");
+        const data = await r.json().catch(() => ({}));
+        if (!r.ok) throw new Error((data && data.error) || "fail");
+        toast(
+          data.checkin && data.checkin.isLate
+            ? "체크인 완료 (Delayed로 기록)"
+            : "체크인 완료! 좋은 하루 보내세요 ☀️"
+        );
         markSaved(`${new Date().toLocaleTimeString("ko-KR")} 에 저장됨`);
         loadBoard();
         loadWeek();
@@ -1435,7 +1652,7 @@
         toast("저장 실패: " + e.message);
       } finally {
         submitBtn.disabled = false;
-        submitBtn.textContent = "체크인 ✨";
+        refreshCutoffUI();
       }
     });
 
@@ -1691,16 +1908,20 @@
             const entry = entries.find((e) => e.date === d);
             return checkinState(entry, d, i);
           });
-          const checkinCount = perDay.filter((s) => s === "checked").length;
+          const onTimeCount = perDay.filter((s) => s === "checked").length;
+          const lateCount = perDay.filter((s) => s === "late").length;
+          const checkinCount = onTimeCount + lateCount;
           const passed = checkinCount >= CHECKIN_PASS_THRESHOLD;
-          return { name, checkinCount, passed, perDay };
+          return { name, checkinCount, onTimeCount, lateCount, passed, perDay };
         });
 
         const passCount = rows.filter((r) => r.passed).length;
+        const totalLate = rows.reduce((s, r) => s + r.lateCount, 0);
         const meta = `
           <div class="summary-meta">
             기준: 주 ${CHECKIN_PASS_THRESHOLD}일 이상 체크인 ·
             기준 달성 ${passCount}명 / 전체 ${rows.length}명
+            ${totalLate > 0 ? ` · 누적 Delayed ${totalLate}건` : ""}
           </div>`;
 
         const tableHtml = `
@@ -1709,6 +1930,7 @@
               <th>이름</th>
               <th>요일별 체크인</th>
               <th class="num">일수</th>
+              <th class="num">Delayed</th>
               <th>결과</th>
             </tr></thead>
             <tbody>
@@ -1718,9 +1940,10 @@
                 <tr>
                   <td>${esc(r.name)}</td>
                   <td><div class="day-dots">${r.perDay
-                    .map((s, i) => `<span class="d ${s}" title="${WEEK_DOW_LABELS[i]}">${WEEK_DOW_LABELS[i]}</span>`)
+                    .map((s, i) => `<span class="d ${s}" title="${WEEK_DOW_LABELS[i]} · ${stateLabel(s)}">${WEEK_DOW_LABELS[i]}</span>`)
                     .join("")}</div></td>
-                  <td class="num">${r.checkinCount} / 5</td>
+                  <td class="num">${r.checkinCount} / 5${r.lateCount > 0 ? ` <span style="color:#92400e; font-size:0.78rem;">(정시 ${r.onTimeCount})</span>` : ""}</td>
+                  <td class="num">${r.lateCount > 0 ? `<span class="ci-count late">Delayed ${r.lateCount}</span>` : "—"}</td>
                   <td>
                     <span class="summary-badge ${r.passed ? "pass" : "fail"}">
                       ${r.passed ? "✅ 기준 달성" : "❌ 기준 미달"}
@@ -1764,6 +1987,100 @@
     });
     loadBoard();
     setInterval(loadBoard, 60_000);
+
+    /* ---------------- Hero notice (공지) ---------------- */
+    let currentNotice = null; // { id, content } or null
+
+    async function loadNotice() {
+      try {
+        const r = await fetch("/api/announcements");
+        const data = await r.json();
+        const list = data.announcements || [];
+        currentNotice = list.length ? { id: list[0].id, content: list[0].content } : null;
+      } catch (e) {
+        currentNotice = null;
+      }
+      renderNotice();
+    }
+    function renderNotice() {
+      const view = document.getElementById("noticeView");
+      const actions = document.getElementById("noticeActions");
+      if (currentNotice) {
+        view.innerHTML = `<div class="notice-body">${esc(currentNotice.content)}</div>`;
+        actions.innerHTML = `
+          <button type="button" id="noticeEditBtn">수정</button>
+          <button type="button" id="noticeDeleteBtn" class="danger">삭제</button>
+        `;
+        document.getElementById("noticeEditBtn").addEventListener("click", openNoticeEditor);
+        document.getElementById("noticeDeleteBtn").addEventListener("click", deleteNotice);
+      } else {
+        view.innerHTML = `<div class="notice-body empty">아직 등록된 공지가 없어요.</div>`;
+        actions.innerHTML = `<button type="button" id="noticeAddBtn">+ 등록</button>`;
+        document.getElementById("noticeAddBtn").addEventListener("click", openNoticeEditor);
+      }
+    }
+    function openNoticeEditor() {
+      const view = document.getElementById("noticeView");
+      const actions = document.getElementById("noticeActions");
+      const initial = currentNotice ? currentNotice.content : "";
+      view.innerHTML = `
+        <textarea class="notice-edit" id="noticeEditArea" placeholder="공지 내용을 적어주세요"></textarea>
+        <div class="notice-edit-row">
+          <button class="cancel" id="noticeCancelBtn" type="button">취소</button>
+          <button class="save" id="noticeSaveBtn" type="button">저장</button>
+        </div>`;
+      actions.innerHTML = "";
+      const area = document.getElementById("noticeEditArea");
+      area.value = initial;
+      area.focus();
+      document.getElementById("noticeCancelBtn").addEventListener("click", renderNotice);
+      document.getElementById("noticeSaveBtn").addEventListener("click", saveNotice);
+    }
+    async function saveNotice() {
+      const area = document.getElementById("noticeEditArea");
+      const content = (area.value || "").trim();
+      if (!content) {
+        toast("공지 내용을 입력해주세요");
+        return;
+      }
+      try {
+        let r;
+        if (currentNotice) {
+          r = await fetch(`/api/announcements/${currentNotice.id}`, {
+            method: "PATCH",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ content }),
+          });
+        } else {
+          r = await fetch(`/api/announcements`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ content }),
+          });
+        }
+        const data = await r.json().catch(() => ({}));
+        if (!r.ok) throw new Error(data.error || "fail");
+        toast(currentNotice ? "공지 수정됨" : "공지 등록됨");
+        loadNotice();
+      } catch (e) {
+        toast("저장 실패: " + e.message);
+      }
+    }
+    async function deleteNotice() {
+      if (!currentNotice) return;
+      if (!confirm("공지를 삭제할까요?")) return;
+      try {
+        const r = await fetch(`/api/announcements/${currentNotice.id}`, {
+          method: "DELETE",
+        });
+        if (!r.ok) throw new Error((await r.json()).error || "fail");
+        toast("공지 삭제됨");
+        loadNotice();
+      } catch (e) {
+        toast("삭제 실패: " + e.message);
+      }
+    }
+    loadNotice();
 
     /* ---------------- Weekly board (hours + check-in) ---------------- */
     function shiftWeek(baseISO, weeks) {
@@ -1811,7 +2128,7 @@
         }
 
         const myName = (localStorage.getItem(STORAGE_USER) || "").trim().toLowerCase();
-        const stateTip = { checked: "체크인 완료", missed: "미체크인", pending: "오늘 — 아직 체크인 전", none: "" };
+        const stateTip = { checked: "체크인 완료", late: "Delayed 체크인", missed: "미체크인", pending: "오늘 — 아직 체크인 전", none: "" };
         const body = users
           .map((u) => {
             const isMine =
@@ -1832,22 +2149,29 @@
                 const hasHours = !!rawText;
                 const hoursText = hasHours ? rawText : "—";
                 const state = checkinState(entry, d, i);
-                if (state === "checked") checkCount++;
+                if (state === "checked" || state === "late") checkCount++;
                 const tipParts = [d];
                 tipParts.push(hasHours ? rawText : "시간 미입력");
                 if (unavailText) tipParts.push(`불가: ${unavailText}`);
-                if (stateTip[state]) tipParts.push(stateTip[state]);
+                if (state === "late" && entry && entry.checkedInAt) {
+                  tipParts.push(`Delayed 체크인 ${entry.checkedInAt}`);
+                } else if (stateTip[state]) {
+                  tipParts.push(stateTip[state]);
+                }
                 const tip = `${tipParts.join(" · ")} · 클릭해서 수정`;
+                const statusLabel = STATE_LABEL[state] || "";
+                const showStatusDot = state !== "none";
                 return `<td class="day-cell editable ci-${state} ${isToday ? "today" : ""} ${isWeekend ? "weekend" : ""}"
                   data-user="${esc(u.userName)}"
                   data-iso="${d}"
                   data-text="${esc(rawText)}"
                   data-unavail="${esc(unavailText)}"
                   title="${esc(tip)}">
+                  ${showStatusDot ? `<span class="day-status ${state}" aria-label="${esc(statusLabel)}">${CI_BADGE[state]}</span>` : ""}
                   <div class="day-cell-content">
-                    <span class="ci-badge ${state}">${CI_BADGE[state]}</span>
                     <span class="day-hours-pill ${hasHours ? "" : "empty"}">${esc(hoursText)}</span>
-                    ${unavailText ? `<span class="day-hours-unavail" title="대응 불가">불가 ${esc(unavailText)}</span>` : ""}
+                    ${unavailText ? `<span class="day-meta unavail" title="대응 불가">${esc(unavailText)}</span>` : ""}
+                    ${state === "late" && entry && entry.checkedInAt ? `<span class="day-meta delayed" title="Delayed 체크인">${esc(entry.checkedInAt)}</span>` : ""}
                   </div>
                 </td>`;
               })
@@ -1934,7 +2258,16 @@
               hours: [{ date: iso, text: next, unavailable: nextUnavail }],
             }),
           });
-          if (!r.ok) throw new Error((await r.json()).error || "fail");
+          const data = await r.json().catch(() => ({}));
+          if (!r.ok) {
+            if (data && data.code === "START_TIME_LOCKED") {
+              toast(data.error);
+              cell.innerHTML = original;
+              loadWeek();
+              return;
+            }
+            throw new Error((data && data.error) || "fail");
+          }
           toast(next || nextUnavail ? "수정됨" : "삭제됨");
           loadWeek();
         } catch (err) {

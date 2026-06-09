@@ -120,6 +120,7 @@ async function initDatabase() {
     await pool.query(`ALTER TABLE checkins ADD COLUMN IF NOT EXISTS done TEXT DEFAULT ''`);
     await pool.query(`ALTER TABLE checkins ADD COLUMN IF NOT EXISTS hours_text TEXT DEFAULT ''`);
     await pool.query(`ALTER TABLE checkins ADD COLUMN IF NOT EXISTS unavailable_text TEXT DEFAULT ''`);
+    await pool.query(`ALTER TABLE checkins ADD COLUMN IF NOT EXISTS checked_in_at VARCHAR(5)`);
     await pool.query(`
       CREATE TABLE IF NOT EXISTS team_members (
         id SERIAL PRIMARY KEY,
@@ -149,6 +150,31 @@ const todayKST = () => {
   const kst = new Date(Date.now() + 9 * 60 * 60 * 1000);
   return kst.toISOString().slice(0, 10);
 };
+const CHECKIN_GRACE_MIN = 30;
+function nowMinKST() {
+  const k = new Date(Date.now() + 9 * 60 * 60 * 1000);
+  return k.getUTCHours() * 60 + k.getUTCMinutes();
+}
+function hhmmToMin(s) {
+  if (!s || typeof s !== "string") return null;
+  const m = s.match(/^(\d{1,2}):(\d{2})$/);
+  if (!m) return null;
+  return Number(m[1]) * 60 + Number(m[2]);
+}
+function minToHHMM(min) {
+  const pad = (n) => String(n).padStart(2, "0");
+  return `${pad(Math.floor(min / 60) % 24)}:${pad(min % 60)}`;
+}
+function nowHHMMKST() {
+  const k = new Date(Date.now() + 9 * 60 * 60 * 1000);
+  return minToHHMM(k.getUTCHours() * 60 + k.getUTCMinutes());
+}
+function isLateCheckin(startTime, checkedInAt) {
+  const sm = hhmmToMin(startTime);
+  const cm = hhmmToMin(checkedInAt);
+  if (sm === null || cm === null) return false;
+  return cm > sm + CHECKIN_GRACE_MIN;
+}
 function getWeekRange(weekStartParam) {
   let monday;
   if (weekStartParam) {
@@ -534,6 +560,11 @@ app.post("/api/checkin", async (req, res) => {
         .json({ error: "체크인은 오늘 날짜에만 가능합니다" });
     }
 
+    const hasCheckinContent =
+      (typeof done === "string" && done.trim() !== "") ||
+      (typeof tasks === "string" && tasks.trim() !== "") ||
+      (typeof blockers === "string" && blockers.trim() !== "");
+
     await pool.query(
       `INSERT INTO checkins (check_date, user_name)
        VALUES ($1, $2)
@@ -551,8 +582,24 @@ app.post("/api/checkin", async (req, res) => {
       params
     );
 
+    if (isCheckinWrite) {
+      if (hasCheckinContent) {
+        await pool.query(
+          `UPDATE checkins SET checked_in_at = COALESCE(checked_in_at, $3)
+           WHERE check_date = $1 AND user_name = $2`,
+          [date, userName, nowHHMMKST()]
+        );
+      } else {
+        await pool.query(
+          `UPDATE checkins SET checked_in_at = NULL
+           WHERE check_date = $1 AND user_name = $2`,
+          [date, userName]
+        );
+      }
+    }
+
     const result = await pool.query(
-      `SELECT start_time, end_time, done, tasks, blockers, updated_at
+      `SELECT start_time, end_time, done, tasks, blockers, updated_at, checked_in_at
        FROM checkins WHERE check_date = $1 AND user_name = $2`,
       [date, userName]
     );
@@ -568,6 +615,8 @@ app.post("/api/checkin", async (req, res) => {
         tasks: r.tasks || "",
         blockers: r.blockers || "",
         updatedAt: r.updated_at,
+        checkedInAt: r.checked_in_at || "",
+        isLate: isLateCheckin(r.start_time, r.checked_in_at),
       },
     });
   } catch (err) {
@@ -611,7 +660,7 @@ app.get("/api/checkin/me", async (req, res) => {
     dateParam && /^\d{4}-\d{2}-\d{2}$/.test(dateParam) ? dateParam : todayKST();
   try {
     const result = await pool.query(
-      `SELECT user_name, start_time, end_time, done, tasks, blockers, updated_at
+      `SELECT user_name, start_time, end_time, done, tasks, blockers, updated_at, checked_in_at
        FROM checkins WHERE check_date = $1 AND user_name = $2`,
       [date, userName]
     );
@@ -627,6 +676,8 @@ app.get("/api/checkin/me", async (req, res) => {
         tasks: r.tasks,
         blockers: r.blockers,
         updatedAt: r.updated_at,
+        checkedInAt: r.checked_in_at || "",
+        isLate: isLateCheckin(r.start_time, r.checked_in_at),
       },
     });
   } catch (err) {
@@ -663,6 +714,37 @@ app.post("/api/checkin/week-hours", async (req, res) => {
           .json({ error: `invalid date: ${h.date}` });
       }
     }
+
+    const todayStr = todayKST();
+    const todayInputs = hours.filter((h) => h.date === todayStr);
+    if (todayInputs.length) {
+      const existing = await pool.query(
+        `SELECT start_time FROM checkins WHERE check_date = $1 AND user_name = $2`,
+        [todayStr, userName]
+      );
+      const oldStart = existing.rows[0] && existing.rows[0].start_time;
+      const oldStartMin = hhmmToMin(oldStart);
+      if (oldStartMin !== null) {
+        const oldCutoff = oldStartMin + CHECKIN_GRACE_MIN;
+        if (nowMinKST() > oldCutoff) {
+          for (const h of todayInputs) {
+            const parsed = parseRangeFromText((h.text || "").trim());
+            const newStartMin = hhmmToMin(parsed.start);
+            if (newStartMin !== null && newStartMin > oldStartMin) {
+              return res.status(403).json({
+                error:
+                  `오늘 체크인 마감(${minToHHMM(oldCutoff)})이 이미 지나서 시작 시간을 더 늦출 수 없어요. (기존 ${oldStart} → ${parsed.start}) 더 이른 시간으로만 조정 가능합니다.`,
+                code: "START_TIME_LOCKED",
+                oldStart,
+                newStart: parsed.start,
+                cutoffTime: minToHHMM(oldCutoff),
+              });
+            }
+          }
+        }
+      }
+    }
+
     for (const h of hours) {
       const text = (h.text || "").trim();
       const unavailable = (h.unavailable || "").trim();
@@ -690,7 +772,7 @@ app.get("/api/checkin/week", async (req, res) => {
   const { weekStart, weekEnd, dates } = getWeekRange(req.query.weekStart);
   try {
     const result = await pool.query(
-      `SELECT user_name, check_date, start_time, end_time, hours_text, unavailable_text,
+      `SELECT user_name, check_date, start_time, end_time, hours_text, unavailable_text, checked_in_at,
               (COALESCE(done,'') <> '' OR COALESCE(tasks,'') <> '' OR COALESCE(blockers,'') <> '') AS has_checkin
        FROM checkins
        WHERE check_date BETWEEN $1 AND $2
@@ -704,6 +786,9 @@ app.get("/api/checkin/week", async (req, res) => {
           ? row.check_date.toISOString().slice(0, 10)
           : String(row.check_date).slice(0, 10);
       if (!byUser.has(row.user_name)) byUser.set(row.user_name, []);
+      const isLate =
+        row.has_checkin &&
+        isLateCheckin(row.start_time, row.checked_in_at);
       byUser.get(row.user_name).push({
         date: dateStr,
         startTime: row.start_time,
@@ -711,6 +796,8 @@ app.get("/api/checkin/week", async (req, res) => {
         hoursText: row.hours_text,
         unavailableText: row.unavailable_text || "",
         hasCheckin: row.has_checkin,
+        checkedInAt: row.checked_in_at || "",
+        isLate,
       });
     }
     const users = [...byUser.entries()]
@@ -875,6 +962,26 @@ app.post("/api/announcements", async (req, res) => {
     }
 
     res.json({ success: true, announcement: result.rows[0], dmResults });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.patch("/api/announcements/:id", async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { content } = req.body || {};
+    if (typeof content !== "string" || !content.trim()) {
+      return res.status(400).json({ error: "content required" });
+    }
+    const result = await pool.query(
+      "UPDATE announcements SET content = $1 WHERE id = $2 AND is_active = true RETURNING *",
+      [content.trim(), id]
+    );
+    if (!result.rows.length) {
+      return res.status(404).json({ error: "announcement not found" });
+    }
+    res.json({ success: true, announcement: result.rows[0] });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
