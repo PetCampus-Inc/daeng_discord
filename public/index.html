@@ -1028,7 +1028,7 @@
       <div class="field" style="margin-bottom: 12px;">
         <label class="field-label">
           요일별 시간대
-          <span class="hint">형식: 10:00-19:00 (비우면 휴무)</span>
+          <span class="hint">평일(월–금)은 5일 모두 입력해야 저장됩니다 — 추후 추가 불가</span>
         </label>
         <div id="weekHoursList" class="week-hours-list"></div>
       </div>
@@ -1514,6 +1514,19 @@
       const userName = userInput.value.trim() || DEFAULT_NAME;
       userInput.value = userName;
       const { items } = collectWeekHoursInputs();
+
+      // Client-side preflight: weekdays must be all-filled or all-empty.
+      const weekdayItems = items.slice(0, 5);
+      const filled = weekdayItems.filter((h) => h.text && h.text.trim());
+      if (filled.length > 0 && filled.length < 5) {
+        const missing = weekdayItems
+          .filter((h) => !(h.text && h.text.trim()))
+          .map((h) => h.date)
+          .join(", ");
+        toast(`평일은 5일 모두 입력해야 저장돼요. 빠진 날짜: ${missing}`);
+        return;
+      }
+
       localStorage.setItem(STORAGE_USER, userName);
       saveHoursBtn.disabled = true;
       saveHoursBtn.textContent = "저장 중...";
@@ -1528,6 +1541,10 @@
           if (data && data.code === "START_TIME_LOCKED") {
             toast(data.error);
             prefillWeekHoursFor(userName, { force: true });
+            return;
+          }
+          if (data && data.code === "WEEKDAY_REQUIRED") {
+            toast(data.error);
             return;
           }
           throw new Error((data && data.error) || "fail");
@@ -2264,6 +2281,11 @@
               toast(data.error);
               cell.innerHTML = original;
               loadWeek();
+              return;
+            }
+            if (data && data.code === "WEEKDAY_REQUIRED") {
+              toast(data.error);
+              cell.innerHTML = original;
               return;
             }
             throw new Error((data && data.error) || "fail");

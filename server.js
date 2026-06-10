@@ -175,6 +175,18 @@ function isLateCheckin(startTime, checkedInAt) {
   if (sm === null || cm === null) return false;
   return cm > sm + CHECKIN_GRACE_MIN;
 }
+function mondayOfISO(dateISO) {
+  const d = new Date(dateISO + "T00:00:00Z");
+  const day = d.getUTCDay();
+  const diff = (day + 6) % 7;
+  d.setUTCDate(d.getUTCDate() - diff);
+  return d.toISOString().slice(0, 10);
+}
+function addDaysISO(dateISO, n) {
+  const d = new Date(dateISO + "T00:00:00Z");
+  d.setUTCDate(d.getUTCDate() + n);
+  return d.toISOString().slice(0, 10);
+}
 function getWeekRange(weekStartParam) {
   let monday;
   if (weekStartParam) {
@@ -712,6 +724,48 @@ app.post("/api/checkin/week-hours", async (req, res) => {
         return res
           .status(400)
           .json({ error: `invalid date: ${h.date}` });
+      }
+    }
+
+    // Weekday all-or-nothing rule: after this save, every affected week's
+    // Mon–Fri must be uniformly all-filled (5/5) or all-empty (0/5).
+    {
+      const weeksTouched = new Set();
+      for (const h of hours) weeksTouched.add(mondayOfISO(h.date));
+      for (const monday of weeksTouched) {
+        const weekdayDates = [0, 1, 2, 3, 4].map((i) => addDaysISO(monday, i));
+        const existing = await pool.query(
+          `SELECT check_date, hours_text FROM checkins
+           WHERE user_name = $1 AND check_date = ANY($2::date[])`,
+          [userName, weekdayDates]
+        );
+        const existingMap = new Map();
+        for (const row of existing.rows) {
+          const ds =
+            row.check_date instanceof Date
+              ? row.check_date.toISOString().slice(0, 10)
+              : String(row.check_date).slice(0, 10);
+          existingMap.set(ds, (row.hours_text || "").trim());
+        }
+        const reqMap = new Map();
+        for (const h of hours) {
+          if (weekdayDates.includes(h.date)) {
+            reqMap.set(h.date, (h.text || "").trim());
+          }
+        }
+        const effective = weekdayDates.map((d) =>
+          reqMap.has(d) ? reqMap.get(d) : existingMap.get(d) || ""
+        );
+        const filledCount = effective.filter((v) => v).length;
+        if (filledCount > 0 && filledCount < 5) {
+          const missing = weekdayDates.filter((_, i) => !effective[i]);
+          return res.status(400).json({
+            error: `평일(월–금)은 한꺼번에 다 입력해야 합니다. 빠진 날짜: ${missing.join(", ")}`,
+            code: "WEEKDAY_REQUIRED",
+            weekStart: monday,
+            missing,
+          });
+        }
       }
     }
 
