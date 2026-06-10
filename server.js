@@ -175,6 +175,22 @@ function isLateCheckin(startTime, checkedInAt) {
   if (sm === null || cm === null) return false;
   return cm > sm + CHECKIN_GRACE_MIN;
 }
+function dailyMinutes(startTime, endTime, unavailableText) {
+  const sm = hhmmToMin(startTime);
+  const em = hhmmToMin(endTime);
+  if (sm === null || em === null || em <= sm) return null;
+  let total = em - sm;
+  if (unavailableText) {
+    const u = parseRangeFromText(unavailableText);
+    const usm = hhmmToMin(u.start);
+    const uem = hhmmToMin(u.end);
+    if (usm !== null && uem !== null && uem > usm) {
+      const overlap = Math.max(0, Math.min(em, uem) - Math.max(sm, usm));
+      total -= overlap;
+    }
+  }
+  return Math.max(0, total);
+}
 function mondayOfISO(dateISO) {
   const d = new Date(dateISO + "T00:00:00Z");
   const day = d.getUTCDay();
@@ -922,6 +938,7 @@ app.get("/api/checkin/week", async (req, res) => {
         hasCheckin: row.has_checkin,
         checkedInAt: row.checked_in_at || "",
         isLate,
+        dailyMin: dailyMinutes(row.start_time, row.end_time, row.unavailable_text),
       });
     }
     const users = [...byUser.entries()]

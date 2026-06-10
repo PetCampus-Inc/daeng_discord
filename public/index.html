@@ -532,28 +532,40 @@
       width: 100%;
       min-width: 0;
     }
-    .day-hours-pill {
-      font-size: 0.82rem;
-      font-weight: 600;
+    .day-total {
+      font-size: 1.02rem;
+      font-weight: 700;
       font-variant-numeric: tabular-nums;
       color: var(--ink);
-      background: #fff;
-      border: 1px solid #ecdbc1;
-      padding: 4px 10px;
-      border-radius: 10px;
-      line-height: 1.25;
+      letter-spacing: 0.01em;
+      line-height: 1.2;
       max-width: 100%;
       word-break: keep-all;
       overflow-wrap: anywhere;
       text-align: center;
-      letter-spacing: 0.01em;
     }
-    .day-hours-pill.empty {
-      opacity: 0.4;
-      background: transparent;
-      border-style: dashed;
+    .day-total.empty {
+      color: var(--ink-mute);
       font-weight: 400;
+      font-size: 0.9rem;
     }
+    .day-range {
+      font-size: 0.7rem;
+      color: var(--ink-soft);
+      font-variant-numeric: tabular-nums;
+      line-height: 1.2;
+      max-width: 100%;
+      word-break: keep-all;
+      overflow-wrap: anywhere;
+      text-align: center;
+    }
+    /* Legacy placeholder used by inline-edit "saving" state */
+    .day-hours-pill {
+      font-size: 0.8rem;
+      color: var(--ink-mute);
+      font-style: italic;
+    }
+    .day-hours-pill.empty { opacity: 0.6; }
 
     /* ---- Per-day status: small corner dot ---- */
     .day-status {
@@ -596,6 +608,19 @@
       white-space: normal;
     }
     .day-meta::before { flex-shrink: 0; }
+    /* Desktop hides inline meta — daily total already nets unavail and
+       the cell tooltip surfaces the full text. Mobile card view re-enables. */
+    @media (min-width: 769px) {
+      .week-table .day-meta { display: none; }
+    }
+    /* Row weekly-total badge */
+    .ci-week {
+      font-size: 0.72rem; font-weight: 700;
+      padding: 2px 9px; border-radius: 999px;
+      background: var(--accent-soft); color: var(--accent-strong);
+      white-space: nowrap;
+      font-variant-numeric: tabular-nums;
+    }
     .day-meta.unavail { color: #b91c1c; }
     .day-meta.unavail::before {
       content: "—";
@@ -927,6 +952,219 @@
     }
     .team-card-edit:hover { background: #fef3c7; color: var(--accent-strong); }
 
+    /* ============================================================
+       Timeline view (desktop primary)
+       ============================================================ */
+    .day-tabs {
+      display: flex; gap: 6px; flex-wrap: wrap;
+      margin-bottom: 14px;
+    }
+    .day-tab {
+      border: 1px solid #f1ddc4;
+      background: #fffdfa;
+      color: var(--ink-soft);
+      padding: 7px 14px;
+      border-radius: 999px;
+      font-size: 0.84rem;
+      font-weight: 600;
+      cursor: pointer;
+      font-variant-numeric: tabular-nums;
+      transition: background .15s, border-color .15s, color .15s, transform .12s;
+    }
+    .day-tab:hover { background: #fef3c7; transform: translateY(-1px); }
+    .day-tab.active {
+      background: var(--accent-strong);
+      color: #fff;
+      border-color: var(--accent-strong);
+    }
+    .day-tab.today::before {
+      content: "●";
+      margin-right: 6px;
+      color: var(--accent);
+      font-size: 0.5rem;
+      vertical-align: middle;
+    }
+    .day-tab.today.active::before { color: #fff; }
+    .day-tab .pill-extra {
+      margin-left: 6px;
+      font-size: 0.7rem;
+      opacity: 0.7;
+      font-weight: 500;
+    }
+
+    .tl-axis-wrap {
+      display: grid;
+      grid-template-columns: 140px 1fr;
+      gap: 14px;
+      margin-bottom: 6px;
+    }
+    .tl-axis {
+      position: relative;
+      height: 22px;
+      border-bottom: 1px dashed #f1ddc4;
+    }
+    .tl-axis span {
+      position: absolute;
+      top: 2px;
+      transform: translateX(-50%);
+      font-size: 0.7rem;
+      color: var(--ink-mute);
+      font-variant-numeric: tabular-nums;
+      pointer-events: none;
+    }
+    .tl-axis span.lunch { color: var(--ink-soft); font-weight: 600; }
+
+    .tl-row {
+      display: grid;
+      grid-template-columns: 140px 1fr;
+      gap: 14px;
+      align-items: center;
+      margin-bottom: 8px;
+    }
+    .tl-name {
+      display: flex; align-items: center; justify-content: space-between;
+      gap: 8px;
+      font-weight: 600;
+      color: var(--ink);
+      font-size: 0.94rem;
+      min-width: 0;
+    }
+    .tl-name > span:first-child {
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+      min-width: 0;
+    }
+    .tl-tag {
+      font-size: 0.72rem;
+      color: var(--ink-mute);
+      font-weight: 500;
+      font-variant-numeric: tabular-nums;
+      flex-shrink: 0;
+    }
+    .tl-row.mine .tl-name { color: var(--accent-strong); font-weight: 700; }
+    .tl-row.mine .tl-track { background: #fff7e8; border-color: #fcd9a0; }
+
+    .tl-track {
+      position: relative;
+      height: 36px;
+      background: #fffaf2;
+      border: 1px solid #f3e3c8;
+      border-radius: 10px;
+      overflow: hidden;
+    }
+    .tl-track::before {
+      /* subtle hour grid */
+      content: "";
+      position: absolute; inset: 0;
+      background-image: repeating-linear-gradient(
+        to right,
+        transparent 0,
+        transparent calc(100% / 13 - 1px),
+        #f5e8d0 calc(100% / 13 - 1px),
+        #f5e8d0 calc(100% / 13)
+      );
+      pointer-events: none;
+      opacity: 0.7;
+    }
+    .tl-bar {
+      position: absolute;
+      top: 4px; bottom: 4px;
+      background: linear-gradient(135deg, #fde7c8, #fbd9a0);
+      border: 1px solid #f59e0b;
+      border-radius: 7px;
+      padding: 2px 10px;
+      font-size: 0.74rem;
+      font-weight: 700;
+      display: flex; align-items: center;
+      color: var(--accent-strong);
+      font-variant-numeric: tabular-nums;
+      white-space: nowrap;
+      overflow: hidden;
+      z-index: 1;
+      box-shadow: 0 1px 0 rgba(245, 158, 11, 0.15);
+    }
+    .tl-bar.late {
+      background: linear-gradient(135deg, #fde7c8, #fbbf24);
+    }
+    .tl-bar.late::before {
+      content: "L";
+      display: inline-flex; align-items: center; justify-content: center;
+      width: 14px; height: 14px;
+      border-radius: 50%;
+      background: #f59e0b; color: #fff;
+      font-size: 0.6rem; font-weight: 800;
+      margin-right: 5px;
+      flex-shrink: 0;
+    }
+    .tl-unavail {
+      position: absolute;
+      top: 2px; bottom: 2px;
+      background:
+        repeating-linear-gradient(
+          45deg,
+          rgba(220, 38, 38, 0.55),
+          rgba(220, 38, 38, 0.55) 4px,
+          rgba(220, 38, 38, 0.8) 4px,
+          rgba(220, 38, 38, 0.8) 8px
+        );
+      border: 1px solid #dc2626;
+      border-radius: 5px;
+      z-index: 2;
+      box-shadow: 0 0 0 1px #fff;
+    }
+    .tl-unavail-label {
+      position: absolute;
+      top: -18px;
+      font-size: 0.62rem;
+      color: #b91c1c;
+      font-weight: 700;
+      font-variant-numeric: tabular-nums;
+      white-space: nowrap;
+      pointer-events: none;
+    }
+    .tl-now-line {
+      position: absolute;
+      top: -4px; bottom: -4px;
+      width: 2px;
+      background: #dc2626;
+      z-index: 3;
+      pointer-events: none;
+    }
+    .tl-now-line::before {
+      content: "";
+      position: absolute;
+      top: -4px; left: -3px;
+      width: 8px; height: 8px; border-radius: 50%;
+      background: #dc2626;
+      box-shadow: 0 0 0 2px #fff;
+    }
+    .tl-empty {
+      position: absolute; inset: 0;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 0.78rem; color: var(--ink-mute);
+      font-style: italic;
+    }
+    .tl-overlap-hint {
+      margin-top: 14px;
+      padding: 10px 14px;
+      background: #fef9f0;
+      border: 1px dashed #f1ddc4;
+      border-radius: 12px;
+      font-size: 0.85rem;
+      color: var(--ink-soft);
+      font-variant-numeric: tabular-nums;
+    }
+    .tl-overlap-hint strong { color: var(--accent-strong); }
+
+    /* Show timeline on desktop, table on mobile */
+    @media (min-width: 769px) {
+      .board-table { display: none; }
+    }
+    @media (max-width: 768px) {
+      .board-timeline { display: none; }
+    }
+
     .toast {
       position: fixed; bottom: 28px; left: 50%; transform: translateX(-50%);
       background: #1f2937; color: #fff;
@@ -1056,6 +1294,8 @@
         justify-content: flex-start;
       }
       .day-hours-pill { font-size: 0.85rem; padding: 4px 10px; }
+      .day-total { font-size: 0.86rem; font-weight: 600; color: var(--ink-soft); }
+      .day-range { font-size: 0.7rem; color: var(--ink-mute); }
       .day-meta { font-size: 0.7rem; }
 
       /* Row name in mobile card: name + check-in count inline */
@@ -1397,6 +1637,15 @@
     }
     const STATE_LABEL = { checked: "정시", late: "Delayed", missed: "미체크", pending: "오늘", none: "—" };
     function stateLabel(s) { return STATE_LABEL[s] || s; }
+    function formatHours(min) {
+      if (min == null || isNaN(min)) return null;
+      const total = Math.max(0, Math.round(min));
+      const h = Math.floor(total / 60);
+      const m = total % 60;
+      if (m === 0) return `${h}h`;
+      if (m === 30) return `${h}.5h`;
+      return `${h}h ${m}m`;
+    }
 
     function todayKSTStr() {
       const kst = new Date(Date.now() + 9 * 60 * 60 * 1000);
@@ -2174,16 +2423,25 @@
           const lateCount = perDay.filter((s) => s === "late").length;
           const checkinCount = onTimeCount + lateCount;
           const passed = checkinCount >= CHECKIN_PASS_THRESHOLD;
-          return { name, checkinCount, onTimeCount, lateCount, passed, perDay };
+          const weeklyMin = entries
+            .filter((e, idx) => {
+              const i = dates.indexOf(e.date);
+              return i >= 0 && i < 5; // weekdays only
+            })
+            .reduce((s, e) => s + (typeof e.dailyMin === "number" ? e.dailyMin : 0), 0);
+          return { name, checkinCount, onTimeCount, lateCount, passed, perDay, weeklyMin };
         });
 
         const passCount = rows.filter((r) => r.passed).length;
         const totalLate = rows.reduce((s, r) => s + r.lateCount, 0);
+        const totalMin = rows.reduce((s, r) => s + r.weeklyMin, 0);
+        const totalHoursLabel = formatHours(totalMin);
         const meta = `
           <div class="summary-meta">
             기준: 주 ${CHECKIN_PASS_THRESHOLD}일 이상 체크인 ·
             기준 달성 ${passCount}명 / 전체 ${rows.length}명
             ${totalLate > 0 ? ` · 누적 Delayed ${totalLate}건` : ""}
+            ${totalHoursLabel ? ` · 팀 주간 합계 ${totalHoursLabel}` : ""}
           </div>`;
 
         const tableHtml = `
@@ -2192,6 +2450,7 @@
               <th>이름</th>
               <th>요일별 체크인</th>
               <th class="num">일수</th>
+              <th class="num">주간 투입</th>
               <th class="num">Delayed</th>
               <th>결과</th>
             </tr></thead>
@@ -2205,6 +2464,7 @@
                     .map((s, i) => `<span class="d ${s}" title="${WEEK_DOW_LABELS[i]} · ${stateLabel(s)}">${WEEK_DOW_LABELS[i]}</span>`)
                     .join("")}</div></td>
                   <td class="num">${r.checkinCount} / 5${r.lateCount > 0 ? ` <span style="color:#92400e; font-size:0.78rem;">(정시 ${r.onTimeCount})</span>` : ""}</td>
+                  <td class="num">${r.weeklyMin > 0 ? `<span class="ci-week">${formatHours(r.weeklyMin)}</span>` : "—"}</td>
                   <td class="num">${r.lateCount > 0 ? `<span class="ci-count late">Delayed ${r.lateCount}</span>` : "—"}</td>
                   <td>
                     <span class="summary-badge ${r.passed ? "pass" : "fail"}">
@@ -2351,6 +2611,148 @@
       return d.toISOString().slice(0, 10);
     }
 
+    let lastWeekData = null;
+    let timelineDay = null; // selected ISO date for timeline
+    const FREEFORM_TIME_RANGE = /(\d{1,2})(?::(\d{2}))?\s*[-~–—]\s*(\d{1,2})(?::(\d{2}))?/;
+    function parseRangeMin(text) {
+      if (!text) return null;
+      const m = String(text).match(FREEFORM_TIME_RANGE);
+      if (!m) return null;
+      const sh = +m[1], sm = +(m[2] || 0), eh = +m[3], em = +(m[4] || 0);
+      if (sh > 24 || eh > 24 || sm > 59 || em > 59) return null;
+      const start = sh * 60 + sm, end = eh * 60 + em;
+      if (end <= start) return null;
+      return { start, end };
+    }
+    const TL_START = 9 * 60;   // 09:00
+    const TL_END   = 22 * 60;  // 22:00
+    const TL_SPAN  = TL_END - TL_START;
+    function pctOf(min) {
+      return Math.max(0, Math.min(100, ((min - TL_START) / TL_SPAN) * 100));
+    }
+    function buildDayTabsHTML(data) {
+      const todayStr = todayKSTStr();
+      const dates = (data.dates || []).slice(0, 5);
+      return dates
+        .map((iso, i) => {
+          const cls = [
+            "day-tab",
+            iso === timelineDay ? "active" : "",
+            iso === todayStr ? "today" : "",
+          ].filter(Boolean).join(" ");
+          return `<button type="button" class="${cls}" data-iso="${iso}">${WEEK_DOW_LABELS[i]} ${iso.slice(5).replace("-", "/")}</button>`;
+        })
+        .join("");
+    }
+    function buildTimelineHTML(data, dayISO) {
+      const users = data.users || [];
+      const myName = (localStorage.getItem(STORAGE_USER) || "").trim().toLowerCase();
+      const isToday = dayISO === todayKSTStr();
+      const nm = nowMinKST();
+      const showNow = isToday && nm >= TL_START && nm <= TL_END;
+      const nowPct = showNow ? pctOf(nm) : null;
+
+      // Axis
+      const axisLabels = [];
+      for (let h = 9; h <= 22; h++) {
+        const cls = (h === 12 || h === 13) ? "lunch" : "";
+        axisLabels.push(`<span class="${cls}" style="left:${pctOf(h * 60)}%">${h}</span>`);
+      }
+      const axisHTML = `
+        <div class="tl-axis-wrap">
+          <div></div>
+          <div class="tl-axis">${axisLabels.join("")}</div>
+        </div>`;
+
+      if (!users.length) {
+        return axisHTML + `<div class="empty" style="margin-top:14px;">이번 주 작업 시간을 입력한 멤버가 없어요.</div>`;
+      }
+
+      // Find "me" entry for overlap calc
+      const me = users.find(u => (u.userName || "").trim().toLowerCase() === myName);
+      const meEntry = me && me.entries.find(e => e.date === dayISO);
+      const meRange = meEntry ? parseRangeMin(meEntry.hoursText || `${meEntry.startTime || ""}-${meEntry.endTime || ""}`) : null;
+
+      const rows = users.map((u) => {
+        const isMine = myName && u.userName.trim().toLowerCase() === myName;
+        const entry = (u.entries || []).find((e) => e.date === dayISO);
+        const rawText = entry
+          ? entry.hoursText ||
+            (entry.startTime || entry.endTime
+              ? `${entry.startTime || ""}-${entry.endTime || ""}`
+              : "")
+          : "";
+        const range = entry ? parseRangeMin(rawText) : null;
+
+        let trackInner = "";
+        if (!range) {
+          trackInner = `<div class="tl-empty">${rawText ? esc(rawText) : "휴무"}</div>`;
+        } else {
+          const left = pctOf(range.start);
+          const right = pctOf(range.end);
+          const width = Math.max(0, right - left);
+          const barLabel = entry.isLate && entry.checkedInAt
+            ? `${entry.startTime}–${entry.endTime} · ${entry.checkedInAt}`
+            : `${entry.startTime}–${entry.endTime}`;
+          trackInner += `<div class="tl-bar ${entry.isLate ? "late" : ""}" style="left:${left}%; width:${width}%;" title="${esc(barLabel)}">${esc(barLabel)}</div>`;
+
+          // Unavailable strip
+          if (entry.unavailableText) {
+            const u2 = parseRangeMin(entry.unavailableText);
+            if (u2) {
+              const ul = pctOf(u2.start);
+              const ur = pctOf(u2.end);
+              const uw = Math.max(0, ur - ul);
+              if (uw > 0) {
+                const labelText = entry.unavailableText.replace(FREEFORM_TIME_RANGE, "").trim();
+                trackInner += `<div class="tl-unavail" style="left:${ul}%; width:${uw}%;" title="불가 ${esc(entry.unavailableText)}"></div>`;
+                if (labelText && width > 12) {
+                  trackInner += `<div class="tl-unavail-label" style="left:${ul}%;">${esc(labelText)}</div>`;
+                }
+              }
+            }
+          }
+
+          if (showNow) {
+            trackInner += `<div class="tl-now-line" style="left:${nowPct}%"></div>`;
+          }
+        }
+        const dailyLabel = entry && typeof entry.dailyMin === "number" ? formatHours(entry.dailyMin) : "";
+        return `
+          <div class="tl-row ${isMine ? "mine" : ""}">
+            <div class="tl-name">
+              <span>${esc(u.userName)}${isMine ? " (나)" : ""}</span>
+              ${dailyLabel ? `<span class="tl-tag">${dailyLabel}</span>` : ""}
+            </div>
+            <div class="tl-track">${trackInner}</div>
+          </div>`;
+      }).join("");
+
+      // Overlap hint with me
+      let overlapHTML = "";
+      if (meRange) {
+        const overlaps = users
+          .filter(u => (u.userName || "").trim().toLowerCase() !== myName)
+          .map(u => {
+            const e = (u.entries || []).find(x => x.date === dayISO);
+            const r = e ? parseRangeMin(e.hoursText || `${e.startTime || ""}-${e.endTime || ""}`) : null;
+            if (!r) return null;
+            const ov = Math.max(0, Math.min(meRange.end, r.end) - Math.max(meRange.start, r.start));
+            if (ov <= 0) return null;
+            return { name: u.userName, overlap: ov, start: Math.max(meRange.start, r.start), end: Math.min(meRange.end, r.end) };
+          })
+          .filter(Boolean)
+          .sort((a, b) => b.overlap - a.overlap);
+        if (overlaps.length) {
+          const fmt = (m) => `${String(Math.floor(m/60)).padStart(2,"0")}:${String(m%60).padStart(2,"0")}`;
+          const items = overlaps.slice(0, 4).map(o => `<strong>${esc(o.name)}</strong> ${fmt(o.start)}–${fmt(o.end)} (${formatHours(o.overlap)})`).join(" · ");
+          overlapHTML = `<div class="tl-overlap-hint">🤝 나와 겹치는 시간 — ${items}</div>`;
+        }
+      }
+
+      return axisHTML + rows + overlapHTML;
+    }
+
     async function loadWeek() {
       const board = document.getElementById("weekBoard");
       board.innerHTML = `<div class="empty">불러오는 중...</div>`;
@@ -2360,11 +2762,16 @@
       try {
         const r = await fetch(url);
         const data = await r.json();
+        lastWeekData = data;
         const { weekStart, dates, users } = data;
         viewWeekStart = weekStart;
         document.getElementById("weekLabel").textContent = `${weekStart} 주차`;
-
+        const weekdays = (dates || []).slice(0, 5);
         const todayStr = todayKSTStr();
+        if (!timelineDay || !weekdays.includes(timelineDay)) {
+          timelineDay = weekdays.includes(todayStr) ? todayStr : weekdays[0];
+        }
+
         const head = `
           <thead><tr>
             <th>멤버</th>
@@ -2384,8 +2791,16 @@
           </tr></thead>`;
 
         if (!users.length) {
-          board.innerHTML = `<div class="week-table-wrap"><table class="week-table">${head}</table></div>
-            <div class="empty" style="margin-top:14px;">이번 주 작업 시간을 입력한 멤버가 없어요.</div>`;
+          board.innerHTML = `
+            <div class="board-timeline">
+              <div class="day-tabs">${buildDayTabsHTML(data)}</div>
+              ${buildTimelineHTML(data, timelineDay)}
+            </div>
+            <div class="board-table">
+              <div class="week-table-wrap"><table class="week-table">${head}</table></div>
+              <div class="empty" style="margin-top:14px;">이번 주 작업 시간을 입력한 멤버가 없어요.</div>
+            </div>`;
+          attachDayTabHandlers();
           return;
         }
 
@@ -2396,6 +2811,7 @@
             const isMine =
               myName && u.userName.trim().toLowerCase() === myName;
             let checkCount = 0;
+            let weeklyMin = 0;
             const cells = dates
               .map((d, i) => {
                 const isToday = d === todayStr;
@@ -2409,12 +2825,16 @@
                   : "";
                 const unavailText = entry ? (entry.unavailableText || "") : "";
                 const hasHours = !!rawText;
-                const hoursText = hasHours ? rawText : "—";
+                const dailyMin = entry && typeof entry.dailyMin === "number" ? entry.dailyMin : null;
+                const totalLabel = formatHours(dailyMin);
+                if (dailyMin != null) weeklyMin += dailyMin;
                 const state = checkinState(entry, d, i);
                 if (state === "checked" || state === "late") checkCount++;
                 const tipParts = [d];
-                tipParts.push(hasHours ? rawText : "시간 미입력");
-                if (unavailText) tipParts.push(`불가: ${unavailText}`);
+                if (totalLabel) tipParts.push(`${totalLabel} · ${rawText}`);
+                else if (hasHours) tipParts.push(rawText);
+                else tipParts.push("시간 미입력");
+                if (unavailText) tipParts.push(`불가 ${unavailText}`);
                 if (state === "late" && entry && entry.checkedInAt) {
                   tipParts.push(`Delayed 체크인 ${entry.checkedInAt}`);
                 } else if (stateTip[state]) {
@@ -2423,6 +2843,7 @@
                 const tip = `${tipParts.join(" · ")} · 클릭해서 수정`;
                 const statusLabel = STATE_LABEL[state] || "";
                 const showStatusDot = state !== "none";
+                const primary = totalLabel || (hasHours ? rawText : "—");
                 return `<td class="day-cell editable ci-${state} ${isToday ? "today" : ""} ${isWeekend ? "weekend" : ""}"
                   data-user="${esc(u.userName)}"
                   data-iso="${d}"
@@ -2433,7 +2854,8 @@
                   title="${esc(tip)}">
                   ${showStatusDot ? `<span class="day-status ${state}" aria-label="${esc(statusLabel)}">${CI_BADGE[state]}</span>` : ""}
                   <div class="day-cell-content">
-                    <span class="day-hours-pill ${hasHours ? "" : "empty"}">${esc(hoursText)}</span>
+                    <span class="day-total ${hasHours ? "" : "empty"}">${esc(primary)}</span>
+                    ${totalLabel && hasHours ? `<span class="day-range">${esc(rawText)}</span>` : ""}
                     ${unavailText ? `<span class="day-meta unavail" title="대응 불가">${esc(unavailText)}</span>` : ""}
                     ${state === "late" && entry && entry.checkedInAt ? `<span class="day-meta delayed" title="Delayed 체크인">${esc(entry.checkedInAt)}</span>` : ""}
                   </div>
@@ -2442,23 +2864,48 @@
               .join("");
             const countClass = checkCount >= CHECKIN_PASS_THRESHOLD ? "good" : (checkCount === 0 ? "warn" : "");
             return `<tr class="${isMine ? "mine" : ""}">
-              <td><div class="row-name"><span>${esc(u.userName)}${isMine ? " (나)" : ""}</span>
-                <span class="ci-count ${countClass}">체크인 ${checkCount}일</span></div></td>
+              <td><div class="row-name">
+                <span>${esc(u.userName)}${isMine ? " (나)" : ""}</span>
+                <span class="ci-count ${countClass}">체크인 ${checkCount}일</span>
+              </div></td>
               ${cells}
             </tr>`;
           })
           .join("");
 
         board.innerHTML = `
-          <div class="week-table-wrap">
-            <table class="week-table">
-              ${head}
-              <tbody>${body}</tbody>
-            </table>
+          <div class="board-timeline">
+            <div class="day-tabs">${buildDayTabsHTML(data)}</div>
+            ${buildTimelineHTML(data, timelineDay)}
+          </div>
+          <div class="board-table">
+            <div class="week-table-wrap">
+              <table class="week-table">
+                ${head}
+                <tbody>${body}</tbody>
+              </table>
+            </div>
           </div>`;
+        attachDayTabHandlers();
       } catch (e) {
         board.innerHTML = `<div class="empty">불러오기 실패: ${esc(e.message)}</div>`;
       }
+    }
+
+    function attachDayTabHandlers() {
+      document.querySelectorAll(".day-tab").forEach((btn) => {
+        btn.addEventListener("click", () => {
+          if (btn.dataset.iso === timelineDay) return;
+          timelineDay = btn.dataset.iso;
+          if (!lastWeekData) return;
+          const wrap = document.querySelector(".board-timeline");
+          if (!wrap) return;
+          wrap.innerHTML = `
+            <div class="day-tabs">${buildDayTabsHTML(lastWeekData)}</div>
+            ${buildTimelineHTML(lastWeekData, timelineDay)}`;
+          attachDayTabHandlers();
+        });
+      });
     }
     /* ---------------- Weekly cell inline edit ---------------- */
     document.getElementById("weekBoard").addEventListener("click", (e) => {
