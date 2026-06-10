@@ -474,8 +474,11 @@
       border-collapse: separate;
       border-spacing: 0;
       font-size: 0.9rem;
-      min-width: 640px;
+      min-width: 720px;
+      table-layout: fixed;
     }
+    .week-table th:first-child,
+    .week-table td:first-child { width: 140px; }
     .week-table th.weekend, .week-table td.weekend { background: #fbf5ea; }
     .week-table th.weekend .day-head .dow { color: #d97706; }
     .week-table th, .week-table td {
@@ -526,6 +529,8 @@
     .day-cell-content {
       display: flex; flex-direction: column; align-items: center; gap: 4px;
       padding-top: 2px;
+      width: 100%;
+      min-width: 0;
     }
     .day-hours-pill {
       font-size: 0.82rem;
@@ -537,7 +542,7 @@
       padding: 4px 10px;
       border-radius: 10px;
       line-height: 1.25;
-      max-width: 140px;
+      max-width: 100%;
       word-break: keep-all;
       overflow-wrap: anywhere;
       text-align: center;
@@ -583,10 +588,14 @@
       font-variant-numeric: tabular-nums;
       line-height: 1.2;
       letter-spacing: 0.01em;
-      white-space: nowrap;
       max-width: 100%;
+      text-align: center;
+      justify-content: center;
+      word-break: keep-all;
       overflow-wrap: anywhere;
+      white-space: normal;
     }
+    .day-meta::before { flex-shrink: 0; }
     .day-meta.unavail { color: #b91c1c; }
     .day-meta.unavail::before {
       content: "—";
