@@ -929,6 +929,157 @@
     }
     .toast.show { opacity: 1; transform: translateX(-50%) translateY(-4px); }
 
+    /* ============================================================
+       Responsive — mobile-first overrides
+       (Desktop layout sits above; below kicks in on ≤ 768px / 480px)
+       ============================================================ */
+    @media (max-width: 768px) {
+      body { padding: 16px 12px 60px; }
+
+      /* Header */
+      .top-bar { gap: 10px; }
+      .brand { font-size: 0.95rem; }
+      .brand-mark { width: 30px; height: 30px; }
+      .chip { padding: 6px 10px; font-size: 0.82rem; }
+
+      /* Hero */
+      .hero-card { padding: 22px 20px 20px; }
+      .hero-emoji {
+        position: static;
+        margin-bottom: 12px;
+        width: 56px; height: 56px;
+        border-radius: 16px;
+        font-size: 1.8rem;
+      }
+      .greet-title { font-size: 1.45rem; line-height: 1.3; }
+      .greet-sub { font-size: 0.9rem; }
+      .quick-links { grid-template-columns: repeat(2, 1fr); }
+
+      /* Cards */
+      .checkin-card { padding: 18px 16px; border-radius: 18px; }
+      .checkin-head h2 { font-size: 1.05rem; }
+      .submit-row {
+        flex-direction: column-reverse;
+        align-items: stretch;
+        gap: 10px;
+      }
+      .submit { width: 100%; }
+
+      /* Hours input grid: shrink day col, allow inputs to use full width */
+      .wh-row {
+        grid-template-columns: 56px 1fr 28px;
+        gap: 8px;
+        padding: 8px;
+      }
+      .wh-day .dom { font-size: 0.82rem; }
+      .wh-input-label { flex: 0 0 28px; font-size: 0.66rem; }
+      .wh-input { padding: 7px 10px; font-size: 0.88rem; }
+      .presets { gap: 6px; }
+      .preset { padding: 6px 12px; font-size: 0.82rem; }
+
+      /* === Team weekly board: table → cards === */
+      .board { padding: 18px 14px; border-radius: 20px; }
+      .week-table-wrap { overflow-x: visible; }
+      .week-table { display: block; }
+      .week-table thead { display: none; }
+      .week-table tbody { display: block; }
+      .week-table tr {
+        display: block;
+        background: #fff;
+        border: 1px solid #f1ddc4;
+        border-radius: 16px;
+        margin-bottom: 12px;
+        padding: 12px 14px;
+        box-shadow: var(--shadow-sm);
+      }
+      .week-table tr.mine {
+        border-color: var(--accent);
+        background: #fffaf0;
+      }
+      .week-table tr td {
+        display: block;
+        border: none;
+        padding: 0;
+      }
+      .week-table tr td:first-child {
+        font-weight: 700;
+        padding-bottom: 8px;
+        margin-bottom: 8px;
+        border-bottom: 1px dashed #f1ddc4;
+      }
+      .week-table tr.mine td:first-child { color: var(--accent-strong); }
+      .week-table tr td.day-cell {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        padding: 8px 4px;
+        border-bottom: 1px dashed #f5e4c8;
+        background: transparent !important;
+        box-shadow: none !important;
+      }
+      .week-table tr td.day-cell:last-child { border-bottom: none; }
+      .week-table tr td.day-cell::before {
+        content: attr(data-dow) " " attr(data-dom);
+        flex: 0 0 56px;
+        font-size: 0.78rem;
+        font-weight: 700;
+        color: var(--ink-soft);
+        font-variant-numeric: tabular-nums;
+      }
+      .day-cell-content { flex: 1; min-width: 0; }
+      .week-table tr td.day-cell.today::before {
+        color: var(--accent-strong);
+      }
+      .week-table tr td.day-cell.weekend::before {
+        color: var(--ink-mute);
+      }
+      .day-status {
+        position: static;
+        margin-right: 4px;
+        flex-shrink: 0;
+      }
+      .day-cell-content {
+        flex-direction: row;
+        align-items: center;
+        gap: 8px;
+        padding-top: 0;
+        flex-wrap: wrap;
+        justify-content: flex-start;
+      }
+      .day-hours-pill { font-size: 0.85rem; padding: 4px 10px; }
+      .day-meta { font-size: 0.7rem; }
+
+      /* Row name in mobile card: name + check-in count inline */
+      .row-name {
+        justify-content: space-between;
+        width: 100%;
+      }
+
+      /* Summary modal: shrink table */
+      .summary-table th, .summary-table td {
+        padding: 8px 6px;
+        font-size: 0.82rem;
+      }
+      .day-dots .d {
+        width: 16px; height: 16px;
+        font-size: 0.58rem;
+      }
+
+      /* Notice block */
+      .notice { padding: 12px 14px; }
+      .notice-body { font-size: 0.9rem; }
+    }
+
+    @media (max-width: 480px) {
+      .quick-links { grid-template-columns: 1fr; }
+      .greet-title { font-size: 1.3rem; }
+      .wh-row { grid-template-columns: 48px 1fr 24px; gap: 6px; }
+      .wh-clear { width: 24px; height: 24px; }
+      .week-table tr td.day-cell::before { flex: 0 0 48px; font-size: 0.74rem; }
+      .week-table tr td.day-cell { gap: 8px; }
+      .summary-table th:nth-child(2),
+      .summary-table td:nth-child(2) { display: none; } /* hide day-dots column on smallest */
+    }
   </style>
 </head>
 <body>
@@ -1167,7 +1318,7 @@
   </div>
 
   <div class="modal-backdrop" id="membersModal">
-    <div class="modal-content" style="max-width: 460px;">
+    <div class="modal-content" style="max-width: min(460px, calc(100vw - 24px));">
       <h3>팀원 관리</h3>
       <div id="membersList" style="margin-bottom:14px;"></div>
       <div style="display:flex; gap:8px;">
@@ -1181,7 +1332,7 @@
   </div>
 
   <div class="modal-backdrop" id="summaryModal">
-    <div class="modal-content" style="max-width: 620px;">
+    <div class="modal-content" style="max-width: min(620px, calc(100vw - 24px));">
       <h3>주간 요약 <span class="who" id="summaryWeekLabel"></span></h3>
       <div id="summaryBody"></div>
       <div class="modal-actions">
@@ -2183,6 +2334,8 @@
                   data-iso="${d}"
                   data-text="${esc(rawText)}"
                   data-unavail="${esc(unavailText)}"
+                  data-dow="${WEEK_DOW_LABELS[i]}"
+                  data-dom="${d.slice(5).replace("-", "/")}"
                   title="${esc(tip)}">
                   ${showStatusDot ? `<span class="day-status ${state}" aria-label="${esc(statusLabel)}">${CI_BADGE[state]}</span>` : ""}
                   <div class="day-cell-content">
