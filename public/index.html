@@ -1987,6 +1987,7 @@
         document.getElementById("membersModal").classList.remove("show");
       }
     });
+    let memberEditingName = null;
     function renderMembersList() {
       const list = document.getElementById("membersList");
       if (!TEAM_MEMBERS.length) {
@@ -1994,16 +1995,87 @@
         return;
       }
       list.innerHTML = `<div style="display:flex; flex-direction:column; gap:6px;">${TEAM_MEMBERS
-        .map(
-          (n) => `
-          <div style="display:flex; align-items:center; justify-content:space-between; padding:8px 12px; background:#fffdfa; border:1px solid #ecdbc1; border-radius:10px;">
-            <span style="font-weight:600;">${esc(n)}</span>
-            <button type="button" class="preset member-remove" data-name="${esc(n)}" style="background:#fff; color:#dc2626; border-color:#fecaca; padding:4px 10px;">삭제</button>
-          </div>`
-        )
+        .map((n) => {
+          if (memberEditingName === n) {
+            return `
+              <div class="member-row" data-name="${esc(n)}" style="display:flex; align-items:center; gap:8px; padding:8px 12px; background:#fff8ec; border:1px solid #fcd9a0; border-radius:10px;">
+                <input class="input member-edit-input" type="text" value="${esc(n)}" style="flex:1; min-width:0; padding:6px 10px;" autocomplete="off" />
+                <button type="button" class="preset member-save" data-name="${esc(n)}" style="background:var(--accent); color:#fff; border-color:var(--accent); padding:4px 10px;">저장</button>
+                <button type="button" class="preset member-cancel" style="padding:4px 10px;">취소</button>
+              </div>`;
+          }
+          return `
+            <div class="member-row" data-name="${esc(n)}" style="display:flex; align-items:center; gap:8px; padding:8px 12px; background:#fffdfa; border:1px solid #ecdbc1; border-radius:10px;">
+              <span style="font-weight:600; flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">${esc(n)}</span>
+              <button type="button" class="preset member-edit" data-name="${esc(n)}" style="background:#fff; padding:4px 10px;">수정</button>
+              <button type="button" class="preset member-remove" data-name="${esc(n)}" style="background:#fff; color:#dc2626; border-color:#fecaca; padding:4px 10px;">삭제</button>
+            </div>`;
+        })
         .join("")}</div>`;
+      const editingInput = list.querySelector(".member-edit-input");
+      if (editingInput) {
+        editingInput.focus();
+        editingInput.select();
+      }
+    }
+    async function saveMemberRename(oldName, newName) {
+      const trimmed = (newName || "").trim();
+      if (!trimmed) { toast("이름을 입력해주세요"); return false; }
+      if (trimmed === oldName) {
+        memberEditingName = null;
+        renderMembersList();
+        return true;
+      }
+      try {
+        const r = await fetch(`/api/members/${encodeURIComponent(oldName)}`, {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ name: trimmed }),
+        });
+        const data = await r.json().catch(() => ({}));
+        if (!r.ok) {
+          toast(data.error || "수정 실패");
+          return false;
+        }
+        toast(`${oldName} → ${trimmed} 변경됨`);
+        memberEditingName = null;
+        // If renaming the currently selected user, follow the rename.
+        if ((localStorage.getItem(STORAGE_USER) || "") === oldName) {
+          localStorage.setItem(STORAGE_USER, trimmed);
+        }
+        await loadMembers();
+        renderMembersList();
+        loadBoard();
+        loadWeek();
+        const userInput = document.getElementById("userName");
+        if (userInput && userInput.value === oldName) userInput.value = trimmed;
+        return true;
+      } catch (err) {
+        toast("수정 실패: " + err.message);
+        return false;
+      }
     }
     document.getElementById("membersList").addEventListener("click", async (e) => {
+      const editBtn = e.target.closest(".member-edit");
+      if (editBtn) {
+        memberEditingName = editBtn.dataset.name;
+        renderMembersList();
+        return;
+      }
+      const cancelBtn = e.target.closest(".member-cancel");
+      if (cancelBtn) {
+        memberEditingName = null;
+        renderMembersList();
+        return;
+      }
+      const saveBtn = e.target.closest(".member-save");
+      if (saveBtn) {
+        const oldName = saveBtn.dataset.name;
+        const row = saveBtn.closest(".member-row");
+        const input = row && row.querySelector(".member-edit-input");
+        if (input) await saveMemberRename(oldName, input.value);
+        return;
+      }
       const btn = e.target.closest(".member-remove");
       if (!btn) return;
       const name = btn.dataset.name;
@@ -2019,6 +2091,19 @@
         loadWeek();
       } catch (err) {
         toast("삭제 실패: " + err.message);
+      }
+    });
+    document.getElementById("membersList").addEventListener("keydown", (e) => {
+      if (!e.target.classList.contains("member-edit-input")) return;
+      if (e.key === "Enter") {
+        e.preventDefault();
+        const row = e.target.closest(".member-row");
+        const oldName = row && row.dataset.name;
+        if (oldName) saveMemberRename(oldName, e.target.value);
+      } else if (e.key === "Escape") {
+        e.preventDefault();
+        memberEditingName = null;
+        renderMembersList();
       }
     });
     document.getElementById("addMemberBtn").addEventListener("click", addMember);

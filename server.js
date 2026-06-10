@@ -519,6 +519,76 @@ app.post("/api/members", async (req, res) => {
   }
 });
 
+app.patch("/api/members/:name", async (req, res) => {
+  const oldName = decodeURIComponent(req.params.name || "").trim();
+  const newName = ((req.body && req.body.name) || "").trim();
+  if (!oldName || !newName) {
+    return res.status(400).json({ error: "name required" });
+  }
+  if (newName.length > 100) {
+    return res.status(400).json({ error: "이름이 너무 깁니다 (100자 제한)" });
+  }
+  if (oldName === newName) {
+    return res.json({ success: true, unchanged: true });
+  }
+
+  const c = await pool.connect();
+  try {
+    await c.query("BEGIN");
+    const conflict = await c.query(
+      `SELECT id FROM team_members WHERE name = $1`,
+      [newName]
+    );
+    if (conflict.rows.length) {
+      await c.query("ROLLBACK");
+      return res.status(409).json({
+        error: `이미 '${newName}' 팀원이 있어요. 다른 이름을 써주세요.`,
+        code: "MEMBER_NAME_CONFLICT",
+      });
+    }
+    await c.query(
+      `UPDATE team_members SET name = $1 WHERE name = $2`,
+      [newName, oldName]
+    );
+    await c.query(
+      `UPDATE checkins SET user_name = $1 WHERE user_name = $2`,
+      [newName, oldName]
+    );
+    await c.query(
+      `UPDATE announcement_reads SET user_name = $1 WHERE user_name = $2`,
+      [newName, oldName]
+    );
+    await c.query(
+      `UPDATE idea_likes SET user_name = $1 WHERE user_name = $2`,
+      [newName, oldName]
+    );
+    await c.query(
+      `UPDATE ideas SET author = $1 WHERE author = $2`,
+      [newName, oldName]
+    );
+    await c.query(
+      `UPDATE memos SET author = $1 WHERE author = $2`,
+      [newName, oldName]
+    );
+    await c.query(
+      `UPDATE polls SET created_by = $1 WHERE created_by = $2`,
+      [newName, oldName]
+    );
+    await c.query(
+      `UPDATE votes SET voter_name = $1 WHERE voter_name = $2`,
+      [newName, oldName]
+    );
+    await c.query("COMMIT");
+    res.json({ success: true, oldName, newName });
+  } catch (err) {
+    await c.query("ROLLBACK").catch(() => {});
+    console.error("Members PATCH error:", err.message);
+    res.status(500).json({ error: err.message });
+  } finally {
+    c.release();
+  }
+});
+
 app.delete("/api/members/:name", async (req, res) => {
   try {
     const name = decodeURIComponent(req.params.name || "").trim();
