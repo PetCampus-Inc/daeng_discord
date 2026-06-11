@@ -211,7 +211,20 @@
     .quick-card h3 {
       font-size: 0.92rem; color: var(--ink-soft); font-weight: 600;
       letter-spacing: 0.02em;
+      display: flex; align-items: center; justify-content: space-between;
     }
+    .quick-edit-btn {
+      background: transparent;
+      border: 1px solid #f1ddc4;
+      color: var(--ink-soft);
+      font-size: 0.72rem;
+      font-weight: 600;
+      padding: 3px 10px;
+      border-radius: 999px;
+      cursor: pointer;
+      transition: background .15s, color .15s;
+    }
+    .quick-edit-btn:hover { background: var(--accent-soft); color: var(--accent-strong); }
     .quick-links {
       display: grid;
       grid-template-columns: repeat(3, 1fr);
@@ -227,9 +240,73 @@
       color: var(--ink);
       font-size: 0.85rem; font-weight: 500;
       transition: transform .15s ease, box-shadow .15s ease, background .15s ease;
+      overflow: hidden;
+      min-width: 0;
+    }
+    .quick-link span.label {
+      overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
     }
     .quick-link:hover { transform: translateY(-2px); background: #fff; box-shadow: var(--shadow-sm); }
-    .quick-link img { width: 18px; height: 18px; object-fit: contain; }
+    .quick-link img { width: 18px; height: 18px; object-fit: contain; flex-shrink: 0; }
+    .quick-link-fallback {
+      width: 18px; height: 18px; border-radius: 5px;
+      background: linear-gradient(135deg, #fde7c8, #fbd9a0);
+      color: var(--accent-strong);
+      display: inline-flex; align-items: center; justify-content: center;
+      font-size: 0.7rem; font-weight: 800;
+      flex-shrink: 0;
+    }
+    /* Quick-links management modal */
+    .ql-row {
+      display: flex; gap: 8px; align-items: stretch;
+      padding: 8px 10px; background: #fffdfa;
+      border: 1px solid #ecdbc1; border-radius: 12px;
+    }
+    .ql-row-fields {
+      flex: 1; min-width: 0;
+      display: flex; flex-direction: column; gap: 5px;
+    }
+    .ql-row-fields input {
+      padding: 6px 10px;
+      border-radius: 8px;
+      border: 1px solid #ecdbc1;
+      font: inherit;
+      background: #fff;
+      color: var(--ink);
+      width: 100%;
+      min-width: 0;
+    }
+    .ql-row-fields input:focus {
+      outline: none; border-color: var(--accent);
+      box-shadow: 0 0 0 3px rgba(245, 158, 11, 0.15);
+    }
+    .ql-row-fields .ql-name { font-weight: 600; }
+    .ql-row-actions {
+      display: flex; flex-direction: column; gap: 4px; justify-content: center;
+    }
+    .ql-row-actions button {
+      width: 50px;
+      border: 1px solid #ecdbc1;
+      background: #fff;
+      color: var(--ink-soft);
+      padding: 6px 10px;
+      border-radius: 8px;
+      font-size: 0.78rem;
+      font-weight: 600;
+      cursor: pointer;
+    }
+    .ql-row-actions button.save { color: var(--accent-strong); border-color: #fcd9a0; }
+    .ql-row-actions button.save:hover { background: var(--accent-soft); }
+    .ql-row-actions button.delete { color: #dc2626; border-color: #fecaca; }
+    .ql-row-actions button.delete:hover { background: #fde7e7; }
+    .ql-add-form {
+      display: flex; flex-direction: column; gap: 6px;
+      padding: 12px;
+      background: #fffaf0;
+      border: 1px dashed #f1ddc4;
+      border-radius: 12px;
+    }
+    .ql-add-form .submit { align-self: flex-end; }
 
     /* Check-in form */
     .checkin-card {
@@ -718,6 +795,80 @@
       border-color: #dc2626;
       box-shadow: 0 0 0 3px rgba(220, 38, 38, 0.12);
     }
+    .wh-time-row {
+      display: flex; align-items: center; gap: 6px; flex-wrap: wrap;
+      min-width: 0;
+    }
+    .wh-time-select {
+      padding: 7px 10px;
+      border-radius: 8px;
+      border: 1px solid #ecdbc1;
+      background: #fff;
+      font: inherit;
+      color: var(--ink);
+      font-variant-numeric: tabular-nums;
+      min-width: 78px;
+      cursor: pointer;
+    }
+    .wh-time-select:focus {
+      outline: none;
+      border-color: var(--accent);
+      box-shadow: 0 0 0 3px rgba(245, 158, 11, 0.15);
+    }
+    .wh-time-select.unavail {
+      border-color: #f4cccc;
+      background: #fffafa;
+      color: #b91c1c;
+    }
+    .wh-time-select.unavail:focus {
+      border-color: #dc2626;
+      box-shadow: 0 0 0 3px rgba(220, 38, 38, 0.12);
+    }
+    .wh-time-sep { color: var(--ink-mute); font-size: 0.85rem; }
+    .wh-time-note {
+      padding: 7px 10px;
+      border-radius: 8px;
+      border: 1px solid #f4cccc;
+      background: #fffafa;
+      font: inherit;
+      color: var(--ink);
+      flex: 1; min-width: 90px; max-width: 220px;
+    }
+    .wh-time-note::placeholder { color: #d99595; }
+    .wh-time-note:focus {
+      outline: none;
+      border-color: #dc2626;
+      box-shadow: 0 0 0 3px rgba(220, 38, 38, 0.12);
+    }
+    .wh-unavail-list {
+      display: flex; flex-direction: column; gap: 6px;
+      flex: 1; min-width: 0;
+    }
+    .wh-unavail-row {
+      display: flex; align-items: center; gap: 6px; flex-wrap: wrap;
+    }
+    .wh-unavail-remove {
+      width: 26px; height: 26px;
+      border: none; cursor: pointer;
+      background: transparent;
+      color: var(--ink-mute);
+      font-size: 1rem; line-height: 1;
+      border-radius: 6px;
+      flex-shrink: 0;
+    }
+    .wh-unavail-remove:hover { background: #fde7e7; color: #dc2626; }
+    .wh-unavail-add {
+      align-self: flex-start;
+      padding: 5px 12px;
+      font-size: 0.78rem;
+      border: 1px dashed #f4cccc;
+      background: #fff;
+      color: #b91c1c;
+      border-radius: 999px;
+      cursor: pointer;
+      font-weight: 700;
+    }
+    .wh-unavail-add:hover { background: #fdecec; }
     .wh-clear {
       width: 28px; height: 28px;
       border-radius: 8px;
@@ -1097,6 +1248,25 @@
       margin-right: 5px;
       flex-shrink: 0;
     }
+    .tl-overlap {
+      position: absolute;
+      top: 4px; bottom: 4px;
+      background: rgba(34, 197, 94, 0.20);
+      border-top: 2px solid var(--good);
+      border-bottom: 2px solid var(--good);
+      z-index: 2;
+      pointer-events: none;
+    }
+    .tl-overlap::after {
+      content: "겹침";
+      position: absolute;
+      bottom: -16px; left: 50%; transform: translateX(-50%);
+      font-size: 0.6rem;
+      color: var(--good);
+      font-weight: 700;
+      letter-spacing: 0.04em;
+      white-space: nowrap;
+    }
     .tl-unavail {
       position: absolute;
       top: 2px; bottom: 2px;
@@ -1110,7 +1280,7 @@
         );
       border: 1px solid #dc2626;
       border-radius: 5px;
-      z-index: 2;
+      z-index: 3;
       box-shadow: 0 0 0 1px #fff;
     }
     .tl-unavail-label {
@@ -1128,7 +1298,7 @@
       top: -4px; bottom: -4px;
       width: 2px;
       background: #dc2626;
-      z-index: 3;
+      z-index: 4;
       pointer-events: none;
     }
     .tl-now-line::before {
@@ -1374,42 +1544,17 @@
       </div>
 
       <aside class="quick-card">
-        <h3>자주 쓰는 도구</h3>
-        <div class="quick-links">
-          <a class="quick-link" target="_blank" href="https://jira-knockdog.atlassian.net/jira/your-work">
-            <img src="https://cdn.worldvectorlogo.com/logos/jira-1.svg" alt="Jira" />Jira
-          </a>
-          <a class="quick-link" target="_blank" href="https://www.notion.so/2de6c15f67fb8039b0f7e6e9c7fe202f?v=2de6c15f67fb815e809d000ce19fbfe7">
-            <img src="https://upload.wikimedia.org/wikipedia/commons/4/45/Notion_app_logo.png" alt="Notion" />Notion
-          </a>
-          <a class="quick-link" target="_blank" href="https://www.figma.com/">
-            <img src="https://cdn.worldvectorlogo.com/logos/figma-icon.svg" alt="Figma" />Figma
-          </a>
-          <a class="quick-link" target="_blank" href="https://home.knockdog.net/">
-            <img
-              src="https://home.knockdog.net/favicon.ico"
-              alt="Home"
-              onerror="this.src='data:image/svg+xml;utf8,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 24 24%22 fill=%22%23f59e0b%22><path d=%22M10 20v-6h4v6h5v-8h3L12 3 2 12h3v8z%22/></svg>'"
-            />Home
-          </a>
-          <a class="quick-link" target="_blank" href="https://api.knockdog.net/swagger-ui/index.html">
-            <img src="https://static1.smartbear.co/swagger/media/assets/images/swagger_logo.svg" alt="Swagger" />Swagger
-          </a>
-          <a class="quick-link" target="_blank" href="https://aws.amazon.com/console/">
-            <img
-              src="https://a0.awsstatic.com/libra-css/images/logos/aws_smile-header-desktop-en-white_59x35.png"
-              alt="AWS"
-              style="background:#232f3e; padding:2px; border-radius:4px;"
-            />AWS
-          </a>
-        </div>
+        <h3>자주 쓰는 도구
+          <button type="button" id="quickEditBtn" class="quick-edit-btn" title="도구 관리">편집</button>
+        </h3>
+        <div class="quick-links" id="quickLinks"></div>
       </aside>
     </section>
 
     <!-- Section 1: Weekly work hours -->
     <section class="checkin-card" id="hoursCard">
       <div class="checkin-head">
-        <h2 id="formTitle">이번 주 작업 가능 시간</h2>
+        <h2 id="formTitle">이번 주 작업 시간 <span style="font-size:0.78rem; color:var(--ink-soft); font-weight:500;">(대응 가능 시간대)</span></h2>
         <span class="badge" id="weekBadge">—</span>
       </div>
 
@@ -1427,8 +1572,8 @@
 
       <div class="field" style="margin-bottom: 12px;">
         <label class="field-label">
-          요일별 시간대
-          <span class="hint">평일(월–금)은 5일 모두 입력해야 저장됩니다 — 추후 추가 불가</span>
+          요일별 작업 시간 (대응 가능)
+          <span class="hint">30분 단위로 선택. 평일(월–금)은 5일 모두 입력해야 저장됩니다 — 추후 추가 불가</span>
         </label>
         <div id="weekHoursList" class="week-hours-list"></div>
       </div>
@@ -1580,6 +1725,22 @@
     </div>
   </div>
 
+  <div class="modal-backdrop" id="quickLinksModal">
+    <div class="modal-content" style="max-width: min(560px, calc(100vw - 24px));">
+      <h3>자주 쓰는 도구 관리</h3>
+      <div id="quickLinksList" style="display:flex; flex-direction:column; gap:8px; margin-bottom:14px;"></div>
+      <div class="ql-add-form">
+        <input class="input ql-add-name" placeholder="이름 (예: GitHub)" autocomplete="off" />
+        <input class="input ql-add-url" placeholder="URL (https://...)" autocomplete="off" />
+        <input class="input ql-add-icon" placeholder="아이콘 URL (선택)" autocomplete="off" />
+        <button class="submit" type="button" id="quickAddBtn" style="padding:9px 16px; font-size:0.9rem;">+ 추가</button>
+      </div>
+      <div class="modal-actions">
+        <button class="ghost" type="button" id="quickLinksCloseBtn">닫기</button>
+      </div>
+    </div>
+  </div>
+
   <div class="modal-backdrop" id="summaryModal">
     <div class="modal-content" style="max-width: min(620px, calc(100vw - 24px));">
       <h3>주간 요약 <span class="who" id="summaryWeekLabel"></span></h3>
@@ -1678,6 +1839,59 @@
       const start = activeWeekStart();
       return [0, 1, 2, 3, 4, 5, 6].map((i) => addDaysISO(start, i));
     }
+    const HOUR_OPTIONS = (() => {
+      const out = [""];
+      for (let m = 7 * 60; m <= 23 * 60; m += 30) {
+        const h = String(Math.floor(m / 60)).padStart(2, "0");
+        const mm = String(m % 60).padStart(2, "0");
+        out.push(`${h}:${mm}`);
+      }
+      return out;
+    })();
+    function timeOptsHTML(selected) {
+      return HOUR_OPTIONS.map((t) => {
+        const label = t || "—";
+        const sel = t === selected ? "selected" : "";
+        return `<option value="${t}" ${sel}>${label}</option>`;
+      }).join("");
+    }
+    function parseUnavailList(text) {
+      if (!text) return [];
+      const pad = (n) => String(n).padStart(2, "0");
+      return String(text)
+        .split(";")
+        .map((s) => s.trim())
+        .filter(Boolean)
+        .map((seg) => {
+          const m = seg.match(FREEFORM_TIME_RANGE);
+          if (!m) return null;
+          const start = `${pad(+m[1])}:${pad(+(m[2] || 0))}`;
+          const end = `${pad(+m[3])}:${pad(+(m[4] || 0))}`;
+          const note = seg.replace(FREEFORM_TIME_RANGE, "").trim();
+          return {
+            start: HOUR_OPTIONS.includes(start) ? start : "",
+            end: HOUR_OPTIONS.includes(end) ? end : "",
+            note,
+          };
+        })
+        .filter(Boolean);
+    }
+    function unavailRowHTML(r) {
+      const start = (r && r.start) || "";
+      const end = (r && r.end) || "";
+      const note = (r && r.note) || "";
+      return `
+        <div class="wh-unavail-row">
+          <select class="wh-time-select unavail wh-unavail-start" aria-label="불가 시작">${timeOptsHTML(start)}</select>
+          <span class="wh-time-sep">~</span>
+          <select class="wh-time-select unavail wh-unavail-end" aria-label="불가 종료">${timeOptsHTML(end)}</select>
+          <input type="text" class="wh-time-note wh-unavail-note" placeholder="사유 (예: 회의)" value="${esc(note)}" maxlength="40" />
+          <button type="button" class="wh-unavail-remove" title="이 불가 삭제">×</button>
+        </div>`;
+    }
+    function snapTime(t) {
+      return t && HOUR_OPTIONS.includes(t) ? t : "";
+    }
     function renderWeekHoursInputs(prefill = {}, prefillUnavail = {}) {
       const today = todayKSTStr();
       const dates = activeWeekDates();
@@ -1685,11 +1899,9 @@
         .map((iso, i) => {
           const isWeekend = i >= 5;
           const isToday = iso === today;
-          const val = prefill[iso] || "";
-          const unavailVal = prefillUnavail[iso] || "";
-          const placeholder = isWeekend
-            ? "휴무 (또는 자유롭게)"
-            : "예: 10:00-19:00, 9-12/14-19, 재택 10-19, 외근";
+          const p = prefill[iso] || {};
+          const uList = Array.isArray(prefillUnavail[iso]) ? prefillUnavail[iso] : [];
+          const unavailRowsHTML = uList.map(unavailRowHTML).join("");
           return `
             <div class="wh-row ${isWeekend ? "weekend" : ""} ${isToday ? "today" : ""}" data-iso="${iso}">
               <div class="wh-day">
@@ -1698,12 +1910,19 @@
               </div>
               <div class="wh-inputs">
                 <div class="wh-input-group">
-                  <span class="wh-input-label">가능</span>
-                  <input class="wh-input wh-available" type="text" placeholder="${placeholder}" value="${esc(val)}" />
+                  <span class="wh-input-label">작업</span>
+                  <div class="wh-time-row">
+                    <select class="wh-time-select wh-start" aria-label="시작 시간">${timeOptsHTML(p.start || "")}</select>
+                    <span class="wh-time-sep">~</span>
+                    <select class="wh-time-select wh-end" aria-label="종료 시간">${timeOptsHTML(p.end || "")}</select>
+                  </div>
                 </div>
                 <div class="wh-input-group">
                   <span class="wh-input-label unavail">불가</span>
-                  <input class="wh-input wh-unavailable" type="text" placeholder="예: 13:00-13:30 회의 (없으면 비우기)" value="${esc(unavailVal)}" />
+                  <div class="wh-unavail-list">
+                    ${unavailRowsHTML}
+                    <button type="button" class="wh-unavail-add">+ 불가 시간 추가</button>
+                  </div>
                 </div>
               </div>
               <button class="wh-clear" type="button" title="이 날 삭제">×</button>
@@ -1718,9 +1937,19 @@
       const items = [];
       rows.forEach((row) => {
         const iso = row.dataset.iso;
-        const raw = row.querySelector(".wh-available").value.trim();
-        const unavail = row.querySelector(".wh-unavailable").value.trim();
-        items.push({ date: iso, text: raw, unavailable: unavail });
+        const start = row.querySelector(".wh-start").value;
+        const end = row.querySelector(".wh-end").value;
+        const text = start && end ? `${start}-${end}` : "";
+        const parts = [];
+        row.querySelectorAll(".wh-unavail-row").forEach((ur) => {
+          const us = ur.querySelector(".wh-unavail-start").value;
+          const ue = ur.querySelector(".wh-unavail-end").value;
+          const un = (ur.querySelector(".wh-unavail-note").value || "")
+            .trim()
+            .replace(/;/g, ",");
+          if (us && ue) parts.push(`${us}-${ue}${un ? " " + un : ""}`);
+        });
+        items.push({ date: iso, text, unavailable: parts.join("; ") });
       });
       return { items };
     }
@@ -1728,12 +1957,45 @@
       const btn = e.target.closest(".preset[data-bulk]");
       if (!btn) return;
       const value = btn.dataset.bulk;
+      const m = value.match(/^(\d{2}):(\d{2})-(\d{2}):(\d{2})$/);
+      if (!m) return;
+      const s = `${m[1]}:${m[2]}`, e2 = `${m[3]}:${m[4]}`;
+      if (!HOUR_OPTIONS.includes(s) || !HOUR_OPTIONS.includes(e2)) return;
       document.querySelectorAll(".wh-row").forEach((row, i) => {
-        if (i < 5) row.querySelector(".wh-available").value = value;
+        if (i < 5) {
+          row.querySelector(".wh-start").value = s;
+          row.querySelector(".wh-end").value = e2;
+        }
       });
+      markHoursDirty();
     });
     document.getElementById("clearAllBtn").addEventListener("click", () => {
-      document.querySelectorAll(".wh-input").forEach((el) => (el.value = ""));
+      document.querySelectorAll(".wh-row").forEach((row) => {
+        row.querySelector(".wh-start").value = "";
+        row.querySelector(".wh-end").value = "";
+        row.querySelectorAll(".wh-unavail-row").forEach((ur) => ur.remove());
+      });
+      markHoursDirty();
+    });
+    // Add / remove unavail rows
+    document.getElementById("weekHoursList").addEventListener("click", (e) => {
+      const add = e.target.closest(".wh-unavail-add");
+      if (add) {
+        const list = add.closest(".wh-unavail-list");
+        if (list) {
+          add.insertAdjacentHTML("beforebegin", unavailRowHTML());
+          markHoursDirty();
+        }
+        return;
+      }
+      const rm = e.target.closest(".wh-unavail-remove");
+      if (rm) {
+        const row = rm.closest(".wh-unavail-row");
+        if (row) {
+          row.remove();
+          markHoursDirty();
+        }
+      }
     });
 
     function clearCheckinOnly() {
@@ -1821,8 +2083,13 @@
     }
     document
       .getElementById("weekHoursList")
+      .addEventListener("change", (e) => {
+        if (e.target.classList.contains("wh-time-select")) markHoursDirty();
+      });
+    document
+      .getElementById("weekHoursList")
       .addEventListener("input", (e) => {
-        if (e.target.classList.contains("wh-input")) markHoursDirty();
+        if (e.target.classList.contains("wh-time-note")) markHoursDirty();
       });
     document
       .getElementById("weekHoursList")
@@ -1830,7 +2097,11 @@
         if (!e.target.classList.contains("wh-clear")) return;
         const row = e.target.closest(".wh-row");
         if (!row) return;
-        row.querySelectorAll(".wh-input").forEach((el) => (el.value = ""));
+        const startEl = row.querySelector(".wh-start");
+        const endEl = row.querySelector(".wh-end");
+        if (startEl) startEl.value = "";
+        if (endEl) endEl.value = "";
+        row.querySelectorAll(".wh-unavail-row").forEach((ur) => ur.remove());
         markHoursDirty();
       });
     ["done", "tasks", "blockers"].forEach((id) => {
@@ -1853,16 +2124,17 @@
             (u.userName || "").trim().toLowerCase() ===
             userName.trim().toLowerCase()
         );
-        const prefill = {};
-        const prefillUnavail = {};
+        const prefill = {};       // { iso: { start, end } }
+        const prefillUnavail = {}; // { iso: [{ start, end, note }, ...] }
         if (me) {
           for (const entry of me.entries) {
-            const text =
-              entry.hoursText ||
-              formatRange(entry.startTime, entry.endTime) ||
-              "";
-            if (text) prefill[entry.date] = text;
-            if (entry.unavailableText) prefillUnavail[entry.date] = entry.unavailableText;
+            const start = snapTime(entry.startTime);
+            const end = snapTime(entry.endTime);
+            if (start || end) prefill[entry.date] = { start, end };
+            if (entry.unavailableText) {
+              const list = parseUnavailList(entry.unavailableText);
+              if (list.length) prefillUnavail[entry.date] = list;
+            }
           }
         }
         const rows = document.querySelectorAll(".wh-row");
@@ -1871,14 +2143,18 @@
         } else {
           rows.forEach((row) => {
             const iso = row.dataset.iso;
-            const availInput = row.querySelector(".wh-available");
-            const unavailInput = row.querySelector(".wh-unavailable");
+            const p = prefill[iso] || {};
+            const uList = prefillUnavail[iso] || [];
+            const startEl = row.querySelector(".wh-start");
+            const endEl = row.querySelector(".wh-end");
+            if (force || (startEl && !startEl.value && p.start)) startEl.value = p.start || "";
+            if (force || (endEl && !endEl.value && p.end)) endEl.value = p.end || "";
             if (force) {
-              availInput.value = prefill[iso] || "";
-              unavailInput.value = prefillUnavail[iso] || "";
-            } else {
-              if (!availInput.value && prefill[iso]) availInput.value = prefill[iso];
-              if (!unavailInput.value && prefillUnavail[iso]) unavailInput.value = prefillUnavail[iso];
+              row.querySelectorAll(".wh-unavail-row").forEach((ur) => ur.remove());
+              const addBtn = row.querySelector(".wh-unavail-add");
+              uList.forEach((u) => {
+                if (addBtn) addBtn.insertAdjacentHTML("beforebegin", unavailRowHTML(u));
+              });
             }
           });
         }
@@ -1934,6 +2210,27 @@
           .join(", ");
         toast(`평일은 5일 모두 입력해야 저장돼요. 빠진 날짜: ${missing}`);
         return;
+      }
+      // Validate ranges (start < end) for both 작업 / 불가.
+      const rangeError = (label, text) => {
+        const m = text.match(/^(\d{2}):(\d{2})-(\d{2}):(\d{2})/);
+        if (!m) return null;
+        const s = +m[1] * 60 + +m[2];
+        const e = +m[3] * 60 + +m[4];
+        if (e <= s) return `${label}: 종료 시간이 시작 시간보다 늦어야 합니다`;
+        return null;
+      };
+      for (const item of items) {
+        if (item.text) {
+          const err = rangeError(`${item.date} 작업`, item.text);
+          if (err) { toast(err); return; }
+        }
+        if (item.unavailable) {
+          for (const seg of item.unavailable.split(";").map((s) => s.trim()).filter(Boolean)) {
+            const err = rangeError(`${item.date} 불가`, seg);
+            if (err) { toast(err); return; }
+          }
+        }
       }
 
       localStorage.setItem(STORAGE_USER, userName);
@@ -2604,6 +2901,140 @@
     }
     loadNotice();
 
+    /* ---------------- Quick links (자주 쓰는 도구) ---------------- */
+    let quickLinks = [];
+    async function loadQuickLinks() {
+      try {
+        const r = await fetch("/api/quick-links");
+        const data = await r.json();
+        quickLinks = data.links || [];
+      } catch (e) {
+        quickLinks = [];
+      }
+      renderQuickLinks();
+      renderQuickLinksList();
+    }
+    function quickIconHTML(link) {
+      if (link.iconUrl) {
+        const safeAlt = esc(link.name);
+        return `<img src="${esc(link.iconUrl)}" alt="${safeAlt}" onerror="this.outerHTML='<span class=&quot;quick-link-fallback&quot;>${esc(link.name.charAt(0).toUpperCase())}</span>'" />`;
+      }
+      return `<span class="quick-link-fallback">${esc(link.name.charAt(0).toUpperCase())}</span>`;
+    }
+    function renderQuickLinks() {
+      const wrap = document.getElementById("quickLinks");
+      if (!wrap) return;
+      if (!quickLinks.length) {
+        wrap.innerHTML = `<div class="empty" style="grid-column:1/-1; padding:20px;">등록된 도구가 없어요. '편집' 으로 추가하세요.</div>`;
+        return;
+      }
+      wrap.innerHTML = quickLinks
+        .map((l) => `
+          <a class="quick-link" target="_blank" rel="noopener" href="${esc(l.url)}" title="${esc(l.url)}">
+            ${quickIconHTML(l)}
+            <span class="label">${esc(l.name)}</span>
+          </a>`)
+        .join("");
+    }
+    function renderQuickLinksList() {
+      const list = document.getElementById("quickLinksList");
+      if (!list) return;
+      if (!quickLinks.length) {
+        list.innerHTML = `<div class="empty" style="padding:14px;">등록된 도구가 없어요. 아래에서 추가해주세요.</div>`;
+        return;
+      }
+      list.innerHTML = quickLinks
+        .map((l) => `
+          <div class="ql-row" data-id="${l.id}">
+            <div class="ql-row-fields">
+              <input class="ql-name" type="text" value="${esc(l.name)}" placeholder="이름" maxlength="100" />
+              <input class="ql-url" type="text" value="${esc(l.url)}" placeholder="URL" />
+              <input class="ql-icon" type="text" value="${esc(l.iconUrl)}" placeholder="아이콘 URL (선택)" />
+            </div>
+            <div class="ql-row-actions">
+              <button type="button" class="save" data-id="${l.id}">저장</button>
+              <button type="button" class="delete" data-id="${l.id}">삭제</button>
+            </div>
+          </div>`)
+        .join("");
+    }
+    document.getElementById("quickEditBtn").addEventListener("click", () => {
+      renderQuickLinksList();
+      document.getElementById("quickLinksModal").classList.add("show");
+    });
+    document.getElementById("quickLinksCloseBtn").addEventListener("click", () => {
+      document.getElementById("quickLinksModal").classList.remove("show");
+    });
+    document.getElementById("quickLinksModal").addEventListener("click", (e) => {
+      if (e.target.id === "quickLinksModal") {
+        document.getElementById("quickLinksModal").classList.remove("show");
+      }
+    });
+    document.getElementById("quickLinksList").addEventListener("click", async (e) => {
+      const saveBtn = e.target.closest("button.save");
+      if (saveBtn) {
+        const id = saveBtn.dataset.id;
+        const row = saveBtn.closest(".ql-row");
+        const name = row.querySelector(".ql-name").value.trim();
+        const url = row.querySelector(".ql-url").value.trim();
+        const iconUrl = row.querySelector(".ql-icon").value.trim();
+        if (!name) { toast("이름을 입력해주세요"); return; }
+        if (!url) { toast("URL을 입력해주세요"); return; }
+        try {
+          const r = await fetch(`/api/quick-links/${id}`, {
+            method: "PATCH",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ name, url, iconUrl }),
+          });
+          if (!r.ok) throw new Error((await r.json()).error || "fail");
+          toast(`${name} 수정됨`);
+          await loadQuickLinks();
+        } catch (err) {
+          toast("수정 실패: " + err.message);
+        }
+        return;
+      }
+      const delBtn = e.target.closest("button.delete");
+      if (delBtn) {
+        const id = delBtn.dataset.id;
+        const link = quickLinks.find((l) => String(l.id) === String(id));
+        if (!link || !confirm(`'${link.name}' 도구를 삭제할까요?`)) return;
+        try {
+          const r = await fetch(`/api/quick-links/${id}`, { method: "DELETE" });
+          if (!r.ok) throw new Error((await r.json()).error || "fail");
+          toast("삭제됨");
+          await loadQuickLinks();
+        } catch (err) {
+          toast("삭제 실패: " + err.message);
+        }
+      }
+    });
+    document.getElementById("quickAddBtn").addEventListener("click", async () => {
+      const modal = document.getElementById("quickLinksModal");
+      const nameEl = modal.querySelector(".ql-add-name");
+      const urlEl = modal.querySelector(".ql-add-url");
+      const iconEl = modal.querySelector(".ql-add-icon");
+      const name = nameEl.value.trim();
+      const url = urlEl.value.trim();
+      const iconUrl = iconEl.value.trim();
+      if (!name) { toast("이름을 입력해주세요"); nameEl.focus(); return; }
+      if (!url) { toast("URL을 입력해주세요"); urlEl.focus(); return; }
+      try {
+        const r = await fetch("/api/quick-links", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ name, url, iconUrl }),
+        });
+        if (!r.ok) throw new Error((await r.json()).error || "fail");
+        toast(`${name} 추가됨`);
+        nameEl.value = ""; urlEl.value = ""; iconEl.value = "";
+        await loadQuickLinks();
+      } catch (err) {
+        toast("추가 실패: " + err.message);
+      }
+    });
+    loadQuickLinks();
+
     /* ---------------- Weekly board (hours + check-in) ---------------- */
     function shiftWeek(baseISO, weeks) {
       const d = new Date(baseISO + "T00:00:00Z");
@@ -2696,20 +3127,33 @@
             : `${entry.startTime}–${entry.endTime}`;
           trackInner += `<div class="tl-bar ${entry.isLate ? "late" : ""}" style="left:${left}%; width:${width}%;" title="${esc(barLabel)}">${esc(barLabel)}</div>`;
 
-          // Unavailable strip
+          // Overlap with me (only on other members' rows)
+          if (!isMine && meRange) {
+            const ovStart = Math.max(meRange.start, range.start);
+            const ovEnd = Math.min(meRange.end, range.end);
+            if (ovEnd > ovStart) {
+              const ovL = pctOf(ovStart);
+              const ovR = pctOf(ovEnd);
+              const ovW = Math.max(0, ovR - ovL);
+              const fmt = (m) => `${String(Math.floor(m/60)).padStart(2,"0")}:${String(m%60).padStart(2,"0")}`;
+              trackInner += `<div class="tl-overlap" style="left:${ovL}%; width:${ovW}%;" title="나와 겹침 ${fmt(ovStart)}–${fmt(ovEnd)} (${formatHours(ovEnd - ovStart)})"></div>`;
+            }
+          }
+
+          // Unavailable strips (multiple ; -separated ranges)
           if (entry.unavailableText) {
-            const u2 = parseRangeMin(entry.unavailableText);
-            if (u2) {
+            const segments = String(entry.unavailableText)
+              .split(";")
+              .map((s) => s.trim())
+              .filter(Boolean);
+            for (const seg of segments) {
+              const u2 = parseRangeMin(seg);
+              if (!u2) continue;
               const ul = pctOf(u2.start);
-              const ur = pctOf(u2.end);
-              const uw = Math.max(0, ur - ul);
-              if (uw > 0) {
-                const labelText = entry.unavailableText.replace(FREEFORM_TIME_RANGE, "").trim();
-                trackInner += `<div class="tl-unavail" style="left:${ul}%; width:${uw}%;" title="불가 ${esc(entry.unavailableText)}"></div>`;
-                if (labelText && width > 12) {
-                  trackInner += `<div class="tl-unavail-label" style="left:${ul}%;">${esc(labelText)}</div>`;
-                }
-              }
+              const ur2 = pctOf(u2.end);
+              const uw = Math.max(0, ur2 - ul);
+              if (uw <= 0) continue;
+              trackInner += `<div class="tl-unavail" style="left:${ul}%; width:${uw}%;" title="불가 ${esc(seg)}"></div>`;
             }
           }
 
@@ -2856,7 +3300,7 @@
                   <div class="day-cell-content">
                     <span class="day-total ${hasHours ? "" : "empty"}">${esc(primary)}</span>
                     ${totalLabel && hasHours ? `<span class="day-range">${esc(rawText)}</span>` : ""}
-                    ${unavailText ? `<span class="day-meta unavail" title="대응 불가">${esc(unavailText)}</span>` : ""}
+                    ${unavailText ? unavailText.split(";").map((s) => s.trim()).filter(Boolean).map((seg) => `<span class="day-meta unavail" title="대응 불가">${esc(seg)}</span>`).join("") : ""}
                     ${state === "late" && entry && entry.checkedInAt ? `<span class="day-meta delayed" title="Delayed 체크인">${esc(entry.checkedInAt)}</span>` : ""}
                   </div>
                 </td>`;

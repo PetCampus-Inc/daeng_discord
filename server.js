@@ -138,6 +138,33 @@ async function initDatabase() {
         );
       }
     }
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS quick_links (
+        id SERIAL PRIMARY KEY,
+        name VARCHAR(100) NOT NULL,
+        url TEXT NOT NULL,
+        icon_url TEXT DEFAULT '',
+        position INTEGER NOT NULL DEFAULT 0,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      )
+    `);
+    const qlCount = await pool.query(`SELECT COUNT(*) FROM quick_links`);
+    if (parseInt(qlCount.rows[0].count, 10) === 0) {
+      const seeds = [
+        ["Jira", "https://jira-knockdog.atlassian.net/jira/your-work", "https://cdn.worldvectorlogo.com/logos/jira-1.svg"],
+        ["Notion", "https://www.notion.so/2de6c15f67fb8039b0f7e6e9c7fe202f?v=2de6c15f67fb815e809d000ce19fbfe7", "https://upload.wikimedia.org/wikipedia/commons/4/45/Notion_app_logo.png"],
+        ["Figma", "https://www.figma.com/", "https://cdn.worldvectorlogo.com/logos/figma-icon.svg"],
+        ["Home", "https://home.knockdog.net/", "https://home.knockdog.net/favicon.ico"],
+        ["Swagger", "https://api.knockdog.net/swagger-ui/index.html", "https://static1.smartbear.co/swagger/media/assets/images/swagger_logo.svg"],
+        ["AWS", "https://aws.amazon.com/console/", "https://a0.awsstatic.com/libra-css/images/logos/aws_smile-header-desktop-en-white_59x35.png"],
+      ];
+      for (let i = 0; i < seeds.length; i++) {
+        await pool.query(
+          `INSERT INTO quick_links (name, url, icon_url, position) VALUES ($1, $2, $3, $4)`,
+          [seeds[i][0], seeds[i][1], seeds[i][2], i]
+        );
+      }
+    }
     console.log("Database initialized");
   } catch (err) {
     console.error("Database init error:", err.message);
@@ -181,12 +208,15 @@ function dailyMinutes(startTime, endTime, unavailableText) {
   if (sm === null || em === null || em <= sm) return null;
   let total = em - sm;
   if (unavailableText) {
-    const u = parseRangeFromText(unavailableText);
-    const usm = hhmmToMin(u.start);
-    const uem = hhmmToMin(u.end);
-    if (usm !== null && uem !== null && uem > usm) {
-      const overlap = Math.max(0, Math.min(em, uem) - Math.max(sm, usm));
-      total -= overlap;
+    const segments = String(unavailableText).split(";").map((s) => s.trim()).filter(Boolean);
+    for (const seg of segments) {
+      const u = parseRangeFromText(seg);
+      const usm = hhmmToMin(u.start);
+      const uem = hhmmToMin(u.end);
+      if (usm !== null && uem !== null && uem > usm) {
+        const overlap = Math.max(0, Math.min(em, uem) - Math.max(sm, usm));
+        total -= overlap;
+      }
     }
   }
   return Math.max(0, total);
@@ -1155,6 +1185,99 @@ app.post("/api/announcements/:id/read", async (req, res) => {
       [id]
     );
     res.json({ success: true, readers: reads.rows });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Quick links (hero shortcuts) CRUD
+app.get("/api/quick-links", async (req, res) => {
+  try {
+    const result = await pool.query(
+      `SELECT id, name, url, icon_url, position FROM quick_links ORDER BY position, id`
+    );
+    res.json({
+      links: result.rows.map((r) => ({
+        id: r.id,
+        name: r.name,
+        url: r.url,
+        iconUrl: r.icon_url || "",
+        position: r.position,
+      })),
+    });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.post("/api/quick-links", async (req, res) => {
+  try {
+    const { name, url, iconUrl } = req.body || {};
+    if (typeof name !== "string" || !name.trim()) {
+      return res.status(400).json({ error: "name required" });
+    }
+    if (typeof url !== "string" || !url.trim()) {
+      return res.status(400).json({ error: "url required" });
+    }
+    const posResult = await pool.query(
+      `SELECT COALESCE(MAX(position), -1) + 1 AS p FROM quick_links`
+    );
+    const pos = posResult.rows[0].p;
+    const result = await pool.query(
+      `INSERT INTO quick_links (name, url, icon_url, position) VALUES ($1, $2, $3, $4) RETURNING *`,
+      [name.trim(), url.trim(), (iconUrl || "").trim(), pos]
+    );
+    const r = result.rows[0];
+    res.json({
+      success: true,
+      link: { id: r.id, name: r.name, url: r.url, iconUrl: r.icon_url || "", position: r.position },
+    });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.patch("/api/quick-links/:id", async (req, res) => {
+  try {
+    const id = parseInt(req.params.id, 10);
+    if (!Number.isFinite(id)) return res.status(400).json({ error: "invalid id" });
+    const { name, url, iconUrl } = req.body || {};
+    const sets = [];
+    const params = [];
+    if (typeof name === "string") {
+      if (!name.trim()) return res.status(400).json({ error: "name cannot be empty" });
+      params.push(name.trim()); sets.push(`name = $${params.length}`);
+    }
+    if (typeof url === "string") {
+      if (!url.trim()) return res.status(400).json({ error: "url cannot be empty" });
+      params.push(url.trim()); sets.push(`url = $${params.length}`);
+    }
+    if (typeof iconUrl === "string") {
+      params.push(iconUrl.trim()); sets.push(`icon_url = $${params.length}`);
+    }
+    if (!sets.length) return res.status(400).json({ error: "no fields to update" });
+    params.push(id);
+    const result = await pool.query(
+      `UPDATE quick_links SET ${sets.join(", ")} WHERE id = $${params.length} RETURNING *`,
+      params
+    );
+    if (!result.rows.length) return res.status(404).json({ error: "not found" });
+    const r = result.rows[0];
+    res.json({
+      success: true,
+      link: { id: r.id, name: r.name, url: r.url, iconUrl: r.icon_url || "", position: r.position },
+    });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.delete("/api/quick-links/:id", async (req, res) => {
+  try {
+    const id = parseInt(req.params.id, 10);
+    if (!Number.isFinite(id)) return res.status(400).json({ error: "invalid id" });
+    await pool.query(`DELETE FROM quick_links WHERE id = $1`, [id]);
+    res.json({ success: true });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
