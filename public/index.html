@@ -1136,6 +1136,17 @@
       vertical-align: middle;
     }
     .day-tab.today.active::before { color: #fff; }
+    .day-tab.weekend {
+      background: #fbf5ea;
+      color: var(--ink-mute);
+      border-style: dashed;
+    }
+    .day-tab.weekend:hover { background: #fef3c7; color: var(--ink-soft); }
+    .day-tab.weekend.active {
+      background: var(--accent-strong);
+      color: #fff;
+      border-style: solid;
+    }
     .day-tab .pill-extra {
       margin-left: 6px;
       font-size: 0.7rem;
@@ -3063,13 +3074,14 @@
     }
     function buildDayTabsHTML(data) {
       const todayStr = todayKSTStr();
-      const dates = (data.dates || []).slice(0, 5);
+      const dates = data.dates || [];
       return dates
         .map((iso, i) => {
           const cls = [
             "day-tab",
             iso === timelineDay ? "active" : "",
             iso === todayStr ? "today" : "",
+            i >= 5 ? "weekend" : "",
           ].filter(Boolean).join(" ");
           return `<button type="button" class="${cls}" data-iso="${iso}">${WEEK_DOW_LABELS[i]} ${iso.slice(5).replace("-", "/")}</button>`;
         })
@@ -3210,10 +3222,10 @@
         const { weekStart, dates, users } = data;
         viewWeekStart = weekStart;
         document.getElementById("weekLabel").textContent = `${weekStart} 주차`;
-        const weekdays = (dates || []).slice(0, 5);
+        const allDays = dates || [];
         const todayStr = todayKSTStr();
-        if (!timelineDay || !weekdays.includes(timelineDay)) {
-          timelineDay = weekdays.includes(todayStr) ? todayStr : weekdays[0];
+        if (!timelineDay || !allDays.includes(timelineDay)) {
+          timelineDay = allDays.includes(todayStr) ? todayStr : allDays[0];
         }
 
         const head = `
