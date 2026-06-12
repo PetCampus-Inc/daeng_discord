@@ -129,6 +129,7 @@ async function initDatabase() {
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
       )
     `);
+    await pool.query(`ALTER TABLE team_members ADD COLUMN IF NOT EXISTS team VARCHAR(50) DEFAULT ''`);
     const memberCount = await pool.query(`SELECT COUNT(*) FROM team_members`);
     if (parseInt(memberCount.rows[0].count, 10) === 0) {
       for (const name of ["손흥민", "하정우", "민지", "진영"]) {
@@ -537,9 +538,12 @@ app.use(express.static(path.join(__dirname, "public")));
 app.get("/api/members", async (req, res) => {
   try {
     const result = await pool.query(
-      `SELECT name FROM team_members WHERE archived = FALSE ORDER BY id`
+      `SELECT name, COALESCE(team, '') AS team FROM team_members WHERE archived = FALSE ORDER BY team NULLS LAST, id`
     );
-    res.json({ members: result.rows.map((r) => r.name) });
+    res.json({
+      members: result.rows.map((r) => r.name),
+      membersData: result.rows.map((r) => ({ name: r.name, team: r.team || "" })),
+    });
   } catch (err) {
     console.error("Members GET error:", err.message);
     res.status(500).json({ error: err.message });
@@ -549,14 +553,18 @@ app.get("/api/members", async (req, res) => {
 app.post("/api/members", async (req, res) => {
   try {
     const name = (req.body?.name || "").trim();
+    const team = (req.body?.team || "").trim();
     if (!name) return res.status(400).json({ error: "name required" });
     if (name.length > 100) {
       return res.status(400).json({ error: "이름이 너무 깁니다 (100자 제한)" });
     }
+    if (team.length > 50) {
+      return res.status(400).json({ error: "팀 이름이 너무 깁니다 (50자 제한)" });
+    }
     await pool.query(
-      `INSERT INTO team_members (name) VALUES ($1)
-       ON CONFLICT (name) DO UPDATE SET archived = FALSE`,
-      [name]
+      `INSERT INTO team_members (name, team) VALUES ($1, $2)
+       ON CONFLICT (name) DO UPDATE SET archived = FALSE, team = COALESCE(NULLIF($2, ''), team_members.team)`,
+      [name, team]
     );
     res.json({ success: true });
   } catch (err) {
@@ -567,35 +575,58 @@ app.post("/api/members", async (req, res) => {
 
 app.patch("/api/members/:name", async (req, res) => {
   const oldName = decodeURIComponent(req.params.name || "").trim();
-  const newName = ((req.body && req.body.name) || "").trim();
-  if (!oldName || !newName) {
+  const body = req.body || {};
+  const hasNewName = typeof body.name === "string";
+  const hasTeam = typeof body.team === "string";
+  const newName = hasNewName ? body.name.trim() : oldName;
+  const newTeam = hasTeam ? body.team.trim() : null;
+  if (!oldName) {
     return res.status(400).json({ error: "name required" });
+  }
+  if (hasNewName && !newName) {
+    return res.status(400).json({ error: "name cannot be empty" });
   }
   if (newName.length > 100) {
     return res.status(400).json({ error: "이름이 너무 깁니다 (100자 제한)" });
   }
-  if (oldName === newName) {
+  if (newTeam !== null && newTeam.length > 50) {
+    return res.status(400).json({ error: "팀 이름이 너무 깁니다 (50자 제한)" });
+  }
+  const isRename = newName !== oldName;
+  if (!isRename && newTeam === null) {
     return res.json({ success: true, unchanged: true });
   }
 
   const c = await pool.connect();
   try {
     await c.query("BEGIN");
-    const conflict = await c.query(
-      `SELECT id FROM team_members WHERE name = $1`,
-      [newName]
-    );
-    if (conflict.rows.length) {
-      await c.query("ROLLBACK");
-      return res.status(409).json({
-        error: `이미 '${newName}' 팀원이 있어요. 다른 이름을 써주세요.`,
-        code: "MEMBER_NAME_CONFLICT",
-      });
+    if (isRename) {
+      const conflict = await c.query(
+        `SELECT id FROM team_members WHERE name = $1`,
+        [newName]
+      );
+      if (conflict.rows.length) {
+        await c.query("ROLLBACK");
+        return res.status(409).json({
+          error: `이미 '${newName}' 팀원이 있어요. 다른 이름을 써주세요.`,
+          code: "MEMBER_NAME_CONFLICT",
+        });
+      }
+      await c.query(
+        `UPDATE team_members SET name = $1 WHERE name = $2`,
+        [newName, oldName]
+      );
     }
-    await c.query(
-      `UPDATE team_members SET name = $1 WHERE name = $2`,
-      [newName, oldName]
-    );
+    if (newTeam !== null) {
+      await c.query(
+        `UPDATE team_members SET team = $1 WHERE name = $2`,
+        [newTeam, newName]
+      );
+    }
+    if (!isRename) {
+      await c.query("COMMIT");
+      return res.json({ success: true, oldName, newName, team: newTeam });
+    }
     await c.query(
       `UPDATE checkins SET user_name = $1 WHERE user_name = $2`,
       [newName, oldName]
@@ -625,7 +656,7 @@ app.patch("/api/members/:name", async (req, res) => {
       [newName, oldName]
     );
     await c.query("COMMIT");
-    res.json({ success: true, oldName, newName });
+    res.json({ success: true, oldName, newName, team: newTeam });
   } catch (err) {
     await c.query("ROLLBACK").catch(() => {});
     console.error("Members PATCH error:", err.message);

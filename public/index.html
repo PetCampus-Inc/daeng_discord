@@ -308,6 +308,62 @@
     }
     .ql-add-form .submit { align-self: flex-end; }
 
+    /* Team badges and group headers */
+    .team-badge {
+      display: inline-flex; align-items: center;
+      font-size: 0.68rem;
+      font-weight: 800;
+      padding: 2px 8px;
+      border-radius: 999px;
+      letter-spacing: 0.02em;
+      white-space: nowrap;
+      flex-shrink: 0;
+    }
+    .team-badge.t-empty {
+      background: #f3f4f6; color: #9ca3af;
+    }
+    .team-badge.t-plan { background: #ede9fe; color: #6d28d9; }
+    .team-badge.t-dev  { background: #dbeafe; color: #1d4ed8; }
+    .team-badge.t-des  { background: #fce7f3; color: #be185d; }
+    .team-badge.t-misc { background: #fef3c7; color: #92400e; }
+    .tl-group-header {
+      display: flex; align-items: center; gap: 8px;
+      margin: 16px 0 6px;
+      padding: 4px 0 6px;
+      border-bottom: 1px dashed #f1ddc4;
+      font-size: 0.82rem;
+      font-weight: 700;
+      letter-spacing: 0.03em;
+      color: var(--ink-soft);
+    }
+    .tl-group-header::before {
+      content: "";
+      display: inline-block;
+      width: 4px; height: 16px;
+      border-radius: 2px;
+      background: var(--accent);
+    }
+    .tl-group-header.team-plan::before { background: #8b5cf6; }
+    .tl-group-header.team-dev::before  { background: #3b82f6; }
+    .tl-group-header.team-des::before  { background: #ec4899; }
+    .tl-group-header.team-misc::before { background: #f59e0b; }
+    .tl-group-header.team-empty::before { background: #9ca3af; }
+    .tl-group-header .count {
+      margin-left: auto;
+      font-weight: 500;
+      font-size: 0.74rem;
+      color: var(--ink-mute);
+      letter-spacing: 0;
+    }
+    .ql-row-fields select, .member-team-select {
+      padding: 6px 10px;
+      border-radius: 8px;
+      border: 1px solid #ecdbc1;
+      font: inherit;
+      background: #fff;
+      cursor: pointer;
+    }
+
     /* Check-in form */
     .checkin-card {
       background: #fff; border-radius: 28px;
@@ -1790,7 +1846,36 @@
 
     // 팀원 목록은 서버 /api/members 에서 받아옴
     let TEAM_MEMBERS = [];
+    let MEMBERS_BY_NAME = new Map(); // name -> { team }
     let DEFAULT_NAME = "";
+
+    const TEAM_OPTIONS = ["", "기획", "개발", "디자인", "기타"];
+    const TEAM_META = {
+      "기획":   { slug: "plan", label: "기획" },
+      "개발":   { slug: "dev",  label: "개발" },
+      "디자인": { slug: "des",  label: "디자인" },
+      "기타":   { slug: "misc", label: "기타" },
+    };
+    const TEAM_ORDER = ["기획", "개발", "디자인", "기타", ""]; // empty last
+    function teamMeta(team) {
+      const t = (team || "").trim();
+      if (TEAM_META[t]) return TEAM_META[t];
+      if (!t) return { slug: "empty", label: "팀 미지정" };
+      // Unknown team — pick a slug deterministically
+      const slugs = ["plan", "dev", "des", "misc"];
+      const idx = [...t].reduce((s, c) => s + c.charCodeAt(0), 0) % slugs.length;
+      return { slug: slugs[idx], label: t };
+    }
+    function teamBadgeHTML(team) {
+      const m = teamMeta(team);
+      const text = team || "팀 미지정";
+      const cls = team ? `team-badge t-${m.slug}` : "team-badge t-empty";
+      return `<span class="${cls}" title="${esc(text)}">${esc(text)}</span>`;
+    }
+    function memberTeam(name) {
+      const m = MEMBERS_BY_NAME.get(name);
+      return (m && m.team) || "";
+    }
     const CHECKIN_PASS_THRESHOLD = 4; // 주 N일 이상 체크인 = 기준 달성
     const DOW_NAMES = ["일", "월", "화", "수", "목", "금", "토"]; // JS getUTCDay-indexed
     const WEEK_DOW_LABELS = ["월", "화", "수", "목", "금", "토", "일"]; // Mon-first
@@ -2036,11 +2121,31 @@
       return `${startTime || ""}-${endTime || ""}`;
     }
 
-    /* ---------------- Username persistence ---------------- */
+    /* ---------------- Username persistence (localStorage + cookie) ---------------- */
+    function setCookie(name, value, days = 365) {
+      const exp = new Date(Date.now() + days * 86400000).toUTCString();
+      document.cookie = `${name}=${encodeURIComponent(value)}; expires=${exp}; path=/; SameSite=Lax`;
+    }
+    function getCookie(name) {
+      const target = name + "=";
+      for (const part of document.cookie.split("; ")) {
+        if (part.startsWith(target)) return decodeURIComponent(part.slice(target.length));
+      }
+      return "";
+    }
+    function rememberUser(v) {
+      if (v) {
+        localStorage.setItem(STORAGE_USER, v);
+        setCookie(STORAGE_USER, v);
+      }
+    }
+    function recallUser() {
+      return localStorage.getItem(STORAGE_USER) || getCookie(STORAGE_USER) || "";
+    }
     const userInput = document.getElementById("userName");
     userInput.addEventListener("change", () => {
       const v = userInput.value || DEFAULT_NAME;
-      localStorage.setItem(STORAGE_USER, v);
+      rememberUser(v);
       prefillAll(v);
     });
 
@@ -2049,11 +2154,19 @@
         const r = await fetch("/api/members");
         const data = await r.json();
         TEAM_MEMBERS = data.members || [];
+        MEMBERS_BY_NAME = new Map(
+          (data.membersData || TEAM_MEMBERS.map((n) => ({ name: n, team: "" })))
+            .map((m) => [m.name, { team: m.team || "" }])
+        );
       } catch (e) {
         TEAM_MEMBERS = [];
+        MEMBERS_BY_NAME = new Map();
       }
       DEFAULT_NAME = TEAM_MEMBERS[0] || "";
-      const stored = localStorage.getItem(STORAGE_USER) || "";
+      const stored = recallUser();
+      if (stored && !localStorage.getItem(STORAGE_USER)) {
+        localStorage.setItem(STORAGE_USER, stored);
+      }
       const desired = keepValue && userInput.value ? userInput.value : stored;
       const initial = TEAM_MEMBERS.includes(desired)
         ? desired
@@ -2061,9 +2174,16 @@
         ? stored
         : DEFAULT_NAME;
       userInput.innerHTML = TEAM_MEMBERS.length
-        ? TEAM_MEMBERS.map((n) => `<option value="${esc(n)}">${esc(n)}</option>`).join("")
+        ? TEAM_MEMBERS.map((n) => {
+            const team = memberTeam(n);
+            const label = team ? `${n} · ${team}` : n;
+            return `<option value="${esc(n)}">${esc(label)}</option>`;
+          }).join("")
         : `<option value="">팀원을 먼저 추가하세요</option>`;
-      if (initial) userInput.value = initial;
+      if (initial) {
+        userInput.value = initial;
+        rememberUser(initial);
+      }
     }
 
     // Initial load: members → then prefill for the resolved name
@@ -2074,7 +2194,7 @@
     document.getElementById("loadMineBtn").addEventListener("click", () => {
       const v = userInput.value.trim() || DEFAULT_NAME;
       userInput.value = v;
-      localStorage.setItem(STORAGE_USER, v);
+      rememberUser(v);
       prefillWeekHoursFor(v, { force: true });
       prefillCheckinFor(v);
       toast(`${v} 데이터 불러옴`);
@@ -2244,7 +2364,7 @@
         }
       }
 
-      localStorage.setItem(STORAGE_USER, userName);
+      rememberUser(userName);
       saveHoursBtn.disabled = true;
       saveHoursBtn.textContent = "저장 중...";
       try {
@@ -2359,7 +2479,7 @@
         if (!ok) return;
       }
 
-      localStorage.setItem(STORAGE_USER, userName);
+      rememberUser(userName);
       submitBtn.disabled = true;
       submitBtn.textContent = "저장 중...";
 
@@ -2560,18 +2680,24 @@
         list.innerHTML = `<div class="empty" style="padding:18px;">아직 팀원이 없어요. 아래에서 추가해주세요.</div>`;
         return;
       }
+      const teamOpts = (selected) => TEAM_OPTIONS
+        .map((t) => `<option value="${esc(t)}" ${t === (selected || "") ? "selected" : ""}>${t || "팀 없음"}</option>`)
+        .join("");
       list.innerHTML = `<div style="display:flex; flex-direction:column; gap:6px;">${TEAM_MEMBERS
         .map((n) => {
+          const team = memberTeam(n);
           if (memberEditingName === n) {
             return `
-              <div class="member-row" data-name="${esc(n)}" style="display:flex; align-items:center; gap:8px; padding:8px 12px; background:#fff8ec; border:1px solid #fcd9a0; border-radius:10px;">
-                <input class="input member-edit-input" type="text" value="${esc(n)}" style="flex:1; min-width:0; padding:6px 10px;" autocomplete="off" />
+              <div class="member-row" data-name="${esc(n)}" style="display:flex; flex-wrap:wrap; align-items:center; gap:8px; padding:8px 12px; background:#fff8ec; border:1px solid #fcd9a0; border-radius:10px;">
+                <input class="input member-edit-input" type="text" value="${esc(n)}" style="flex:1; min-width:120px; padding:6px 10px;" autocomplete="off" />
+                <select class="member-team-select" data-name="${esc(n)}">${teamOpts(team)}</select>
                 <button type="button" class="preset member-save" data-name="${esc(n)}" style="background:var(--accent); color:#fff; border-color:var(--accent); padding:4px 10px;">저장</button>
                 <button type="button" class="preset member-cancel" style="padding:4px 10px;">취소</button>
               </div>`;
           }
           return `
             <div class="member-row" data-name="${esc(n)}" style="display:flex; align-items:center; gap:8px; padding:8px 12px; background:#fffdfa; border:1px solid #ecdbc1; border-radius:10px;">
+              ${teamBadgeHTML(team)}
               <span style="font-weight:600; flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">${esc(n)}</span>
               <button type="button" class="preset member-edit" data-name="${esc(n)}" style="background:#fff; padding:4px 10px;">수정</button>
               <button type="button" class="preset member-remove" data-name="${esc(n)}" style="background:#fff; color:#dc2626; border-color:#fecaca; padding:4px 10px;">삭제</button>
@@ -2584,31 +2710,35 @@
         editingInput.select();
       }
     }
-    async function saveMemberRename(oldName, newName) {
+    async function saveMemberRename(oldName, newName, newTeam) {
       const trimmed = (newName || "").trim();
+      const team = typeof newTeam === "string" ? newTeam.trim() : null;
       if (!trimmed) { toast("이름을 입력해주세요"); return false; }
-      if (trimmed === oldName) {
+      const sameName = trimmed === oldName;
+      const sameTeam = team === null || team === memberTeam(oldName);
+      if (sameName && sameTeam) {
         memberEditingName = null;
         renderMembersList();
         return true;
       }
+      const payload = {};
+      if (!sameName) payload.name = trimmed;
+      if (team !== null) payload.team = team;
       try {
         const r = await fetch(`/api/members/${encodeURIComponent(oldName)}`, {
           method: "PATCH",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ name: trimmed }),
+          body: JSON.stringify(payload),
         });
         const data = await r.json().catch(() => ({}));
         if (!r.ok) {
           toast(data.error || "수정 실패");
           return false;
         }
-        toast(`${oldName} → ${trimmed} 변경됨`);
+        toast(sameName ? `${oldName} 팀 변경됨` : `${oldName} → ${trimmed} 변경됨`);
         memberEditingName = null;
         // If renaming the currently selected user, follow the rename.
-        if ((localStorage.getItem(STORAGE_USER) || "") === oldName) {
-          localStorage.setItem(STORAGE_USER, trimmed);
-        }
+        if (!sameName && recallUser() === oldName) rememberUser(trimmed);
         await loadMembers();
         renderMembersList();
         loadBoard();
@@ -2639,7 +2769,8 @@
         const oldName = saveBtn.dataset.name;
         const row = saveBtn.closest(".member-row");
         const input = row && row.querySelector(".member-edit-input");
-        if (input) await saveMemberRename(oldName, input.value);
+        const teamSel = row && row.querySelector(".member-team-select");
+        if (input) await saveMemberRename(oldName, input.value, teamSel ? teamSel.value : null);
         return;
       }
       const btn = e.target.closest(".member-remove");
@@ -2665,7 +2796,8 @@
         e.preventDefault();
         const row = e.target.closest(".member-row");
         const oldName = row && row.dataset.name;
-        if (oldName) saveMemberRename(oldName, e.target.value);
+        const teamSel = row && row.querySelector(".member-team-select");
+        if (oldName) saveMemberRename(oldName, e.target.value, teamSel ? teamSel.value : null);
       } else if (e.key === "Escape") {
         e.preventDefault();
         memberEditingName = null;
@@ -3116,7 +3248,7 @@
       const meEntry = me && me.entries.find(e => e.date === dayISO);
       const meRange = meEntry ? parseRangeMin(meEntry.hoursText || `${meEntry.startTime || ""}-${meEntry.endTime || ""}`) : null;
 
-      const rows = users.map((u) => {
+      const renderRow = (u) => {
         const isMine = myName && u.userName.trim().toLowerCase() === myName;
         const entry = (u.entries || []).find((e) => e.date === dayISO);
         const rawText = entry
@@ -3182,7 +3314,28 @@
             </div>
             <div class="tl-track">${trackInner}</div>
           </div>`;
-      }).join("");
+      };
+
+      // Group users by team
+      const groups = new Map();
+      for (const u of users) {
+        const team = memberTeam(u.userName) || "";
+        if (!groups.has(team)) groups.set(team, []);
+        groups.get(team).push(u);
+      }
+      const orderedTeams = [...TEAM_ORDER.filter((t) => groups.has(t))];
+      for (const t of groups.keys()) {
+        if (!orderedTeams.includes(t)) orderedTeams.push(t);
+      }
+      const rows = orderedTeams
+        .map((team) => {
+          const list = groups.get(team) || [];
+          if (!list.length) return "";
+          const meta = teamMeta(team);
+          const header = `<div class="tl-group-header team-${meta.slug}"><span>${esc(meta.label)}</span><span class="count">${list.length}명</span></div>`;
+          return header + list.map(renderRow).join("");
+        })
+        .join("");
 
       // Overlap hint with me
       let overlapHTML = "";
@@ -3262,7 +3415,17 @@
 
         const myName = (localStorage.getItem(STORAGE_USER) || "").trim().toLowerCase();
         const stateTip = { checked: "체크인 완료", late: "Delayed 체크인", missed: "미체크인", pending: "오늘 — 아직 체크인 전", none: "" };
-        const body = users
+        const sortedUsers = [...users].sort((a, b) => {
+          const ta = memberTeam(a.userName);
+          const tb = memberTeam(b.userName);
+          const ia = TEAM_ORDER.indexOf(ta);
+          const ib = TEAM_ORDER.indexOf(tb);
+          const ka = ia === -1 ? TEAM_ORDER.length : ia;
+          const kb = ib === -1 ? TEAM_ORDER.length : ib;
+          if (ka !== kb) return ka - kb;
+          return a.userName.localeCompare(b.userName);
+        });
+        const body = sortedUsers
           .map((u) => {
             const isMine =
               myName && u.userName.trim().toLowerCase() === myName;
@@ -3319,8 +3482,10 @@
               })
               .join("");
             const countClass = checkCount >= CHECKIN_PASS_THRESHOLD ? "good" : (checkCount === 0 ? "warn" : "");
+            const team = memberTeam(u.userName);
             return `<tr class="${isMine ? "mine" : ""}">
               <td><div class="row-name">
+                ${teamBadgeHTML(team)}
                 <span>${esc(u.userName)}${isMine ? " (나)" : ""}</span>
                 <span class="ci-count ${countClass}">체크인 ${checkCount}일</span>
               </div></td>
