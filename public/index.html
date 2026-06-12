@@ -1272,15 +1272,15 @@
       overflow: hidden;
     }
     .tl-track::before {
-      /* subtle hour grid */
+      /* subtle 2-hour grid (12 segments across 0–24) */
       content: "";
       position: absolute; inset: 0;
       background-image: repeating-linear-gradient(
         to right,
         transparent 0,
-        transparent calc(100% / 13 - 1px),
-        #f5e8d0 calc(100% / 13 - 1px),
-        #f5e8d0 calc(100% / 13)
+        transparent calc(100% / 12 - 1px),
+        #f5e8d0 calc(100% / 12 - 1px),
+        #f5e8d0 calc(100% / 12)
       );
       pointer-events: none;
       opacity: 0.7;
@@ -1937,7 +1937,7 @@
     }
     const HOUR_OPTIONS = (() => {
       const out = [""];
-      for (let m = 7 * 60; m <= 23 * 60; m += 30) {
+      for (let m = 0; m <= 24 * 60; m += 30) {
         const h = String(Math.floor(m / 60)).padStart(2, "0");
         const mm = String(m % 60).padStart(2, "0");
         out.push(`${h}:${mm}`);
@@ -3198,8 +3198,8 @@
       if (end <= start) return null;
       return { start, end };
     }
-    const TL_START = 9 * 60;   // 09:00
-    const TL_END   = 22 * 60;  // 22:00
+    const TL_START = 0;         // 00:00
+    const TL_END   = 24 * 60;   // 24:00
     const TL_SPAN  = TL_END - TL_START;
     function pctOf(min) {
       return Math.max(0, Math.min(100, ((min - TL_START) / TL_SPAN) * 100));
@@ -3227,11 +3227,12 @@
       const showNow = isToday && nm >= TL_START && nm <= TL_END;
       const nowPct = showNow ? pctOf(nm) : null;
 
-      // Axis
+      // Axis (every 2 hours across the full day)
       const axisLabels = [];
-      for (let h = 9; h <= 22; h++) {
-        const cls = (h === 12 || h === 13) ? "lunch" : "";
-        axisLabels.push(`<span class="${cls}" style="left:${pctOf(h * 60)}%">${h}</span>`);
+      for (let h = 0; h <= 24; h += 2) {
+        const cls = (h === 12) ? "lunch" : "";
+        const label = h === 24 ? "24" : String(h);
+        axisLabels.push(`<span class="${cls}" style="left:${pctOf(h * 60)}%">${label}</span>`);
       }
       const axisHTML = `
         <div class="tl-axis-wrap">
