@@ -44,6 +44,15 @@ jobs:
           HOLA_DRY_RUN: ${{ inputs.dry_run && '1' || '' }}
         run: node scripts/hola/post.js
 
+      - name: Upload debug screenshots
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: hola-debug-${{ github.run_id }}
+          path: /tmp/hola-debug
+          if-no-files-found: ignore
+          retention-days: 7
+
       - name: Rotate HOLA_STATE_B64 secret with refreshed cookies
         if: success()
         env:

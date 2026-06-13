@@ -131,11 +131,18 @@ const headful = process.env.HEADFUL === "1";
   console.log("→ 진행 기간");
   await selectSingle("진행 기간", config.period);
 
-  if (config.startDate) {
-    console.log("→ 시작 예정");
+  // 시작 예정 — 사이트가 필수로 강제하므로 빈 값이면 오늘 날짜로 자동 채움.
+  {
+    const todayKST = () => {
+      const k = new Date(Date.now() + 9 * 60 * 60 * 1000);
+      return k.toISOString().slice(0, 10);
+    };
+    const dateValue = config.startDate || todayKST();
+    console.log(`→ 시작 예정 ${dateValue}`);
     const dateInput = page.locator("input[placeholder='YYYY-MM-DD']").first();
     await dateInput.click();
-    await dateInput.fill(config.startDate);
+    await dateInput.fill("");
+    await dateInput.type(dateValue);
     await page.keyboard.press("Tab");
   }
 
@@ -172,17 +179,43 @@ const headful = process.env.HEADFUL === "1";
     return;
   }
 
-  console.log("→ 등록하기 클릭");
-  await page.getByRole("button", { name: "등록하기" }).click();
+  // Diagnostic snapshot right before submitting.
+  const ART_DIR = "/tmp/hola-debug";
+  try { fs.mkdirSync(ART_DIR, { recursive: true }); } catch (_) {}
+  await page.screenshot({ path: `${ART_DIR}/before-submit.png`, fullPage: true });
 
-  // Wait for either navigation to the new post or an error toast.
+  // Inspect the 등록하기 button state.
+  const submitBtn = page.getByRole("button", { name: "등록하기" });
+  const submitDisabled = await submitBtn.first().evaluate((el) => el.disabled || el.getAttribute("aria-disabled") === "true").catch(() => null);
+  console.log(`→ 등록하기 disabled?`, submitDisabled);
+
+  console.log("→ 등록하기 클릭");
+  await submitBtn.first().click();
+  await page.waitForTimeout(2500);
+  await page.screenshot({ path: `${ART_DIR}/after-submit.png`, fullPage: true });
+
+  // Capture any visible toast / inline error message.
+  const errors = await page.evaluate(() => {
+    const out = [];
+    document.querySelectorAll(
+      "[class*='toast'],[class*='Toast'],[class*='error'],[class*='Error'],[role='alert'],[class*='helper'],[class*='Helper']"
+    ).forEach((el) => {
+      const t = (el.innerText || "").trim();
+      if (t && t.length < 200) out.push(t);
+    });
+    return [...new Set(out)];
+  });
+  if (errors.length) console.log("⚠️ 에러/토스트 텍스트:", errors);
+
+  // Wait for either navigation to the new post or fall through.
   try {
-    await page.waitForURL(/\/study\/|\/hola-it\/|\/register/, { timeout: 15000 });
+    await page.waitForURL(/\/study\/|\/hola-it\//, { timeout: 10000 });
   } catch (_) {}
 
   console.log("\n=== API calls during this run ===");
   for (const c of apiCalls) console.log(`  ${c.method} ${c.status} ${c.url}`);
   console.log("최종 URL:", page.url());
+  console.log(`스크린샷: ${ART_DIR}/before-submit.png, ${ART_DIR}/after-submit.png`);
 
   // Persist the refreshed cookie jar so the session never goes stale between runs.
   try {
