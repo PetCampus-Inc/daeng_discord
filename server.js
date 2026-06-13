@@ -203,19 +203,32 @@ function isLateCheckin(startTime, checkedInAt) {
   if (sm === null || cm === null) return false;
   return cm > sm + CHECKIN_GRACE_MIN;
 }
+// Workday = 07:00 → 03:00 next day (20h). Map clock minutes to a 0–1200 virtual axis.
+const WORKDAY_START_MIN = 7 * 60;
+const WORKDAY_LEN = 20 * 60;
+function toVirtMin(clockMin) {
+  if (clockMin === null || clockMin === undefined) return null;
+  if (clockMin >= WORKDAY_START_MIN && clockMin <= 24 * 60) {
+    return clockMin - WORKDAY_START_MIN;
+  }
+  if (clockMin >= 0 && clockMin <= 3 * 60) {
+    return clockMin + (24 * 60 - WORKDAY_START_MIN);
+  }
+  return null;
+}
 function dailyMinutes(startTime, endTime, unavailableText) {
-  const sm = hhmmToMin(startTime);
-  const em = hhmmToMin(endTime);
-  if (sm === null || em === null || em <= sm) return null;
-  let total = em - sm;
+  const svm = toVirtMin(hhmmToMin(startTime));
+  const evm = toVirtMin(hhmmToMin(endTime));
+  if (svm === null || evm === null || evm <= svm) return null;
+  let total = evm - svm;
   if (unavailableText) {
     const segments = String(unavailableText).split(";").map((s) => s.trim()).filter(Boolean);
     for (const seg of segments) {
       const u = parseRangeFromText(seg);
-      const usm = hhmmToMin(u.start);
-      const uem = hhmmToMin(u.end);
-      if (usm !== null && uem !== null && uem > usm) {
-        const overlap = Math.max(0, Math.min(em, uem) - Math.max(sm, usm));
+      const usvm = toVirtMin(hhmmToMin(u.start));
+      const uevm = toVirtMin(hhmmToMin(u.end));
+      if (usvm !== null && uevm !== null && uevm > usvm) {
+        const overlap = Math.max(0, Math.min(evm, uevm) - Math.max(svm, usvm));
         total -= overlap;
       }
     }

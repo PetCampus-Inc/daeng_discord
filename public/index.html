@@ -1231,6 +1231,16 @@
       pointer-events: none;
     }
     .tl-axis span.lunch { color: var(--ink-soft); font-weight: 600; }
+    .tl-axis span.overnight {
+      color: #6366f1;
+      font-style: italic;
+    }
+    .tl-axis span.overnight::after {
+      content: "*";
+      margin-left: 1px;
+      font-size: 0.6rem;
+      opacity: 0.7;
+    }
 
     .tl-row {
       display: grid;
@@ -1935,12 +1945,30 @@
       const start = activeWeekStart();
       return [0, 1, 2, 3, 4, 5, 6].map((i) => addDaysISO(start, i));
     }
+    // Workday window: 07:00 → 03:00 next day. Select offers only times inside this range,
+    // ordered in workday flow (7am first, 3am last).
+    const WORKDAY_START_MIN = 7 * 60;
+    const WORKDAY_LEN = 20 * 60;
+    function toVirtMin(clockMin) {
+      if (clockMin === null || clockMin === undefined) return null;
+      if (clockMin >= WORKDAY_START_MIN && clockMin <= 24 * 60) return clockMin - WORKDAY_START_MIN;
+      if (clockMin >= 0 && clockMin <= 3 * 60) return clockMin + (24 * 60 - WORKDAY_START_MIN);
+      return null;
+    }
+    function virtToClockHHMM(virt) {
+      const c = (virt + WORKDAY_START_MIN) % (24 * 60);
+      const h = String(Math.floor(c / 60)).padStart(2, "0");
+      const m = String(c % 60).padStart(2, "0");
+      return `${h}:${m}`;
+    }
     const HOUR_OPTIONS = (() => {
       const out = [""];
-      for (let m = 0; m <= 24 * 60; m += 30) {
-        const h = String(Math.floor(m / 60)).padStart(2, "0");
-        const mm = String(m % 60).padStart(2, "0");
-        out.push(`${h}:${mm}`);
+      const pad = (n) => String(n).padStart(2, "0");
+      for (let m = 7 * 60; m <= 23 * 60 + 30; m += 30) {
+        out.push(`${pad(Math.floor(m / 60))}:${pad(m % 60)}`);
+      }
+      for (let m = 0; m <= 3 * 60; m += 30) {
+        out.push(`${pad(Math.floor(m / 60))}:${pad(m % 60)}`);
       }
       return out;
     })();
@@ -3194,12 +3222,18 @@
       if (!m) return null;
       const sh = +m[1], sm = +(m[2] || 0), eh = +m[3], em = +(m[4] || 0);
       if (sh > 24 || eh > 24 || sm > 59 || em > 59) return null;
-      const start = sh * 60 + sm, end = eh * 60 + em;
-      if (end <= start) return null;
-      return { start, end };
+      return { start: sh * 60 + sm, end: eh * 60 + em };
     }
-    const TL_START = 0;         // 00:00
-    const TL_END   = 24 * 60;   // 24:00
+    function parseRangeVirt(text) {
+      const r = parseRangeMin(text);
+      if (!r) return null;
+      const sv = toVirtMin(r.start);
+      const ev = toVirtMin(r.end);
+      if (sv === null || ev === null || ev <= sv) return null;
+      return { start: sv, end: ev };
+    }
+    const TL_START = 0;
+    const TL_END   = WORKDAY_LEN;  // 1200
     const TL_SPAN  = TL_END - TL_START;
     function pctOf(min) {
       return Math.max(0, Math.min(100, ((min - TL_START) / TL_SPAN) * 100));
@@ -3227,12 +3261,16 @@
       const showNow = isToday && nm >= TL_START && nm <= TL_END;
       const nowPct = showNow ? pctOf(nm) : null;
 
-      // Axis (every 2 hours across the full day)
+      // Axis: workday flow, every 2 hours. 7→9→…→23→1→3 (next-day hours muted).
       const axisLabels = [];
-      for (let h = 0; h <= 24; h += 2) {
-        const cls = (h === 12) ? "lunch" : "";
-        const label = h === 24 ? "24" : String(h);
-        axisLabels.push(`<span class="${cls}" style="left:${pctOf(h * 60)}%">${label}</span>`);
+      for (let v = 0; v <= WORKDAY_LEN; v += 120) {
+        const clockMin = (v + WORKDAY_START_MIN) % (24 * 60);
+        const h = Math.floor(clockMin / 60);
+        const overnight = (v + WORKDAY_START_MIN) >= 24 * 60;
+        const cls = [];
+        if (h === 12) cls.push("lunch");
+        if (overnight) cls.push("overnight");
+        axisLabels.push(`<span class="${cls.join(" ")}" style="left:${pctOf(v)}%">${h}</span>`);
       }
       const axisHTML = `
         <div class="tl-axis-wrap">
@@ -3247,7 +3285,7 @@
       // Find "me" entry for overlap calc
       const me = users.find(u => (u.userName || "").trim().toLowerCase() === myName);
       const meEntry = me && me.entries.find(e => e.date === dayISO);
-      const meRange = meEntry ? parseRangeMin(meEntry.hoursText || `${meEntry.startTime || ""}-${meEntry.endTime || ""}`) : null;
+      const meRange = meEntry ? parseRangeVirt(meEntry.hoursText || `${meEntry.startTime || ""}-${meEntry.endTime || ""}`) : null;
 
       const renderRow = (u) => {
         const isMine = myName && u.userName.trim().toLowerCase() === myName;
@@ -3258,7 +3296,7 @@
               ? `${entry.startTime || ""}-${entry.endTime || ""}`
               : "")
           : "";
-        const range = entry ? parseRangeMin(rawText) : null;
+        const range = entry ? parseRangeVirt(rawText) : null;
 
         let trackInner = "";
         if (!range) {
@@ -3280,8 +3318,7 @@
               const ovL = pctOf(ovStart);
               const ovR = pctOf(ovEnd);
               const ovW = Math.max(0, ovR - ovL);
-              const fmt = (m) => `${String(Math.floor(m/60)).padStart(2,"0")}:${String(m%60).padStart(2,"0")}`;
-              trackInner += `<div class="tl-overlap" style="left:${ovL}%; width:${ovW}%;" title="나와 겹침 ${fmt(ovStart)}–${fmt(ovEnd)} (${formatHours(ovEnd - ovStart)})"></div>`;
+              trackInner += `<div class="tl-overlap" style="left:${ovL}%; width:${ovW}%;" title="나와 겹침 ${virtToClockHHMM(ovStart)}–${virtToClockHHMM(ovEnd)} (${formatHours(ovEnd - ovStart)})"></div>`;
             }
           }
 
@@ -3292,7 +3329,7 @@
               .map((s) => s.trim())
               .filter(Boolean);
             for (const seg of segments) {
-              const u2 = parseRangeMin(seg);
+              const u2 = parseRangeVirt(seg);
               if (!u2) continue;
               const ul = pctOf(u2.start);
               const ur2 = pctOf(u2.end);
@@ -3345,7 +3382,7 @@
           .filter(u => (u.userName || "").trim().toLowerCase() !== myName)
           .map(u => {
             const e = (u.entries || []).find(x => x.date === dayISO);
-            const r = e ? parseRangeMin(e.hoursText || `${e.startTime || ""}-${e.endTime || ""}`) : null;
+            const r = e ? parseRangeVirt(e.hoursText || `${e.startTime || ""}-${e.endTime || ""}`) : null;
             if (!r) return null;
             const ov = Math.max(0, Math.min(meRange.end, r.end) - Math.max(meRange.start, r.start));
             if (ov <= 0) return null;
@@ -3354,8 +3391,7 @@
           .filter(Boolean)
           .sort((a, b) => b.overlap - a.overlap);
         if (overlaps.length) {
-          const fmt = (m) => `${String(Math.floor(m/60)).padStart(2,"0")}:${String(m%60).padStart(2,"0")}`;
-          const items = overlaps.slice(0, 4).map(o => `<strong>${esc(o.name)}</strong> ${fmt(o.start)}–${fmt(o.end)} (${formatHours(o.overlap)})`).join(" · ");
+          const items = overlaps.slice(0, 4).map(o => `<strong>${esc(o.name)}</strong> ${virtToClockHHMM(o.start)}–${virtToClockHHMM(o.end)} (${formatHours(o.overlap)})`).join(" · ");
           overlapHTML = `<div class="tl-overlap-hint">🤝 나와 겹치는 시간 — ${items}</div>`;
         }
       }
