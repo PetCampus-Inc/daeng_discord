@@ -1,0 +1,58 @@
+name: hola-ping
+
+on:
+  schedule:
+    # Every 2 hours, on the hour. Cron is UTC; KST = UTC + 9.
+    - cron: "0 */2 * * *"
+  workflow_dispatch:
+
+concurrency:
+  group: hola-session
+  cancel-in-progress: false
+
+jobs:
+  ping:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install deps (no browser binary needed for ping)
+        run: npm ci --no-audit --no-fund
+
+      - name: Restore HOLA session
+        run: |
+          mkdir -p scripts/hola
+          echo "${{ secrets.HOLA_STATE_B64 }}" | base64 -d > scripts/hola/state.json
+          test -s scripts/hola/state.json
+
+      - name: Refresh session
+        run: node scripts/hola/ping.js
+
+      - name: Rotate HOLA_STATE_B64 secret with refreshed cookies
+        if: success()
+        env:
+          GH_TOKEN: ${{ secrets.GH_PAT }}
+        run: |
+          if [ -z "${GH_TOKEN}" ]; then
+            echo "GH_PAT 가 없어서 secret 갱신을 건너뜁니다 (1회성 ping)."
+            exit 0
+          fi
+          NEW=$(base64 -w0 scripts/hola/state.json)
+          echo -n "$NEW" | gh secret set HOLA_STATE_B64 --repo "${{ github.repository }}"
+          echo "HOLA_STATE_B64 갱신 완료"
+
+      - name: Discord alert on failure
+        if: failure()
+        env:
+          WEBHOOK: ${{ secrets.DISCORD_WEBHOOK_URL }}
+        run: |
+          if [ -z "$WEBHOOK" ]; then exit 0; fi
+          curl -s -X POST "$WEBHOOK" \
+            -H 'Content-Type: application/json' \
+            -d "$(jq -n --arg msg "⚠️ HOLA 세션 ping 실패 — 'npm run hola:login' 재로그인 후 HOLA_STATE_B64 재업로드 필요. 로그: https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}" '{content: $msg}')"
