@@ -10,6 +10,8 @@
     "hola:login": "node scripts/hola/login.js",
     "hola:post": "node scripts/hola/post.js",
     "hola:post:dry": "HOLA_DRY_RUN=1 HEADFUL=1 node scripts/hola/post.js",
+    "hola:post:b": "HOLA_CONFIG=config-b.js node scripts/hola/post.js",
+    "hola:post:b:dry": "HOLA_CONFIG=config-b.js HOLA_DRY_RUN=1 HEADFUL=1 node scripts/hola/post.js",
     "hola:ping": "node scripts/hola/ping.js"
   },
   "keywords": [],

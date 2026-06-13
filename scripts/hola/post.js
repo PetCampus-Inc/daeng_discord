@@ -1,15 +1,21 @@
 // Auto-post a project recruitment article to holaworld.io using a saved session.
 // Usage:
-//   node scripts/hola/post.js               # headless, submit
-//   HOLA_DRY_RUN=1 node scripts/hola/post.js # fill fields but don't submit
-//   HEADFUL=1 node scripts/hola/post.js     # show the browser (for debugging)
+//   node scripts/hola/post.js                       # headless, submit (config.js)
+//   HOLA_CONFIG=config-b.js node scripts/hola/post.js # use a different config
+//   HOLA_DRY_RUN=1 node scripts/hola/post.js        # fill fields but don't submit
+//   HEADFUL=1 node scripts/hola/post.js             # show the browser
 
 const { chromium } = require("playwright");
 const path = require("path");
 const fs = require("fs");
 
 const STATE_PATH = path.join(__dirname, "state.json");
-const config = require("./config.js");
+const CONFIG_REL = process.env.HOLA_CONFIG || "./config.js";
+const CONFIG_PATH = path.isAbsolute(CONFIG_REL)
+  ? CONFIG_REL
+  : path.resolve(__dirname, CONFIG_REL);
+console.log(`[config] ${CONFIG_PATH}`);
+const config = require(CONFIG_PATH);
 
 const REGISTER_URL = "https://holaworld.io/register";
 const headful = process.env.HEADFUL === "1";

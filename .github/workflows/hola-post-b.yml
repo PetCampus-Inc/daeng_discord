@@ -1,9 +1,9 @@
-name: hola-post
+name: hola-post-b
 
 on:
   schedule:
-    # Every 2 days at 01:00 UTC == 10:00 KST.
-    - cron: "0 1 */2 * *"
+    # Even days (2,4,6,...,30) at 01:00 UTC == 10:00 KST.
+    - cron: "0 1 2-30/2 * *"
   workflow_dispatch:
     inputs:
       dry_run:
@@ -39,9 +39,10 @@ jobs:
           echo "${{ secrets.HOLA_STATE_B64 }}" | base64 -d > scripts/hola/state.json
           test -s scripts/hola/state.json
 
-      - name: Post recruitment article
+      - name: Post recruitment article (B = PM/디자이너)
         env:
           HOLA_DRY_RUN: ${{ inputs.dry_run && '1' || '' }}
+          HOLA_CONFIG: config-b.js
         run: node scripts/hola/post.js
 
       - name: Upload debug screenshots
@@ -74,4 +75,4 @@ jobs:
           if [ -z "$WEBHOOK" ]; then exit 0; fi
           curl -s -X POST "$WEBHOOK" \
             -H 'Content-Type: application/json' \
-            -d "$(jq -n --arg msg "⚠️ HOLA 자동 게시 실패. 'npm run hola:login' 재로그인 후 HOLA_STATE_B64 재업로드. 로그: https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}" '{content: $msg}')"
+            -d "$(jq -n --arg msg "⚠️ HOLA 자동 게시(B) 실패. 'npm run hola:login' 재로그인 후 HOLA_STATE_B64 재업로드. 로그: https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}" '{content: $msg}')"
