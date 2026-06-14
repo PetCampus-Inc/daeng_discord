@@ -2563,8 +2563,11 @@
         row.querySelectorAll(".wh-unavail-row").forEach((ur) => ur.remove());
         markHoursDirty();
       });
-    ["done", "tasks", "blockers"].forEach((id) => {
-      document.getElementById(id).addEventListener("input", markCheckinDirty);
+    // done/tasks 는 멀티-아이템 컨테이너로 바뀌어서 input 이벤트는 위임으로 잡음.
+    document.getElementById("blockers").addEventListener("input", markCheckinDirty);
+    ["doneItems", "tasksItems"].forEach((id) => {
+      const el = document.getElementById(id);
+      if (el) el.addEventListener("input", markCheckinDirty);
     });
 
     /* ---------------- Prefill ---------------- */
