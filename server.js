@@ -121,6 +121,21 @@ async function initDatabase() {
     await pool.query(`ALTER TABLE checkins ADD COLUMN IF NOT EXISTS hours_text TEXT DEFAULT ''`);
     await pool.query(`ALTER TABLE checkins ADD COLUMN IF NOT EXISTS unavailable_text TEXT DEFAULT ''`);
     await pool.query(`ALTER TABLE checkins ADD COLUMN IF NOT EXISTS checked_in_at VARCHAR(5)`);
+    await pool.query(`ALTER TABLE checkins ADD COLUMN IF NOT EXISTS link_url TEXT DEFAULT ''`);
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS bug_reports (
+        id SERIAL PRIMARY KEY,
+        title VARCHAR(200) NOT NULL,
+        description TEXT DEFAULT '',
+        page_url TEXT DEFAULT '',
+        reporter_name VARCHAR(100) DEFAULT '',
+        status VARCHAR(20) DEFAULT 'pending',
+        decided_by VARCHAR(100) DEFAULT '',
+        decided_at TIMESTAMP,
+        decision_note TEXT DEFAULT '',
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      )
+    `);
     await pool.query(`
       CREATE TABLE IF NOT EXISTS team_members (
         id SERIAL PRIMARY KEY,
@@ -197,6 +212,52 @@ function nowHHMMKST() {
   const k = new Date(Date.now() + 9 * 60 * 60 * 1000);
   return minToHHMM(k.getUTCHours() * 60 + k.getUTCMinutes());
 }
+// done/tasks: optionally a JSON array of {text, url}. Legacy string == single item.
+function normalizeItems(value) {
+  if (value === undefined || value === null) return undefined;
+  if (Array.isArray(value)) {
+    return value
+      .map((it) => ({
+        text: typeof it?.text === "string" ? it.text.trim() : "",
+        url: typeof it?.url === "string" ? it.url.trim() : "",
+      }))
+      .filter((it) => it.text || it.url);
+  }
+  if (typeof value === "string") {
+    const t = value.trim();
+    if (!t) return [];
+    return [{ text: t, url: "" }];
+  }
+  return undefined;
+}
+function itemsToStorage(items) {
+  if (!Array.isArray(items)) return undefined;
+  if (items.length === 0) return "";
+  return JSON.stringify(items);
+}
+function itemsFromStorage(raw, fallbackUrl) {
+  if (!raw) return [];
+  try {
+    const parsed = JSON.parse(raw);
+    if (Array.isArray(parsed)) {
+      return parsed
+        .map((it) => ({
+          text: (it && typeof it.text === "string" ? it.text : "").trim(),
+          url: (it && typeof it.url === "string" ? it.url : "").trim(),
+        }))
+        .filter((it) => it.text || it.url);
+    }
+  } catch (_) {
+    // not JSON — treat as plain text (legacy)
+  }
+  return [{ text: String(raw).trim(), url: (fallbackUrl || "").trim() }].filter(
+    (it) => it.text || it.url
+  );
+}
+function itemsFlatText(items) {
+  return items.map((i) => i.text).filter(Boolean).join("\n");
+}
+
 function isLateCheckin(startTime, checkedInAt) {
   const sm = hhmmToMin(startTime);
   const cm = hhmmToMin(checkedInAt);
@@ -734,7 +795,16 @@ app.post("/api/checkin", async (req, res) => {
       done,
       tasks,
       blockers,
+      linkUrl,
     } = req.body || {};
+
+    // Normalize done/tasks items (accept legacy string or new array shape).
+    const doneItems = normalizeItems(done);
+    const taskItems = normalizeItems(tasks);
+    const doneRaw =
+      doneItems !== undefined ? itemsToStorage(doneItems) : undefined;
+    const tasksRaw =
+      taskItems !== undefined ? itemsToStorage(taskItems) : undefined;
 
     if (!userName) {
       return res.status(400).json({ error: "userName required" });
@@ -748,7 +818,14 @@ app.post("/api/checkin", async (req, res) => {
       date = checkDate;
     }
 
-    const fields = { start_time: startTime, end_time: endTime, done, tasks, blockers };
+    const fields = {
+      start_time: startTime,
+      end_time: endTime,
+      done: doneRaw,
+      tasks: tasksRaw,
+      blockers,
+      link_url: linkUrl,
+    };
     const provided = Object.entries(fields).filter(([, v]) => v !== undefined);
     if (!provided.length) {
       return res.status(400).json({ error: "no fields to update" });
@@ -763,8 +840,8 @@ app.post("/api/checkin", async (req, res) => {
     }
 
     const hasCheckinContent =
-      (typeof done === "string" && done.trim() !== "") ||
-      (typeof tasks === "string" && tasks.trim() !== "") ||
+      (doneItems && doneItems.length > 0) ||
+      (taskItems && taskItems.length > 0) ||
       (typeof blockers === "string" && blockers.trim() !== "");
 
     await pool.query(
@@ -801,11 +878,13 @@ app.post("/api/checkin", async (req, res) => {
     }
 
     const result = await pool.query(
-      `SELECT start_time, end_time, done, tasks, blockers, updated_at, checked_in_at
+      `SELECT start_time, end_time, done, tasks, blockers, updated_at, checked_in_at, link_url
        FROM checkins WHERE check_date = $1 AND user_name = $2`,
       [date, userName]
     );
     const r = result.rows[0] || {};
+    const doneRows = itemsFromStorage(r.done, r.link_url);
+    const tasksRows = itemsFromStorage(r.tasks, "");
     res.json({
       success: true,
       checkDate: date,
@@ -813,12 +892,15 @@ app.post("/api/checkin", async (req, res) => {
         userName,
         startTime: r.start_time || "",
         endTime: r.end_time || "",
-        done: r.done || "",
-        tasks: r.tasks || "",
+        doneItems: doneRows,
+        tasksItems: tasksRows,
+        done: itemsFlatText(doneRows),  // legacy clients
+        tasks: itemsFlatText(tasksRows),
         blockers: r.blockers || "",
         updatedAt: r.updated_at,
         checkedInAt: r.checked_in_at || "",
         isLate: isLateCheckin(r.start_time, r.checked_in_at),
+        linkUrl: r.link_url || "",
       },
     });
   } catch (err) {
@@ -830,7 +912,7 @@ app.post("/api/checkin", async (req, res) => {
 app.get("/api/checkin/today", async (req, res) => {
   try {
     const result = await pool.query(
-      `SELECT user_name, start_time, end_time, done, tasks, blockers, updated_at
+      `SELECT user_name, start_time, end_time, done, tasks, blockers, updated_at, link_url
        FROM checkins
        WHERE check_date = CURRENT_DATE
          AND (COALESCE(done, '') <> '' OR COALESCE(tasks, '') <> '' OR COALESCE(blockers, '') <> '')
@@ -838,15 +920,22 @@ app.get("/api/checkin/today", async (req, res) => {
     );
     res.json({
       checkDate: todayKST(),
-      checkins: result.rows.map((r) => ({
-        userName: r.user_name,
-        startTime: r.start_time,
-        endTime: r.end_time,
-        done: r.done,
-        tasks: r.tasks,
-        blockers: r.blockers,
-        updatedAt: r.updated_at,
-      })),
+      checkins: result.rows.map((r) => {
+        const doneRows = itemsFromStorage(r.done, r.link_url);
+        const tasksRows = itemsFromStorage(r.tasks, "");
+        return {
+          userName: r.user_name,
+          startTime: r.start_time,
+          endTime: r.end_time,
+          doneItems: doneRows,
+          tasksItems: tasksRows,
+          done: itemsFlatText(doneRows),
+          tasks: itemsFlatText(tasksRows),
+          blockers: r.blockers,
+          updatedAt: r.updated_at,
+          linkUrl: r.link_url || "",
+        };
+      }),
     });
   } catch (err) {
     console.error("Checkin today error:", err.message);
@@ -862,24 +951,29 @@ app.get("/api/checkin/me", async (req, res) => {
     dateParam && /^\d{4}-\d{2}-\d{2}$/.test(dateParam) ? dateParam : todayKST();
   try {
     const result = await pool.query(
-      `SELECT user_name, start_time, end_time, done, tasks, blockers, updated_at, checked_in_at
+      `SELECT user_name, start_time, end_time, done, tasks, blockers, updated_at, checked_in_at, link_url
        FROM checkins WHERE check_date = $1 AND user_name = $2`,
       [date, userName]
     );
     if (!result.rows.length) return res.json({ checkin: null, checkDate: date });
     const r = result.rows[0];
+    const doneRows = itemsFromStorage(r.done, r.link_url);
+    const tasksRows = itemsFromStorage(r.tasks, "");
     res.json({
       checkDate: date,
       checkin: {
         userName: r.user_name,
         startTime: r.start_time,
         endTime: r.end_time,
-        done: r.done,
-        tasks: r.tasks,
+        doneItems: doneRows,
+        tasksItems: tasksRows,
+        done: itemsFlatText(doneRows),
+        tasks: itemsFlatText(tasksRows),
         blockers: r.blockers,
         updatedAt: r.updated_at,
         checkedInAt: r.checked_in_at || "",
         isLate: isLateCheckin(r.start_time, r.checked_in_at),
+        linkUrl: r.link_url || "",
       },
     });
   } catch (err) {
@@ -1351,6 +1445,127 @@ app.delete("/api/quick-links/:id", async (req, res) => {
     const id = parseInt(req.params.id, 10);
     if (!Number.isFinite(id)) return res.status(400).json({ error: "invalid id" });
     await pool.query(`DELETE FROM quick_links WHERE id = $1`, [id]);
+    res.json({ success: true });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Bug reports
+app.get("/api/bugs", async (req, res) => {
+  try {
+    const result = await pool.query(
+      `SELECT id, title, description, page_url, reporter_name, status,
+              decided_by, decided_at, decision_note, created_at
+         FROM bug_reports
+        ORDER BY
+          CASE status WHEN 'pending' THEN 0 WHEN 'approved' THEN 1 WHEN 'rejected' THEN 2 ELSE 3 END,
+          created_at DESC`
+    );
+    res.json({
+      bugs: result.rows.map((r) => ({
+        id: r.id,
+        title: r.title,
+        description: r.description || "",
+        pageUrl: r.page_url || "",
+        reporterName: r.reporter_name || "",
+        status: r.status,
+        decidedBy: r.decided_by || "",
+        decidedAt: r.decided_at,
+        decisionNote: r.decision_note || "",
+        createdAt: r.created_at,
+      })),
+    });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.post("/api/bugs", async (req, res) => {
+  try {
+    const title = ((req.body && req.body.title) || "").trim();
+    const description = ((req.body && req.body.description) || "").trim();
+    const pageUrl = ((req.body && req.body.pageUrl) || "").trim();
+    const reporterName = ((req.body && req.body.reporterName) || "").trim();
+    if (!title) return res.status(400).json({ error: "title required" });
+    if (title.length > 200) return res.status(400).json({ error: "제목이 너무 깁니다 (200자 제한)" });
+    if (pageUrl && !/^https?:\/\//i.test(pageUrl)) {
+      return res.status(400).json({ error: "페이지 URL 은 http(s):// 로 시작해야 합니다." });
+    }
+    const result = await pool.query(
+      `INSERT INTO bug_reports (title, description, page_url, reporter_name)
+       VALUES ($1, $2, $3, $4) RETURNING id, created_at`,
+      [title, description, pageUrl, reporterName]
+    );
+    res.json({
+      success: true,
+      bug: {
+        id: result.rows[0].id,
+        title, description, pageUrl, reporterName,
+        status: "pending",
+        createdAt: result.rows[0].created_at,
+      },
+    });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.patch("/api/bugs/:id", async (req, res) => {
+  try {
+    const id = parseInt(req.params.id, 10);
+    if (!Number.isFinite(id)) return res.status(400).json({ error: "invalid id" });
+    const body = req.body || {};
+    const action = (body.action || "").trim();
+    const actor = (body.actor || "").trim();
+    const note = (body.note || "").trim();
+    let nextStatus;
+    if (action === "approve") nextStatus = "approved";
+    else if (action === "reject") nextStatus = "rejected";
+    else if (action === "resolve") nextStatus = "resolved";
+    else if (action === "reopen") nextStatus = "pending";
+    else return res.status(400).json({ error: "action must be approve/reject/resolve/reopen" });
+
+    const isReopen = nextStatus === "pending";
+    const decidedBy = isReopen ? "" : actor;
+    const decidedAt = isReopen ? null : new Date();
+    const result = await pool.query(
+      `UPDATE bug_reports
+          SET status = $1,
+              decided_by = $2,
+              decided_at = $3,
+              decision_note = $4
+        WHERE id = $5
+        RETURNING *`,
+      [nextStatus, decidedBy, decidedAt, note, id]
+    );
+    if (!result.rows.length) return res.status(404).json({ error: "not found" });
+    const r = result.rows[0];
+    res.json({
+      success: true,
+      bug: {
+        id: r.id,
+        title: r.title,
+        description: r.description || "",
+        pageUrl: r.page_url || "",
+        reporterName: r.reporter_name || "",
+        status: r.status,
+        decidedBy: r.decided_by || "",
+        decidedAt: r.decided_at,
+        decisionNote: r.decision_note || "",
+        createdAt: r.created_at,
+      },
+    });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.delete("/api/bugs/:id", async (req, res) => {
+  try {
+    const id = parseInt(req.params.id, 10);
+    if (!Number.isFinite(id)) return res.status(400).json({ error: "invalid id" });
+    await pool.query(`DELETE FROM bug_reports WHERE id = $1`, [id]);
     res.json({ success: true });
   } catch (err) {
     res.status(500).json({ error: err.message });

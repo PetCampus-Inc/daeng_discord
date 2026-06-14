@@ -565,6 +565,22 @@
       transition: background .15s, color .15s;
     }
     .team-card-delete:hover { background: #fde7e7; color: #dc2626; }
+    .team-card-link {
+      display: inline-flex; align-items: center; gap: 6px;
+      margin-top: 12px;
+      padding: 8px 12px;
+      background: #fffaf2;
+      border: 1px solid #f1ddc4;
+      border-radius: 10px;
+      font-size: 0.82rem; font-weight: 600;
+      color: var(--accent-strong);
+      text-decoration: none;
+      max-width: 100%;
+      transition: background .15s, border-color .15s;
+    }
+    .team-card-link:hover { background: var(--accent-soft); border-color: var(--accent); }
+    .team-card-link-icon { flex-shrink: 0; font-size: 0.92rem; }
+    .team-card-link-text { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; }
     .team-head {
       display: flex; align-items: center; justify-content: space-between;
       margin-bottom: 10px;
@@ -1415,13 +1431,205 @@
     .toast {
       position: fixed; bottom: 28px; left: 50%; transform: translateX(-50%);
       background: #1f2937; color: #fff;
-      padding: 12px 22px; border-radius: 12px;
+      padding: 12px 18px 12px 22px; border-radius: 12px;
       font-weight: 600; font-size: 0.92rem;
       box-shadow: 0 12px 30px rgba(0,0,0,0.2);
       opacity: 0; transition: opacity .3s, transform .3s;
       pointer-events: none;
+      display: inline-flex; align-items: center; gap: 14px;
+      max-width: calc(100vw - 32px);
     }
-    .toast.show { opacity: 1; transform: translateX(-50%) translateY(-4px); }
+    .toast.show { opacity: 1; transform: translateX(-50%) translateY(-4px); pointer-events: auto; }
+    .toast-action {
+      background: rgba(255,255,255,0.15);
+      color: #fff; border: 1px solid rgba(255,255,255,0.3);
+      padding: 4px 12px; border-radius: 8px;
+      font: inherit; font-weight: 700;
+      cursor: pointer; white-space: nowrap;
+    }
+    .toast-action:hover { background: rgba(255,255,255,0.25); }
+    .checkin-cancel-btn {
+      padding: 12px 18px;
+      background: #fff;
+      color: #b91c1c;
+      border: 1px solid #fecaca;
+      border-radius: 12px;
+      font: inherit; font-weight: 600;
+      cursor: pointer;
+      transition: background .15s;
+    }
+    .checkin-cancel-btn:hover { background: #fde7e7; }
+    .checkin-cancel-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+
+    /* Multi-row 한일/할일 + 각 항목별 URL */
+    .item-list {
+      display: flex; flex-direction: column; gap: 8px;
+    }
+    .item-row {
+      display: grid;
+      grid-template-columns: 1fr 1fr 32px;
+      gap: 8px;
+      align-items: center;
+    }
+    .item-row .item-text,
+    .item-row .item-url {
+      width: 100%;
+      padding: 9px 12px;
+      border-radius: 10px;
+      border: 1px solid #ecdbc1;
+      background: #fff;
+      font: inherit;
+      color: var(--ink);
+    }
+    .item-row .item-url {
+      font-variant-numeric: tabular-nums;
+      font-size: 0.88rem;
+    }
+    .item-row .item-text:focus,
+    .item-row .item-url:focus {
+      outline: none; border-color: var(--accent);
+      box-shadow: 0 0 0 3px rgba(245, 158, 11, 0.15);
+    }
+    .item-row .item-remove {
+      width: 28px; height: 28px;
+      border: none; cursor: pointer;
+      background: transparent;
+      color: var(--ink-mute);
+      font-size: 1.05rem; line-height: 1;
+      border-radius: 8px;
+    }
+    .item-row .item-remove:hover { background: #fde7e7; color: #dc2626; }
+    .item-add {
+      align-self: flex-start;
+      margin-top: 8px;
+      padding: 6px 14px;
+      font-size: 0.82rem; font-weight: 700;
+      border: 1px dashed #f1ddc4;
+      background: #fff;
+      color: var(--accent-strong);
+      border-radius: 999px;
+      cursor: pointer;
+    }
+    .item-add:hover { background: var(--accent-soft); }
+    @media (max-width: 600px) {
+      .item-row { grid-template-columns: 1fr 28px; }
+      .item-row .item-url { grid-column: 1 / 2; }
+      .item-row .item-remove { grid-row: 1 / 3; }
+    }
+    /* Card per-item display */
+    .team-item {
+      display: flex; gap: 6px; align-items: baseline;
+      padding: 4px 0;
+      border-bottom: 1px dashed #f5e8d0;
+    }
+    .team-item:last-child { border-bottom: none; }
+    .team-item-text { flex: 1; min-width: 0; white-space: pre-wrap; word-break: break-word; }
+    .team-item-link {
+      flex-shrink: 0;
+      font-size: 0.78rem; font-weight: 600;
+      color: var(--accent-strong);
+      text-decoration: none;
+      padding: 2px 8px;
+      background: #fffaf2;
+      border: 1px solid #f1ddc4;
+      border-radius: 999px;
+    }
+    .team-item-link:hover { background: var(--accent-soft); }
+
+    /* Bug report floating button + list */
+    .bug-fab {
+      position: fixed;
+      right: 22px; bottom: 22px;
+      z-index: 50;
+      padding: 12px 18px;
+      background: linear-gradient(135deg, #fb7185, #e11d48);
+      color: #fff;
+      border: none; border-radius: 999px;
+      font: inherit; font-weight: 700; font-size: 0.92rem;
+      box-shadow: 0 10px 24px rgba(225, 29, 72, 0.4);
+      cursor: pointer;
+      display: inline-flex; align-items: center; gap: 6px;
+      transition: transform .15s, box-shadow .15s;
+    }
+    .bug-fab:hover { transform: translateY(-2px); box-shadow: 0 14px 28px rgba(225, 29, 72, 0.5); }
+    .bug-fab-text { display: inline; }
+    @media (max-width: 600px) {
+      .bug-fab { padding: 12px 14px; }
+      .bug-fab-text { display: none; }
+    }
+    .bug-fab-count {
+      display: inline-flex; align-items: center; justify-content: center;
+      min-width: 18px; height: 18px;
+      padding: 0 5px;
+      background: #fff; color: #e11d48;
+      border-radius: 999px;
+      font-size: 0.7rem; font-weight: 800;
+      margin-left: 4px;
+    }
+    .bug-card {
+      border: 1px solid #ecdbc1;
+      border-radius: 14px;
+      padding: 12px 14px;
+      background: #fffdfa;
+    }
+    .bug-card.pending  { border-color: #fcd9a0; background: #fff8ec; }
+    .bug-card.approved { border-color: #bbf7d0; background: #f0fdf4; }
+    .bug-card.rejected { border-color: #e2e8f0; background: #f8fafc; opacity: 0.7; }
+    .bug-card.resolved { border-color: #c4b5fd; background: #f5f3ff; }
+    .bug-head {
+      display: flex; align-items: center; gap: 8px;
+      margin-bottom: 6px;
+      flex-wrap: wrap;
+    }
+    .bug-title {
+      flex: 1; min-width: 0;
+      font-weight: 700; color: var(--ink);
+      overflow-wrap: anywhere;
+    }
+    .bug-status {
+      flex-shrink: 0;
+      font-size: 0.7rem; font-weight: 800;
+      padding: 2px 9px; border-radius: 999px;
+      letter-spacing: 0.04em;
+    }
+    .bug-status.pending  { background: var(--accent-soft); color: var(--accent-strong); }
+    .bug-status.approved { background: #dcfce7; color: #166534; }
+    .bug-status.rejected { background: #fee2e2; color: #991b1b; }
+    .bug-status.resolved { background: #ede9fe; color: #6d28d9; }
+    .bug-meta {
+      font-size: 0.74rem; color: var(--ink-mute);
+      margin-top: 4px;
+    }
+    .bug-meta a { color: var(--accent-strong); text-decoration: none; }
+    .bug-meta a:hover { text-decoration: underline; }
+    .bug-desc {
+      font-size: 0.86rem; color: var(--ink-soft);
+      line-height: 1.5;
+      white-space: pre-wrap;
+      margin-top: 6px;
+    }
+    .bug-actions {
+      display: flex; gap: 6px; flex-wrap: wrap;
+      margin-top: 10px;
+    }
+    .bug-actions button {
+      padding: 5px 12px;
+      font-size: 0.78rem; font-weight: 700;
+      border-radius: 8px;
+      border: 1px solid #ecdbc1;
+      background: #fff;
+      cursor: pointer;
+    }
+    .bug-actions .approve { color: #166534; border-color: #bbf7d0; }
+    .bug-actions .approve:hover { background: #dcfce7; }
+    .bug-actions .reject  { color: #991b1b; border-color: #fecaca; }
+    .bug-actions .reject:hover  { background: #fde7e7; }
+    .bug-actions .resolve { color: #6d28d9; border-color: #ddd6fe; }
+    .bug-actions .resolve:hover { background: #ede9fe; }
+    .bug-actions .reopen  { color: var(--ink-soft); }
+    .bug-actions .reopen:hover  { background: #f1f5f9; }
+    .bug-actions .danger  { color: #dc2626; border-color: #fecaca; margin-left: auto; }
+    .bug-actions .danger:hover  { background: #fde7e7; }
 
     /* ============================================================
        Responsive — mobile-first overrides
@@ -1679,27 +1887,19 @@
         <div class="field">
           <label class="field-label">
             한 일
-            <span class="hint">어제·지난 작업 시간에 완료한 일</span>
+            <span class="hint">항목별로 URL (필수)을 함께 적어주세요</span>
           </label>
-          <textarea
-            class="textarea"
-            id="done"
-            placeholder="KDQA-1101 어드민 검색 필터 마무리&#10;디자인 리뷰 회의"
-            style="min-height: 100px;"
-          ></textarea>
+          <div class="item-list" id="doneItems"></div>
+          <button type="button" class="item-add" data-target="doneItems" data-placeholder="예: KDQA-1101 어드민 검색 필터 마무리">+ 한 일 추가</button>
         </div>
 
         <div class="field">
           <label class="field-label">
             할 일
-            <span class="hint">자유롭게. Jira 티켓이 있으면 키를 같이 (예: KDQA-1234)</span>
+            <span class="hint">항목별로 URL (필수)을 함께 적어주세요</span>
           </label>
-          <textarea
-            class="textarea"
-            id="tasks"
-            placeholder="KDQA-1234 결제 모듈 PR 리뷰&#10;디자인 싱크 참여&#10;1on1 준비"
-            style="min-height: 130px;"
-          ></textarea>
+          <div class="item-list" id="tasksItems"></div>
+          <button type="button" class="item-add" data-target="tasksItems" data-placeholder="예: KDQA-1234 결제 모듈 PR 리뷰">+ 할 일 추가</button>
         </div>
 
         <div class="field">
@@ -1717,7 +1917,10 @@
 
         <div class="submit-row">
           <span class="save-note" id="saveNote">아직 체크인 안 함</span>
-          <button class="submit" id="submitBtn" type="button">체크인 ✨</button>
+          <div style="display:flex; gap:8px; align-items:center; flex-wrap:wrap;">
+            <button class="checkin-cancel-btn" id="cancelCheckinBtn" type="button" hidden>체크인 취소</button>
+            <button class="submit" id="submitBtn" type="button">체크인 ✨</button>
+          </div>
         </div>
       </div>
     </section>
@@ -1766,18 +1969,59 @@
 
   <div class="toast" id="toast">저장되었습니다 ✨</div>
 
+  <button class="bug-fab" id="bugFab" type="button" title="버그 제보 / 목록 보기">🐛<span class="bug-fab-text">버그 제보</span></button>
+
+  <div class="modal-backdrop" id="bugListModal">
+    <div class="modal-content" style="max-width: min(640px, calc(100vw - 24px));">
+      <h3>🐛 버그 제보 — <span class="who" id="bugCountLabel">0건</span></h3>
+      <div id="bugList" style="display:flex; flex-direction:column; gap:10px; max-height:60vh; overflow-y:auto; margin-bottom:14px;"></div>
+      <div class="modal-actions">
+        <button class="ghost" type="button" id="bugListCloseBtn">닫기</button>
+        <button class="submit" type="button" id="openBugFormBtn" style="padding:10px 22px; font-size:0.92rem;">+ 새 제보</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="modal-backdrop" id="bugFormModal">
+    <div class="modal-content" style="max-width: min(520px, calc(100vw - 24px));">
+      <h3>🐛 새 버그 제보</h3>
+      <div class="field">
+        <label class="field-label">제목 <span style="color:#dc2626;">*</span></label>
+        <input class="input" id="bugTitle" type="text" placeholder="요약 한 줄" maxlength="200" autocomplete="off" />
+      </div>
+      <div class="field">
+        <label class="field-label">설명 <span class="hint">재현 절차 / 기대 동작 / 실제 동작</span></label>
+        <textarea class="textarea" id="bugDescription" style="min-height:120px;" placeholder="1. ...&#10;기대: ...&#10;실제: ..."></textarea>
+      </div>
+      <div class="field">
+        <label class="field-label">발견한 페이지 URL <span class="hint">선택</span></label>
+        <input class="input" id="bugPageUrl" type="url" placeholder="https://admin.knockdog.net/..." autocomplete="off" />
+      </div>
+      <div class="field" style="margin-bottom:0;">
+        <label class="field-label">제보자 <span class="hint">익명 가능 — 비워두면 익명</span></label>
+        <input class="input" id="bugReporter" type="text" placeholder="이름 또는 비워두기" autocomplete="off" />
+      </div>
+      <div class="modal-actions">
+        <button class="ghost" type="button" id="bugFormCancelBtn">취소</button>
+        <button class="submit" type="button" id="bugFormSubmitBtn" style="padding:10px 22px; font-size:0.92rem;">제보하기</button>
+      </div>
+    </div>
+  </div>
+
   <div class="modal-backdrop" id="editModal">
     <div class="modal-content">
       <h3>체크인 수정 — <span class="who" id="editModalName"></span></h3>
       <div class="field">
-        <label class="field-label">한 일</label>
-        <textarea class="textarea" id="editDone" style="min-height: 80px;"></textarea>
+        <label class="field-label">한 일 <span class="hint">항목별 URL (필수)</span></label>
+        <div class="item-list" id="editDoneItems"></div>
+        <button type="button" class="item-add" data-target="editDoneItems" data-placeholder="예: KDQA-1101 마무리">+ 한 일 추가</button>
       </div>
       <div class="field">
-        <label class="field-label">할 일</label>
-        <textarea class="textarea" id="editTasks" style="min-height: 100px;"></textarea>
+        <label class="field-label">할 일 <span class="hint">항목별 URL (필수)</span></label>
+        <div class="item-list" id="editTasksItems"></div>
+        <button type="button" class="item-add" data-target="editTasksItems" data-placeholder="예: KDQA-1234 PR 리뷰">+ 할 일 추가</button>
       </div>
-      <div class="field" style="margin-bottom:0;">
+      <div class="field">
         <label class="field-label">Blockers</label>
         <textarea class="textarea" id="editBlockers" style="min-height: 60px;"></textarea>
       </div>
@@ -2122,14 +2366,70 @@
       }
     });
 
+    /* ---------------- Multi-item rows (한 일/할 일) ---------------- */
+    function makeItemRow(textVal, urlVal, placeholder) {
+      const row = document.createElement("div");
+      row.className = "item-row";
+      row.innerHTML = `
+        <input class="item-text" type="text" placeholder="${esc(placeholder || "")}" value="${esc(textVal || "")}" />
+        <input class="item-url" type="url" inputmode="url" placeholder="URL (필수)" value="${esc(urlVal || "")}" />
+        <button type="button" class="item-remove" title="삭제">×</button>`;
+      row.querySelector(".item-remove").addEventListener("click", () => {
+        row.remove();
+        showCancelBtnIfNeeded();
+      });
+      return row;
+    }
+    function renderItemList(containerId, items, placeholder) {
+      const container = document.getElementById(containerId);
+      if (!container) return;
+      container.innerHTML = "";
+      const list = Array.isArray(items) && items.length ? items : [{ text: "", url: "" }];
+      for (const it of list) {
+        container.appendChild(makeItemRow(it.text || "", it.url || "", placeholder));
+      }
+    }
+    function collectItemList(containerId) {
+      const out = [];
+      document.querySelectorAll(`#${containerId} .item-row`).forEach((row) => {
+        const text = row.querySelector(".item-text").value.trim();
+        const url = row.querySelector(".item-url").value.trim();
+        if (text || url) out.push({ text, url });
+      });
+      return out;
+    }
+    // Wire "+ 추가" buttons (delegated for forward compat)
+    document.addEventListener("click", (e) => {
+      const btn = e.target.closest(".item-add");
+      if (!btn) return;
+      const target = btn.dataset.target;
+      const placeholder = btn.dataset.placeholder || "";
+      const container = document.getElementById(target);
+      if (container) container.appendChild(makeItemRow("", "", placeholder));
+    });
+
     function clearCheckinOnly() {
-      document.getElementById("done").value = "";
-      document.getElementById("tasks").value = "";
+      renderItemList("doneItems", null, "예: KDQA-1101 어드민 검색 필터 마무리");
+      renderItemList("tasksItems", null, "예: KDQA-1234 결제 모듈 PR 리뷰");
       document.getElementById("blockers").value = "";
       const note = document.getElementById("saveNote");
       note.textContent = "아직 체크인 안 함";
       note.classList.remove("saved");
+      const cancel = document.getElementById("cancelCheckinBtn");
+      if (cancel) cancel.hidden = true;
     }
+    function showCancelBtnIfNeeded() {
+      const btn = document.getElementById("cancelCheckinBtn");
+      if (!btn) return;
+      const any =
+        collectItemList("doneItems").length > 0 ||
+        collectItemList("tasksItems").length > 0 ||
+        document.getElementById("blockers").value.trim();
+      btn.hidden = !any;
+    }
+    // Initial empty rows so the form is usable on first paint
+    renderItemList("doneItems", null, "예: KDQA-1101 어드민 검색 필터 마무리");
+    renderItemList("tasksItems", null, "예: KDQA-1234 결제 모듈 PR 리뷰");
 
     /* ---------------- Time parsing ---------------- */
     const TIME_RANGE_RE = /^\s*(\d{1,2})(?::(\d{2}))?\s*[-~–—]\s*(\d{1,2})(?::(\d{2}))?\s*$/;
@@ -2337,12 +2637,21 @@
           setCheckinCutoff(null);
           return;
         }
-        document.getElementById("done").value = c.done || "";
-        document.getElementById("tasks").value = c.tasks || "";
+        renderItemList(
+          "doneItems",
+          (c.doneItems && c.doneItems.length ? c.doneItems : null),
+          "예: KDQA-1101 어드민 검색 필터 마무리"
+        );
+        renderItemList(
+          "tasksItems",
+          (c.tasksItems && c.tasksItems.length ? c.tasksItems : null),
+          "예: KDQA-1234 결제 모듈 PR 리뷰"
+        );
         document.getElementById("blockers").value = c.blockers || "";
-        if (c.done || c.tasks || c.blockers) {
+        if ((c.doneItems && c.doneItems.length) || (c.tasksItems && c.tasksItems.length) || c.blockers) {
           markSaved("오늘 이미 체크인했어요. 수정 가능합니다.");
         }
+        showCancelBtnIfNeeded();
         setCheckinCutoff(c.startTime || null);
       } catch (e) { /* silent */ }
     }
@@ -2494,11 +2803,11 @@
     const submitBtn = document.getElementById("submitBtn");
     submitBtn.addEventListener("click", async () => {
       const userName = userInput.value.trim() || DEFAULT_NAME;
-      const done = document.getElementById("done").value.trim();
-      const tasks = document.getElementById("tasks").value.trim();
+      const doneItems = collectItemList("doneItems");
+      const tasksItems = collectItemList("tasksItems");
       const blockers = document.getElementById("blockers").value.trim();
 
-      if (!done && !tasks && !blockers) {
+      if (doneItems.length === 0 && tasksItems.length === 0 && !blockers) {
         toast("한 일 / 할 일 / 블락커 중 하나는 입력해주세요");
         return;
       }
@@ -2521,7 +2830,10 @@
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
-            userName, done, tasks, blockers,
+            userName,
+            done: doneItems,
+            tasks: tasksItems,
+            blockers,
             checkDate: todayKSTStr(),
           }),
         });
@@ -2533,6 +2845,7 @@
             : "체크인 완료! 좋은 하루 보내세요 ☀️"
         );
         markSaved(`${new Date().toLocaleTimeString("ko-KR")} 에 저장됨`);
+        showCancelBtnIfNeeded();
         loadBoard();
         loadWeek();
       } catch (e) {
@@ -2549,14 +2862,80 @@
       note.classList.add("saved");
     }
 
-    /* ---------------- Toast ---------------- */
+    /* ---------------- Cancel my check-in (undoable) ---------------- */
+    document.getElementById("cancelCheckinBtn").addEventListener("click", async () => {
+      const userName = userInput.value.trim() || DEFAULT_NAME;
+      const doneItems = collectItemList("doneItems");
+      const tasksItems = collectItemList("tasksItems");
+      const blockers = document.getElementById("blockers").value.trim();
+      if (doneItems.length === 0 && tasksItems.length === 0 && !blockers) {
+        toast("취소할 체크인이 없어요");
+        return;
+      }
+      if (!confirm("오늘 체크인을 취소할까요? (10초 안에 복원 가능)")) return;
+      const snapshot = { userName, done: doneItems, tasks: tasksItems, blockers };
+      const today = todayKSTStr();
+      try {
+        const r = await fetch("/api/checkin", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ userName, checkDate: today, done: [], tasks: [], blockers: "" }),
+        });
+        if (!r.ok) throw new Error((await r.json()).error || "fail");
+        clearCheckinOnly();
+        loadBoard();
+        loadWeek();
+        toast("체크인 취소됨", {
+          action: {
+            label: "복원",
+            fn: async () => {
+              try {
+                const rr = await fetch("/api/checkin", {
+                  method: "POST",
+                  headers: { "Content-Type": "application/json" },
+                  body: JSON.stringify({ ...snapshot, checkDate: today }),
+                });
+                if (!rr.ok) throw new Error((await rr.json()).error || "fail");
+                toast("체크인 복원됨");
+                prefillCheckinFor(userName);
+                loadBoard();
+                loadWeek();
+              } catch (err) {
+                toast("복원 실패: " + err.message);
+              }
+            },
+          },
+        });
+      } catch (e) {
+        toast("취소 실패: " + e.message);
+      }
+    });
+
+    /* ---------------- Toast (with optional action) ---------------- */
     let toastTimer = null;
-    function toast(msg) {
+    function toast(msg, opts) {
       const el = document.getElementById("toast");
-      el.textContent = msg;
+      el.innerHTML = "";
+      const text = document.createElement("span");
+      text.textContent = msg;
+      el.appendChild(text);
+      const action = opts && opts.action;
+      if (action && typeof action.fn === "function") {
+        const btn = document.createElement("button");
+        btn.type = "button";
+        btn.className = "toast-action";
+        btn.textContent = action.label || "복원";
+        btn.addEventListener("click", () => {
+          el.classList.remove("show");
+          clearTimeout(toastTimer);
+          try { action.fn(); } catch (_) {}
+        });
+        el.appendChild(btn);
+      }
       el.classList.add("show");
       clearTimeout(toastTimer);
-      toastTimer = setTimeout(() => el.classList.remove("show"), 2200);
+      const ttl = (opts && opts.duration) || (action ? 8000 : 2200);
+      toastTimer = setTimeout(() => el.classList.remove("show"), ttl);
     }
 
     /* ---------------- Team board ---------------- */
@@ -2586,25 +2965,39 @@
         const myName = (localStorage.getItem(STORAGE_USER) || "")
           .trim()
           .toLowerCase();
+        const renderItems = (items) => {
+          if (!items || !items.length) return "";
+          return items
+            .map((it) => {
+              let host = "";
+              try {
+                if (it.url) host = new URL(it.url).hostname.replace(/^www\./, "");
+              } catch (_) {}
+              const text = it.text ? `<span class="team-item-text">${highlightJira(it.text)}</span>` : "";
+              const link = it.url
+                ? `<a class="team-item-link" href="${esc(it.url)}" target="_blank" rel="noopener" title="${esc(it.url)}">🔗 ${esc(host || "링크")}</a>`
+                : "";
+              return `<div class="team-item">${text}${link}</div>`;
+            })
+            .join("");
+        };
         board.innerHTML = `<div class="board-grid">${list
           .map((c) => {
             const timeText = (c.startTime || c.endTime)
               ? `${esc(c.startTime || "")} – ${esc(c.endTime || "")}`
               : "시간 미정";
-            const doneHtml = c.done
-              ? `<div class="team-tasks">${highlightJira(c.done)}</div>`
-              : "";
-            const tasksHtml = c.tasks
-              ? `<div class="team-tasks">${highlightJira(c.tasks)}</div>`
-              : "";
+            const doneRows = c.doneItems || [];
+            const tasksRows = c.tasksItems || [];
+            const doneHtml = renderItems(doneRows);
+            const tasksHtml = renderItems(tasksRows);
             const isMine =
               myName && (c.userName || "").trim().toLowerCase() === myName;
             return `
             <div class="team-card ${isMine ? "mine" : ""}"
                  data-user="${esc(c.userName)}"
-                 data-done="${esc(c.done || "")}"
-                 data-tasks="${esc(c.tasks || "")}"
-                 data-blockers="${esc(c.blockers || "")}">
+                 data-blockers="${esc(c.blockers || "")}"
+                 data-done-items="${esc(JSON.stringify(doneRows))}"
+                 data-tasks-items="${esc(JSON.stringify(tasksRows))}">
               <button class="team-card-edit" type="button" title="체크인 수정">✎</button>
               <button class="team-card-delete" type="button" data-user="${esc(c.userName)}" title="체크인 삭제">✕</button>
               <div class="team-head">
@@ -2639,35 +3032,69 @@
       if (editBtn) {
         const card = editBtn.closest(".team-card");
         if (!card) return;
+        let doneItems = [], tasksItems = [];
+        try { doneItems = JSON.parse(card.dataset.doneItems || "[]"); } catch (_) {}
+        try { tasksItems = JSON.parse(card.dataset.tasksItems || "[]"); } catch (_) {}
         openEditModal({
           userName: card.dataset.user,
-          done: card.dataset.done || "",
-          tasks: card.dataset.tasks || "",
+          doneItems,
+          tasksItems,
           blockers: card.dataset.blockers || "",
         });
         return;
       }
       const btn = e.target.closest(".team-card-delete");
       if (!btn) return;
+      const card = btn.closest(".team-card");
       const userName = btn.dataset.user;
-      if (!confirm(`${userName}의 오늘 체크인을 삭제할까요?`)) return;
+      let snapshotDone = [], snapshotTasks = [];
+      try { snapshotDone = JSON.parse((card && card.dataset.doneItems) || "[]"); } catch (_) {}
+      try { snapshotTasks = JSON.parse((card && card.dataset.tasksItems) || "[]"); } catch (_) {}
+      const snapshot = {
+        userName,
+        done: snapshotDone,
+        tasks: snapshotTasks,
+        blockers: (card && card.dataset.blockers) || "",
+      };
+      const today = todayKSTStr();
       try {
         const r = await fetch("/api/checkin", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
             userName,
-            checkDate: todayKSTStr(),
-            done: "",
-            tasks: "",
+            checkDate: today,
+            done: [],
+            tasks: [],
             blockers: "",
           }),
         });
         if (!r.ok) throw new Error((await r.json()).error || "fail");
-        clearCheckinOnly();
-        toast("체크인 삭제됨");
+        const meName = (localStorage.getItem(STORAGE_USER) || "").trim();
+        if (meName === userName) clearCheckinOnly();
         loadBoard();
         loadWeek();
+        toast(`${userName} 체크인 삭제됨`, {
+          action: {
+            label: "복원",
+            fn: async () => {
+              try {
+                const rr = await fetch("/api/checkin", {
+                  method: "POST",
+                  headers: { "Content-Type": "application/json" },
+                  body: JSON.stringify({ ...snapshot, checkDate: today }),
+                });
+                if (!rr.ok) throw new Error((await rr.json()).error || "fail");
+                toast(`${userName} 체크인 복원됨`);
+                if (meName === userName) prefillCheckinFor(meName);
+                loadBoard();
+                loadWeek();
+              } catch (err) {
+                toast("복원 실패: " + err.message);
+              }
+            },
+          },
+        });
       } catch (e) {
         toast("삭제 실패: " + e.message);
       }
@@ -2675,11 +3102,11 @@
 
     /* ---------------- Edit modal (today's team board) ---------------- */
     let editTargetUser = null;
-    function openEditModal({ userName, done, tasks, blockers }) {
+    function openEditModal({ userName, doneItems, tasksItems, blockers }) {
       editTargetUser = userName;
       document.getElementById("editModalName").textContent = userName;
-      document.getElementById("editDone").value = done || "";
-      document.getElementById("editTasks").value = tasks || "";
+      renderItemList("editDoneItems", doneItems && doneItems.length ? doneItems : null, "예: KDQA-1101 마무리");
+      renderItemList("editTasksItems", tasksItems && tasksItems.length ? tasksItems : null, "예: KDQA-1234 PR 리뷰");
       document.getElementById("editBlockers").value = blockers || "";
       document.getElementById("editModal").classList.add("show");
     }
@@ -2958,9 +3385,13 @@
 
     document.getElementById("editSaveBtn").addEventListener("click", async () => {
       if (!editTargetUser) return;
-      const done = document.getElementById("editDone").value.trim();
-      const tasks = document.getElementById("editTasks").value.trim();
+      const doneItems = collectItemList("editDoneItems");
+      const tasksItems = collectItemList("editTasksItems");
       const blockers = document.getElementById("editBlockers").value.trim();
+      if (doneItems.length === 0 && tasksItems.length === 0 && !blockers) {
+        toast("한 일 / 할 일 / 블락커 중 하나는 입력해주세요");
+        return;
+      }
       try {
         const r = await fetch("/api/checkin", {
           method: "POST",
@@ -2968,7 +3399,9 @@
           body: JSON.stringify({
             userName: editTargetUser,
             checkDate: todayKSTStr(),
-            done, tasks, blockers,
+            done: doneItems,
+            tasks: tasksItems,
+            blockers,
           }),
         });
         if (!r.ok) throw new Error((await r.json()).error || "fail");
@@ -3210,6 +3643,174 @@
       }
     });
     loadQuickLinks();
+
+    /* ---------------- Bug reports ---------------- */
+    const STATUS_LABEL = { pending: "검토 대기", approved: "처리 예정", rejected: "거절됨", resolved: "처리 완료" };
+    let bugs = [];
+    function fmtDate(iso) {
+      if (!iso) return "";
+      const d = new Date(iso);
+      if (isNaN(d.getTime())) return iso;
+      const pad = (n) => String(n).padStart(2, "0");
+      return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}`;
+    }
+    function updateBugFabBadge() {
+      const fab = document.getElementById("bugFab");
+      const pendingCount = bugs.filter((b) => b.status === "pending").length;
+      // remove existing badge
+      const old = fab.querySelector(".bug-fab-count");
+      if (old) old.remove();
+      if (pendingCount > 0) {
+        const span = document.createElement("span");
+        span.className = "bug-fab-count";
+        span.textContent = String(pendingCount);
+        fab.appendChild(span);
+      }
+    }
+    async function loadBugs() {
+      try {
+        const r = await fetch("/api/bugs");
+        const data = await r.json();
+        bugs = data.bugs || [];
+      } catch (e) {
+        bugs = [];
+      }
+      renderBugList();
+      updateBugFabBadge();
+    }
+    function renderBugList() {
+      const list = document.getElementById("bugList");
+      const cnt = document.getElementById("bugCountLabel");
+      if (!list) return;
+      cnt.textContent = `${bugs.length}건 · 대기 ${bugs.filter((b) => b.status === "pending").length}건`;
+      if (!bugs.length) {
+        list.innerHTML = `<div class="empty" style="padding:20px;">아직 접수된 버그가 없어요.</div>`;
+        return;
+      }
+      list.innerHTML = bugs
+        .map((b) => {
+          const pageLink = b.pageUrl ? `<a href="${esc(b.pageUrl)}" target="_blank" rel="noopener">${esc(b.pageUrl)}</a>` : "";
+          const reporter = b.reporterName ? esc(b.reporterName) : `<em>익명</em>`;
+          const decidedLine = b.decidedBy && b.decidedAt
+            ? `<div class="bug-meta">${STATUS_LABEL[b.status] || b.status} by <strong>${esc(b.decidedBy)}</strong> · ${esc(fmtDate(b.decidedAt))}</div>`
+            : "";
+          const actions = (() => {
+            const a = [];
+            if (b.status === "pending") {
+              a.push(`<button class="approve" data-action="approve" data-id="${b.id}">승인</button>`);
+              a.push(`<button class="reject" data-action="reject" data-id="${b.id}">거절</button>`);
+            } else if (b.status === "approved") {
+              a.push(`<button class="resolve" data-action="resolve" data-id="${b.id}">해결됨으로 표시</button>`);
+              a.push(`<button class="reopen" data-action="reopen" data-id="${b.id}">대기로 되돌리기</button>`);
+            } else if (b.status === "rejected" || b.status === "resolved") {
+              a.push(`<button class="reopen" data-action="reopen" data-id="${b.id}">다시 검토</button>`);
+            }
+            a.push(`<button class="danger" data-action="delete" data-id="${b.id}">삭제</button>`);
+            return `<div class="bug-actions">${a.join("")}</div>`;
+          })();
+          return `
+            <div class="bug-card ${b.status}">
+              <div class="bug-head">
+                <div class="bug-title">${esc(b.title)}</div>
+                <span class="bug-status ${b.status}">${STATUS_LABEL[b.status] || b.status}</span>
+              </div>
+              <div class="bug-meta">${reporter} · ${esc(fmtDate(b.createdAt))}</div>
+              ${pageLink ? `<div class="bug-meta">${pageLink}</div>` : ""}
+              ${b.description ? `<div class="bug-desc">${esc(b.description)}</div>` : ""}
+              ${decidedLine}
+              ${actions}
+            </div>`;
+        })
+        .join("");
+    }
+
+    document.getElementById("bugFab").addEventListener("click", () => {
+      loadBugs();
+      document.getElementById("bugListModal").classList.add("show");
+    });
+    document.getElementById("bugListCloseBtn").addEventListener("click", () => {
+      document.getElementById("bugListModal").classList.remove("show");
+    });
+    document.getElementById("bugListModal").addEventListener("click", (e) => {
+      if (e.target.id === "bugListModal") document.getElementById("bugListModal").classList.remove("show");
+    });
+
+    function openBugForm() {
+      const fill = (id, v) => { const el = document.getElementById(id); if (el) el.value = v || ""; };
+      fill("bugTitle", "");
+      fill("bugDescription", "");
+      fill("bugPageUrl", location.href);
+      fill("bugReporter", (localStorage.getItem(STORAGE_USER) || "").trim());
+      document.getElementById("bugFormModal").classList.add("show");
+      setTimeout(() => document.getElementById("bugTitle").focus(), 60);
+    }
+    document.getElementById("openBugFormBtn").addEventListener("click", openBugForm);
+    document.getElementById("bugFormCancelBtn").addEventListener("click", () => {
+      document.getElementById("bugFormModal").classList.remove("show");
+    });
+    document.getElementById("bugFormModal").addEventListener("click", (e) => {
+      if (e.target.id === "bugFormModal") document.getElementById("bugFormModal").classList.remove("show");
+    });
+    document.getElementById("bugFormSubmitBtn").addEventListener("click", async () => {
+      const title = document.getElementById("bugTitle").value.trim();
+      const description = document.getElementById("bugDescription").value.trim();
+      const pageUrl = document.getElementById("bugPageUrl").value.trim();
+      const reporterName = document.getElementById("bugReporter").value.trim();
+      if (!title) {
+        toast("제목은 필수예요");
+        document.getElementById("bugTitle").focus();
+        return;
+      }
+      try {
+        const r = await fetch("/api/bugs", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ title, description, pageUrl, reporterName }),
+        });
+        if (!r.ok) throw new Error((await r.json()).error || "fail");
+        toast("버그 제보 접수됨 🐛");
+        document.getElementById("bugFormModal").classList.remove("show");
+        loadBugs();
+      } catch (err) {
+        toast("제보 실패: " + err.message);
+      }
+    });
+
+    document.getElementById("bugList").addEventListener("click", async (e) => {
+      const btn = e.target.closest("button[data-action]");
+      if (!btn) return;
+      const id = btn.dataset.id;
+      const action = btn.dataset.action;
+      const actor = (localStorage.getItem(STORAGE_USER) || "").trim() || "익명";
+      if (action === "delete") {
+        if (!confirm("이 버그 제보를 완전히 삭제할까요?")) return;
+        try {
+          const r = await fetch(`/api/bugs/${id}`, { method: "DELETE" });
+          if (!r.ok) throw new Error((await r.json()).error || "fail");
+          toast("삭제됨");
+          loadBugs();
+        } catch (err) {
+          toast("삭제 실패: " + err.message);
+        }
+        return;
+      }
+      try {
+        const r = await fetch(`/api/bugs/${id}`, {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ action, actor }),
+        });
+        if (!r.ok) throw new Error((await r.json()).error || "fail");
+        const labels = { approve: "승인됨", reject: "거절됨", resolve: "해결 처리됨", reopen: "대기로 되돌림" };
+        toast(labels[action] || "변경됨");
+        loadBugs();
+      } catch (err) {
+        toast("처리 실패: " + err.message);
+      }
+    });
+
+    loadBugs();
+    setInterval(loadBugs, 60_000);
 
     /* ---------------- Weekly board (hours + check-in) ---------------- */
     function shiftWeek(baseISO, weeks) {
