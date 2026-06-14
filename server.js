@@ -565,8 +565,8 @@ app.get("/api/members", async (req, res) => {
 
 app.post("/api/members", async (req, res) => {
   try {
-    const name = (req.body?.name || "").trim();
-    const team = (req.body?.team || "").trim();
+    const name = (req.body?.name || "").trim().normalize("NFC");
+    const team = (req.body?.team || "").trim().normalize("NFC");
     if (!name) return res.status(400).json({ error: "name required" });
     if (name.length > 100) {
       return res.status(400).json({ error: "이름이 너무 깁니다 (100자 제한)" });
@@ -587,12 +587,16 @@ app.post("/api/members", async (req, res) => {
 });
 
 app.patch("/api/members/:name", async (req, res) => {
-  const oldName = decodeURIComponent(req.params.name || "").trim();
+  // Normalize incoming Korean text to NFC. macOS clipboard / Finder often produces
+  // NFD which byte-mismatches NFC stored rows, which then makes UPDATE silently
+  // hit 0 rows and the caller thinks nothing happened.
+  const oldNameRaw = decodeURIComponent(req.params.name || "").trim();
+  const oldName = oldNameRaw.normalize("NFC");
   const body = req.body || {};
   const hasNewName = typeof body.name === "string";
   const hasTeam = typeof body.team === "string";
-  const newName = hasNewName ? body.name.trim() : oldName;
-  const newTeam = hasTeam ? body.team.trim() : null;
+  const newName = hasNewName ? body.name.trim().normalize("NFC") : oldName;
+  const newTeam = hasTeam ? body.team.trim().normalize("NFC") : null;
   if (!oldName) {
     return res.status(400).json({ error: "name required" });
   }
@@ -613,10 +617,29 @@ app.patch("/api/members/:name", async (req, res) => {
   const c = await pool.connect();
   try {
     await c.query("BEGIN");
+    // Resolve the actual DB row whose name matches oldName, allowing for NFC/NFD
+    // and whitespace drift between the URL param and the stored value.
+    const all = await c.query(`SELECT name FROM team_members`);
+    const matched = all.rows
+      .map((r) => r.name)
+      .find((n) =>
+        n === oldName ||
+        n === oldNameRaw ||
+        (typeof n === "string" && n.normalize("NFC") === oldName)
+      );
+    if (!matched) {
+      await c.query("ROLLBACK");
+      return res.status(404).json({
+        error: `'${oldName}' 팀원을 찾을 수 없어요. 목록을 새로고침 후 다시 시도해주세요.`,
+        code: "MEMBER_NOT_FOUND",
+      });
+    }
+    const dbOldName = matched; // exact bytes stored in DB
+
     if (isRename) {
       const conflict = await c.query(
-        `SELECT id FROM team_members WHERE name = $1`,
-        [newName]
+        `SELECT id FROM team_members WHERE name = $1 AND name <> $2`,
+        [newName, dbOldName]
       );
       if (conflict.rows.length) {
         await c.query("ROLLBACK");
@@ -625,10 +648,17 @@ app.patch("/api/members/:name", async (req, res) => {
           code: "MEMBER_NAME_CONFLICT",
         });
       }
-      await c.query(
+      const upd = await c.query(
         `UPDATE team_members SET name = $1 WHERE name = $2`,
-        [newName, oldName]
+        [newName, dbOldName]
       );
+      if (upd.rowCount === 0) {
+        await c.query("ROLLBACK");
+        return res.status(500).json({
+          error: "rename failed (0 rows affected)",
+          code: "MEMBER_RENAME_NO_ROWS",
+        });
+      }
     }
     if (newTeam !== null) {
       await c.query(
@@ -638,38 +668,38 @@ app.patch("/api/members/:name", async (req, res) => {
     }
     if (!isRename) {
       await c.query("COMMIT");
-      return res.json({ success: true, oldName, newName, team: newTeam });
+      return res.json({ success: true, oldName: dbOldName, newName, team: newTeam });
     }
     await c.query(
       `UPDATE checkins SET user_name = $1 WHERE user_name = $2`,
-      [newName, oldName]
+      [newName, dbOldName]
     );
     await c.query(
       `UPDATE announcement_reads SET user_name = $1 WHERE user_name = $2`,
-      [newName, oldName]
+      [newName, dbOldName]
     );
     await c.query(
       `UPDATE idea_likes SET user_name = $1 WHERE user_name = $2`,
-      [newName, oldName]
+      [newName, dbOldName]
     );
     await c.query(
       `UPDATE ideas SET author = $1 WHERE author = $2`,
-      [newName, oldName]
+      [newName, dbOldName]
     );
     await c.query(
       `UPDATE memos SET author = $1 WHERE author = $2`,
-      [newName, oldName]
+      [newName, dbOldName]
     );
     await c.query(
       `UPDATE polls SET created_by = $1 WHERE created_by = $2`,
-      [newName, oldName]
+      [newName, dbOldName]
     );
     await c.query(
       `UPDATE votes SET voter_name = $1 WHERE voter_name = $2`,
-      [newName, oldName]
+      [newName, dbOldName]
     );
     await c.query("COMMIT");
-    res.json({ success: true, oldName, newName, team: newTeam });
+    res.json({ success: true, oldName: dbOldName, newName, team: newTeam });
   } catch (err) {
     await c.query("ROLLBACK").catch(() => {});
     console.error("Members PATCH error:", err.message);
