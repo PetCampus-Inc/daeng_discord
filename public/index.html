@@ -2995,14 +2995,18 @@
             const tasksHtml = renderItems(tasksRows);
             const isMine =
               myName && (c.userName || "").trim().toLowerCase() === myName;
+            const controlsHtml = isMine
+              ? `<button class="team-card-edit" type="button" title="내 체크인 수정">✎</button>
+                 <button class="team-card-delete" type="button" data-user="${esc(c.userName)}" title="내 체크인 삭제">✕</button>`
+              : "";
             return `
             <div class="team-card ${isMine ? "mine" : ""}"
                  data-user="${esc(c.userName)}"
+                 data-mine="${isMine ? "1" : "0"}"
                  data-blockers="${esc(c.blockers || "")}"
                  data-done-items="${esc(JSON.stringify(doneRows))}"
                  data-tasks-items="${esc(JSON.stringify(tasksRows))}">
-              <button class="team-card-edit" type="button" title="체크인 수정">✎</button>
-              <button class="team-card-delete" type="button" data-user="${esc(c.userName)}" title="체크인 삭제">✕</button>
+              ${controlsHtml}
               <div class="team-head">
                 <span class="team-name">${esc(c.userName)}${isMine ? " (나)" : ""}</span>
                 <span class="team-time">${timeText}</span>
@@ -3035,6 +3039,10 @@
       if (editBtn) {
         const card = editBtn.closest(".team-card");
         if (!card) return;
+        if (card.dataset.mine !== "1") {
+          toast("다른 사람의 체크인은 오늘의 팀 보드에서 수정할 수 없어요");
+          return;
+        }
         let doneItems = [], tasksItems = [];
         try { doneItems = JSON.parse(card.dataset.doneItems || "[]"); } catch (_) {}
         try { tasksItems = JSON.parse(card.dataset.tasksItems || "[]"); } catch (_) {}
@@ -3050,6 +3058,10 @@
       if (!btn) return;
       const card = btn.closest(".team-card");
       const userName = btn.dataset.user;
+      if (!card || card.dataset.mine !== "1") {
+        toast("다른 사람의 체크인은 오늘의 팀 보드에서 삭제할 수 없어요");
+        return;
+      }
       let snapshotDone = [], snapshotTasks = [];
       try { snapshotDone = JSON.parse((card && card.dataset.doneItems) || "[]"); } catch (_) {}
       try { snapshotTasks = JSON.parse((card && card.dataset.tasksItems) || "[]"); } catch (_) {}
