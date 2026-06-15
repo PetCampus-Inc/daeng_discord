@@ -67,7 +67,14 @@ jobs:
             cookies: (state.cookies || []).filter((cookie) =>
               String(cookie.domain || "").includes("inflearn.com")
             ),
-            origins: [],
+            origins: (state.origins || [])
+              .filter((origin) => origin.origin === "https://www.inflearn.com")
+              .map((origin) => ({
+                origin: origin.origin,
+                localStorage: (origin.localStorage || []).filter(
+                  (item) => item.name !== "hackle-workspace-config_rb1wDPCB"
+                ),
+              })),
           };
           fs.writeFileSync(output, JSON.stringify(compact));
           NODE
