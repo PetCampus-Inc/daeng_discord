@@ -1,24 +1,19 @@
-name: post-c
+name: inflearn-ping
 
 on:
   schedule:
-    # 10:00 KST daily (GitHub cron runs in UTC).
-    - cron: "0 1 * * *"
+    # Every 4 hours. Cron is UTC; KST = UTC + 9.
+    - cron: "0 */4 * * *"
   workflow_dispatch:
-    inputs:
-      dry_run:
-        description: "폼만 채우고 등록은 안 함 (true/false)"
-        type: boolean
-        default: false
 
 concurrency:
   group: inflearn-session
   cancel-in-progress: false
 
 jobs:
-  post:
+  ping:
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 10
     steps:
       - uses: actions/checkout@v4
 
@@ -39,19 +34,17 @@ jobs:
           echo "${{ secrets.INFLEARN_STATE_B64 }}" | base64 -d > scripts/inflearn/state.json
           test -s scripts/inflearn/state.json
 
-      - name: Post recruitment article to Inflearn
-        env:
-          INFLEARN_DRY_RUN: ${{ inputs.dry_run && '1' || '' }}
-        run: node scripts/inflearn/post.js
+      - name: Refresh session
+        run: node scripts/inflearn/ping.js
 
-      - name: Upload debug screenshots
+      - name: Upload debug screenshot
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: inflearn-debug-${{ github.run_id }}
-          path: /tmp/inflearn-debug
+          name: inflearn-ping-debug-${{ github.run_id }}
+          path: /tmp/inflearn-ping-debug
           if-no-files-found: ignore
-          retention-days: 7
+          retention-days: 3
 
       - name: Rotate INFLEARN_STATE_B64 secret with refreshed cookies
         if: success()
@@ -100,4 +93,4 @@ jobs:
           if [ -z "$WEBHOOK" ]; then exit 0; fi
           curl -s -X POST "$WEBHOOK" \
             -H 'Content-Type: application/json' \
-            -d "$(jq -n --arg msg "⚠️ Inflearn 자동 게시(post-c) 실패. 'node scripts/inflearn/login.js' 재로그인 후 INFLEARN_STATE_B64 재업로드. 로그: https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}" '{content: $msg}')"
+            -d "$(jq -n --arg msg "⚠️ Inflearn 세션 ping 실패 — 'npm run inflearn:login' 재로그인 후 INFLEARN_STATE_B64 재업로드 필요. 로그: https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}" '{content: $msg}')"
