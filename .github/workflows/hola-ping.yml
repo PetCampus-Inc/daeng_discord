@@ -2,8 +2,8 @@ name: hola-ping
 
 on:
   schedule:
-    # Every 2 hours, on the hour. Cron is UTC; KST = UTC + 9.
-    - cron: "0 */2 * * *"
+    # Every 3 hours, on the hour. Cron is UTC; KST = UTC + 9.
+    - cron: "0 */3 * * *"
   workflow_dispatch:
 
 concurrency:
