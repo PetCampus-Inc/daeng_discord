@@ -109,7 +109,8 @@ async function fillTags(page, tags) {
     return;
   }
 
-  const submit = page.getByRole("button", { name: "등록" }).last();
+  const submit = page.locator("button[type='submit']").last();
+  await submit.waitFor({ state: "visible", timeout: 15000 });
   await submit.click();
   await page.waitForTimeout(3500);
   await page.screenshot({ path: `${ART_DIR}/after-submit.png`, fullPage: true });
