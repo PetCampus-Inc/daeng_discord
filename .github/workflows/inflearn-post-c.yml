@@ -1,0 +1,74 @@
+name: post-c
+
+on:
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: "폼만 채우고 등록은 안 함 (true/false)"
+        type: boolean
+        default: false
+
+concurrency:
+  group: inflearn-session
+  cancel-in-progress: false
+
+jobs:
+  post:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install deps
+        run: npm ci --no-audit --no-fund
+
+      - name: Install Chromium
+        run: npx playwright install --with-deps chromium
+
+      - name: Restore Inflearn session
+        run: |
+          mkdir -p scripts/inflearn
+          echo "${{ secrets.INFLEARN_STATE_B64 }}" | base64 -d > scripts/inflearn/state.json
+          test -s scripts/inflearn/state.json
+
+      - name: Post recruitment article to Inflearn
+        env:
+          INFLEARN_DRY_RUN: ${{ inputs.dry_run && '1' || '' }}
+        run: node scripts/inflearn/post.js
+
+      - name: Upload debug screenshots
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: inflearn-debug-${{ github.run_id }}
+          path: /tmp/inflearn-debug
+          if-no-files-found: ignore
+          retention-days: 7
+
+      - name: Rotate INFLEARN_STATE_B64 secret with refreshed cookies
+        if: success()
+        env:
+          GH_TOKEN: ${{ secrets.GH_PAT }}
+        run: |
+          if [ -z "${GH_TOKEN}" ]; then
+            echo "GH_PAT 가 없어서 secret 갱신을 건너뜁니다."
+            exit 0
+          fi
+          NEW=$(base64 -w0 scripts/inflearn/state.json)
+          echo -n "$NEW" | gh secret set INFLEARN_STATE_B64 --repo "${{ github.repository }}"
+          echo "INFLEARN_STATE_B64 갱신 완료"
+
+      - name: Discord alert on failure
+        if: failure()
+        env:
+          WEBHOOK: ${{ secrets.DISCORD_WEBHOOK_URL }}
+        run: |
+          if [ -z "$WEBHOOK" ]; then exit 0; fi
+          curl -s -X POST "$WEBHOOK" \
+            -H 'Content-Type: application/json' \
+            -d "$(jq -n --arg msg "⚠️ Inflearn 자동 게시(post-c) 실패. 'node scripts/inflearn/login.js' 재로그인 후 INFLEARN_STATE_B64 재업로드. 로그: https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}" '{content: $msg}')"

@@ -12,7 +12,10 @@
     "hola:post:dry": "HOLA_DRY_RUN=1 HEADFUL=1 node scripts/hola/post.js",
     "hola:post:b": "HOLA_CONFIG=config-b.js node scripts/hola/post.js",
     "hola:post:b:dry": "HOLA_CONFIG=config-b.js HOLA_DRY_RUN=1 HEADFUL=1 node scripts/hola/post.js",
-    "hola:ping": "node scripts/hola/ping.js"
+    "hola:ping": "node scripts/hola/ping.js",
+    "inflearn:login": "node scripts/inflearn/login.js",
+    "inflearn:post": "node scripts/inflearn/post.js",
+    "inflearn:post:dry": "INFLEARN_DRY_RUN=1 HEADFUL=1 node scripts/inflearn/post.js"
   },
   "keywords": [],
   "author": "",
