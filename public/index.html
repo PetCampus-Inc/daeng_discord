@@ -429,6 +429,27 @@
       transition: background .15s, transform .15s;
     }
     .preset:hover { background: #fde7c8; transform: translateY(-1px); }
+    .bulk-custom {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      flex-wrap: wrap;
+      padding: 6px;
+      border: 1px solid #fde7c8;
+      border-radius: 12px;
+      background: #fffdfa;
+    }
+    .bulk-custom-label {
+      padding: 0 4px;
+      font-size: 0.78rem;
+      font-weight: 700;
+      color: var(--ink-soft);
+    }
+    .bulk-custom .wh-time-select {
+      min-width: 82px;
+      padding: 6px 8px;
+      border-radius: 8px;
+    }
 
     .mode-group {
       display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px;
@@ -1678,6 +1699,7 @@
       .wh-input { padding: 7px 10px; font-size: 0.88rem; }
       .presets { gap: 6px; }
       .preset { padding: 6px 12px; font-size: 0.82rem; }
+      .bulk-custom { width: 100%; }
 
       /* === Team weekly board: table → cards === */
       .board { padding: 18px 14px; border-radius: 20px; }
@@ -1867,6 +1889,14 @@
         <button class="preset" type="button" data-bulk="09:00-18:00">평일 일괄 9-18</button>
         <button class="preset" type="button" data-bulk="10:00-19:00">평일 일괄 10-19</button>
         <button class="preset" type="button" data-bulk="10:30-19:30">평일 일괄 10:30-19:30</button>
+        <div class="bulk-custom" aria-label="직접 일괄 입력">
+          <span class="bulk-custom-label">직접</span>
+          <select class="wh-time-select" id="bulkStart" aria-label="일괄 시작 시간"></select>
+          <span class="wh-time-sep">~</span>
+          <select class="wh-time-select" id="bulkEnd" aria-label="일괄 종료 시간"></select>
+          <button class="preset" type="button" id="bulkWeekdaysBtn">평일 적용</button>
+          <button class="preset" type="button" id="bulkAllDaysBtn">전체 적용</button>
+        </div>
         <button class="preset" type="button" id="clearAllBtn" style="background:#fff; color:#dc2626; border-color:#fecaca;">전체 삭제</button>
       </div>
 
@@ -2227,6 +2257,34 @@
         return `<option value="${t}" ${sel}>${label}</option>`;
       }).join("");
     }
+    function initBulkCustomControls() {
+      const start = document.getElementById("bulkStart");
+      const end = document.getElementById("bulkEnd");
+      if (!start || !end) return;
+      start.innerHTML = timeOptsHTML("09:00");
+      end.innerHTML = timeOptsHTML("18:00");
+    }
+    function applyBulkRange(start, end, { includeWeekend = false } = {}) {
+      const s = snapTime(start);
+      const e = snapTime(end);
+      if (!s || !e) {
+        toast("시작/종료 시간을 모두 선택해주세요");
+        return;
+      }
+      const sv = toVirtMin(+s.slice(0, 2) * 60 + +s.slice(3, 5));
+      const ev = toVirtMin(+e.slice(0, 2) * 60 + +e.slice(3, 5));
+      if (sv === null || ev === null || ev <= sv) {
+        toast("종료 시간이 시작 시간보다 늦어야 합니다");
+        return;
+      }
+      document.querySelectorAll(".wh-row").forEach((row, i) => {
+        if (includeWeekend || i < 5) {
+          row.querySelector(".wh-start").value = s;
+          row.querySelector(".wh-end").value = e;
+        }
+      });
+      markHoursDirty();
+    }
     function parseUnavailList(text) {
       if (!text) return [];
       const pad = (n) => String(n).padStart(2, "0");
@@ -2304,6 +2362,7 @@
       document.getElementById("weekHoursList").innerHTML = html;
       document.getElementById("weekBadge").textContent = `${activeWeekStart()} 주차`;
     }
+    initBulkCustomControls();
     function collectWeekHoursInputs() {
       const rows = document.querySelectorAll(".wh-row");
       const items = [];
@@ -2332,14 +2391,20 @@
       const m = value.match(/^(\d{2}):(\d{2})-(\d{2}):(\d{2})$/);
       if (!m) return;
       const s = `${m[1]}:${m[2]}`, e2 = `${m[3]}:${m[4]}`;
-      if (!HOUR_OPTIONS.includes(s) || !HOUR_OPTIONS.includes(e2)) return;
-      document.querySelectorAll(".wh-row").forEach((row, i) => {
-        if (i < 5) {
-          row.querySelector(".wh-start").value = s;
-          row.querySelector(".wh-end").value = e2;
-        }
-      });
-      markHoursDirty();
+      applyBulkRange(s, e2);
+    });
+    document.getElementById("bulkWeekdaysBtn").addEventListener("click", () => {
+      applyBulkRange(
+        document.getElementById("bulkStart").value,
+        document.getElementById("bulkEnd").value
+      );
+    });
+    document.getElementById("bulkAllDaysBtn").addEventListener("click", () => {
+      applyBulkRange(
+        document.getElementById("bulkStart").value,
+        document.getElementById("bulkEnd").value,
+        { includeWeekend: true }
+      );
     });
     document.getElementById("clearAllBtn").addEventListener("click", () => {
       document.querySelectorAll(".wh-row").forEach((row) => {
@@ -3751,6 +3816,19 @@
           const decidedLine = b.decidedBy && b.decidedAt
             ? `<div class="bug-meta">${STATUS_LABEL[b.status] || b.status} by <strong>${esc(b.decidedBy)}</strong> · ${esc(fmtDate(b.decidedAt))}</div>`
             : "";
+          const automationLine = (() => {
+            if (!b.automationStatus) return "";
+            if (b.automationUrl) {
+              return `<div class="bug-meta">자동화: <a href="${esc(b.automationUrl)}" target="_blank" rel="noopener">${esc(b.automationStatus)}</a></div>`;
+            }
+            if (b.automationStatus === "failed") {
+              return `<div class="bug-meta">자동화 실패: ${esc(b.automationError || "")}</div>`;
+            }
+            if (b.automationStatus === "not_configured") {
+              return `<div class="bug-meta">자동화: 설정 필요</div>`;
+            }
+            return `<div class="bug-meta">자동화: ${esc(b.automationStatus)}</div>`;
+          })();
           const actions = (() => {
             const a = [];
             if (b.status === "pending") {
@@ -3775,6 +3853,7 @@
               ${pageLink ? `<div class="bug-meta">${pageLink}</div>` : ""}
               ${b.description ? `<div class="bug-desc">${esc(b.description)}</div>` : ""}
               ${decidedLine}
+              ${automationLine}
               ${actions}
             </div>`;
         })

@@ -133,9 +133,15 @@ async function initDatabase() {
         decided_by VARCHAR(100) DEFAULT '',
         decided_at TIMESTAMP,
         decision_note TEXT DEFAULT '',
+        automation_status VARCHAR(30) DEFAULT '',
+        automation_url TEXT DEFAULT '',
+        automation_error TEXT DEFAULT '',
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
       )
     `);
+    await pool.query(`ALTER TABLE bug_reports ADD COLUMN IF NOT EXISTS automation_status VARCHAR(30) DEFAULT ''`);
+    await pool.query(`ALTER TABLE bug_reports ADD COLUMN IF NOT EXISTS automation_url TEXT DEFAULT ''`);
+    await pool.query(`ALTER TABLE bug_reports ADD COLUMN IF NOT EXISTS automation_error TEXT DEFAULT ''`);
     await pool.query(`
       CREATE TABLE IF NOT EXISTS team_members (
         id SERIAL PRIMARY KEY,
@@ -1579,29 +1585,119 @@ app.delete("/api/quick-links/:id", async (req, res) => {
 });
 
 // Bug reports
+function mapBugRow(r) {
+  return {
+    id: r.id,
+    title: r.title,
+    description: r.description || "",
+    pageUrl: r.page_url || "",
+    reporterName: r.reporter_name || "",
+    status: r.status,
+    decidedBy: r.decided_by || "",
+    decidedAt: r.decided_at,
+    decisionNote: r.decision_note || "",
+    automationStatus: r.automation_status || "",
+    automationUrl: r.automation_url || "",
+    automationError: r.automation_error || "",
+    createdAt: r.created_at,
+  };
+}
+
+function bugIssueBody(bug) {
+  return [
+    "Approved bug report from Knockdog admin.",
+    "",
+    `Reporter: ${bug.reporter_name || "익명"}`,
+    `Page: ${bug.page_url || "-"}`,
+    `Approved by: ${bug.decided_by || "-"}`,
+    `Approved at: ${bug.decided_at ? new Date(bug.decided_at).toISOString() : "-"}`,
+    "",
+    "Description:",
+    bug.description || "-",
+  ].join("\n");
+}
+
+async function createGitHubIssueForBug(bug) {
+  const repo = process.env.BUG_GITHUB_REPO || process.env.GITHUB_REPOSITORY || "";
+  const token = process.env.BUG_GITHUB_TOKEN || process.env.GH_PAT || process.env.GITHUB_TOKEN || "";
+  if (!repo || !token) return null;
+
+  const resp = await fetch(`https://api.github.com/repos/${repo}/issues`, {
+    method: "POST",
+    headers: {
+      Accept: "application/vnd.github+json",
+      Authorization: `Bearer ${token}`,
+      "Content-Type": "application/json",
+      "User-Agent": "daeng-discord-admin",
+      "X-GitHub-Api-Version": "2022-11-28",
+    },
+    body: JSON.stringify({
+      title: `[bug] ${bug.title}`,
+      body: bugIssueBody(bug),
+      labels: ["bug", "admin-approved"],
+    }),
+  });
+  const data = await resp.json().catch(() => ({}));
+  if (!resp.ok) {
+    throw new Error(data.message || `GitHub issue create failed (${resp.status})`);
+  }
+  return data.html_url || data.url || "";
+}
+
+async function notifyBugAutomationWebhook(bug, issueUrl) {
+  const url = process.env.BUG_AUTOMATION_WEBHOOK_URL || "";
+  if (!url) return null;
+  const headers = { "Content-Type": "application/json" };
+  const token = process.env.BUG_AUTOMATION_WEBHOOK_TOKEN || "";
+  if (token) headers.Authorization = `Bearer ${token}`;
+  const resp = await fetch(url, {
+    method: "POST",
+    headers,
+    body: JSON.stringify({
+      event: "bug.approved",
+      bug: mapBugRow(bug),
+      issueUrl: issueUrl || "",
+    }),
+  });
+  if (!resp.ok) {
+    const text = await resp.text().catch(() => "");
+    throw new Error(`automation webhook failed (${resp.status}) ${text.slice(0, 200)}`);
+  }
+  return "webhook";
+}
+
+async function runBugApprovalAutomation(bug) {
+  const hasIssueConfig = Boolean(
+    (process.env.BUG_GITHUB_REPO || process.env.GITHUB_REPOSITORY) &&
+    (process.env.BUG_GITHUB_TOKEN || process.env.GH_PAT || process.env.GITHUB_TOKEN)
+  );
+  const hasWebhookConfig = Boolean(process.env.BUG_AUTOMATION_WEBHOOK_URL);
+  if (!hasIssueConfig && !hasWebhookConfig) {
+    return { status: "not_configured", url: "", error: "" };
+  }
+
+  const issueUrl = await createGitHubIssueForBug(bug);
+  await notifyBugAutomationWebhook(bug, issueUrl);
+  return {
+    status: issueUrl ? "issue_created" : "webhook_sent",
+    url: issueUrl || "",
+    error: "",
+  };
+}
+
 app.get("/api/bugs", async (req, res) => {
   try {
     const result = await pool.query(
       `SELECT id, title, description, page_url, reporter_name, status,
-              decided_by, decided_at, decision_note, created_at
+              decided_by, decided_at, decision_note,
+              automation_status, automation_url, automation_error, created_at
          FROM bug_reports
         ORDER BY
           CASE status WHEN 'pending' THEN 0 WHEN 'approved' THEN 1 WHEN 'rejected' THEN 2 ELSE 3 END,
           created_at DESC`
     );
     res.json({
-      bugs: result.rows.map((r) => ({
-        id: r.id,
-        title: r.title,
-        description: r.description || "",
-        pageUrl: r.page_url || "",
-        reporterName: r.reporter_name || "",
-        status: r.status,
-        decidedBy: r.decided_by || "",
-        decidedAt: r.decided_at,
-        decisionNote: r.decision_note || "",
-        createdAt: r.created_at,
-      })),
+      bugs: result.rows.map(mapBugRow),
     });
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -1667,21 +1763,28 @@ app.patch("/api/bugs/:id", async (req, res) => {
       [nextStatus, decidedBy, decidedAt, note, id]
     );
     if (!result.rows.length) return res.status(404).json({ error: "not found" });
-    const r = result.rows[0];
+    let r = result.rows[0];
+    if (action === "approve") {
+      let automation;
+      try {
+        automation = await runBugApprovalAutomation(r);
+      } catch (e) {
+        automation = { status: "failed", url: "", error: e.message };
+      }
+      const autoResult = await pool.query(
+        `UPDATE bug_reports
+            SET automation_status = $1,
+                automation_url = $2,
+                automation_error = $3
+          WHERE id = $4
+          RETURNING *`,
+        [automation.status, automation.url || "", automation.error || "", id]
+      );
+      r = autoResult.rows[0] || r;
+    }
     res.json({
       success: true,
-      bug: {
-        id: r.id,
-        title: r.title,
-        description: r.description || "",
-        pageUrl: r.page_url || "",
-        reporterName: r.reporter_name || "",
-        status: r.status,
-        decidedBy: r.decided_by || "",
-        decidedAt: r.decided_at,
-        decisionNote: r.decision_note || "",
-        createdAt: r.created_at,
-      },
+      bug: mapBugRow(r),
     });
   } catch (err) {
     res.status(500).json({ error: err.message });
