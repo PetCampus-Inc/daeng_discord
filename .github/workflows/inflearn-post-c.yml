@@ -68,12 +68,19 @@ jobs:
               String(cookie.domain || "").includes("inflearn.com")
             ),
             origins: (state.origins || [])
-              .filter((origin) => origin.origin === "https://www.inflearn.com")
+              .filter((origin) => {
+                try {
+                  return new URL(origin.origin).hostname.endsWith("inflearn.com");
+                } catch (_) {
+                  return false;
+                }
+              })
               .map((origin) => ({
                 origin: origin.origin,
                 localStorage: (origin.localStorage || []).filter(
-                  (item) => item.name !== "hackle-workspace-config_rb1wDPCB"
+                  (item) => !String(item.name || "").startsWith("hackle-workspace-config_")
                 ),
+                indexedDB: origin.indexedDB || [],
               })),
           };
           fs.writeFileSync(output, JSON.stringify(compact));
