@@ -6,7 +6,7 @@ const path = require("path");
 const fs = require("fs");
 
 const STATE_PATH = path.join(__dirname, "state.json");
-const INFLEARN_URL = "https://www.inflearn.com/community/post/new?category=PROJECT";
+const INFLEARN_URL = "https://www.inflearn.com/community/projects";
 const UA =
   "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36";
 
@@ -42,7 +42,7 @@ async function newContext(browser) {
 
   console.log("\n=========================================================");
   console.log("브라우저에서 Inflearn 로그인을 완료해주세요.");
-  console.log("글쓰기 화면이 보이면 터미널에서 ENTER를 눌러 세션을 저장합니다.");
+  console.log("프로젝트 목록/글쓰기 화면에서 로그인된 상태가 확인되면 ENTER를 눌러 세션을 저장합니다.");
   console.log("취소하려면 Ctrl+C");
   console.log("=========================================================\n");
 
