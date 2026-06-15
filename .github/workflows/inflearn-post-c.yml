@@ -59,7 +59,19 @@ jobs:
             echo "GH_PAT 가 없어서 secret 갱신을 건너뜁니다."
             exit 0
           fi
-          NEW=$(base64 -w0 scripts/inflearn/state.json)
+          node - scripts/inflearn/state.json /tmp/inflearn-state-compact.json <<'NODE'
+          const fs = require("fs");
+          const [, , input, output] = process.argv;
+          const state = JSON.parse(fs.readFileSync(input, "utf8"));
+          const compact = {
+            cookies: (state.cookies || []).filter((cookie) =>
+              String(cookie.domain || "").includes("inflearn.com")
+            ),
+            origins: [],
+          };
+          fs.writeFileSync(output, JSON.stringify(compact));
+          NODE
+          NEW=$(base64 -w0 /tmp/inflearn-state-compact.json)
           echo -n "$NEW" | gh secret set INFLEARN_STATE_B64 --repo "${{ github.repository }}"
           echo "INFLEARN_STATE_B64 갱신 완료"
 

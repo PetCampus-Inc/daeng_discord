@@ -79,10 +79,14 @@ async function fillTags(page, tags) {
   const page = await ctx.newPage();
 
   const responses = [];
+  const projectResponses = [];
   page.on("response", (res) => {
     const url = res.url();
     if (url.includes("inflearn.com")) {
       responses.push({ method: res.request().method(), status: res.status(), url });
+    }
+    if (url.includes("ucc-api.inflearn.com/client/api/v1/projects")) {
+      projectResponses.push(res);
     }
   });
 
@@ -116,6 +120,32 @@ async function fillTags(page, tags) {
   await page.screenshot({ path: `${ART_DIR}/after-submit.png`, fullPage: true });
 
   const bodyText = await page.locator("body").innerText().catch(() => "");
+  const visibleErrors = await page.evaluate(() => {
+    const selectors = [
+      "[role='alert']",
+      "[class*='error']",
+      "[class*='Error']",
+      "[class*='modal']",
+      "[class*='Modal']",
+    ];
+    const texts = [];
+    document.querySelectorAll(selectors.join(",")).forEach((el) => {
+      const text = (el.innerText || "").trim();
+      if (text && text.length < 500) texts.push(text);
+    });
+    return [...new Set(texts)];
+  }).catch(() => []);
+  for (const res of projectResponses) {
+    const body = await res.text().catch((e) => `<<body read failed: ${e.message}>>`);
+    console.log(`Inflearn project API ${res.status()}: ${body.slice(0, 2000)}`);
+  }
+  if (visibleErrors.length) {
+    console.log("Visible messages:", visibleErrors);
+    if (visibleErrors.some((text) => /error saving post|오류|실패|error/i.test(text))) {
+      console.error("Inflearn 화면에 저장 실패 메시지가 표시됐습니다.");
+      process.exit(5);
+    }
+  }
   if (/로그인|회원가입/.test(bodyText) && page.url().includes("/login")) {
     console.error("Inflearn 로그인 세션이 만료된 것 같습니다. scripts/inflearn/login.js 로 재로그인하세요.");
     process.exit(3);
