@@ -108,7 +108,7 @@ async function fillTags(page, tags) {
   await page.screenshot({ path: `${ART_DIR}/before-submit.png`, fullPage: true });
   if (dryRun) {
     console.log("DRY RUN — 등록 안 함.");
-    await ctx.storageState({ path: STATE_PATH }).catch(() => {});
+    await ctx.storageState({ path: STATE_PATH, indexedDB: true }).catch(() => {});
     await browser.close();
     return;
   }
@@ -156,7 +156,7 @@ async function fillTags(page, tags) {
   console.log("최종 URL:", page.url());
   console.log(`스크린샷: ${ART_DIR}/before-submit.png, ${ART_DIR}/after-submit.png`);
 
-  await ctx.storageState({ path: STATE_PATH }).catch((e) => {
+  await ctx.storageState({ path: STATE_PATH, indexedDB: true }).catch((e) => {
     console.warn("세션 저장 실패:", e.message);
   });
   await browser.close();

@@ -52,7 +52,7 @@ async function newContext(browser) {
     process.stdin.once("data", resolve);
   });
 
-  await ctx.storageState({ path: STATE_PATH });
+  await ctx.storageState({ path: STATE_PATH, indexedDB: true });
   console.log(`세션 저장 → ${STATE_PATH}`);
   await browser.close();
 })().catch((err) => {

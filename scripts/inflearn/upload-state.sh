@@ -23,6 +23,7 @@ const compact = {
       localStorage: (origin.localStorage || []).filter(
         (item) => item.name !== "hackle-workspace-config_rb1wDPCB"
       ),
+      indexedDB: origin.indexedDB || [],
     })),
 };
 fs.writeFileSync(output, JSON.stringify(compact));
