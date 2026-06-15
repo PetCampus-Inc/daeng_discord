@@ -844,6 +844,26 @@ app.post("/api/checkin", async (req, res) => {
       (taskItems && taskItems.length > 0) ||
       (typeof blockers === "string" && blockers.trim() !== "");
 
+    if (isCheckinWrite && hasCheckinContent) {
+      const hours = await pool.query(
+        `SELECT start_time, end_time, hours_text, unavailable_text
+           FROM checkins
+          WHERE check_date = $1 AND user_name = $2`,
+        [date, userName]
+      );
+      const h = hours.rows[0];
+      const hasWorkHours =
+        h &&
+        (h.hours_text || "").trim() &&
+        dailyMinutes(h.start_time, h.end_time, h.unavailable_text) !== null;
+      if (!hasWorkHours) {
+        return res.status(400).json({
+          error: "이번 주 작업 시간을 먼저 저장해야 체크인할 수 있어요.",
+          code: "WEEK_HOURS_REQUIRED",
+        });
+      }
+    }
+
     await pool.query(
       `INSERT INTO checkins (check_date, user_name)
        VALUES ($1, $2)
@@ -906,6 +926,113 @@ app.post("/api/checkin", async (req, res) => {
   } catch (err) {
     console.error("Checkin error:", err.message);
     res.status(500).json({ error: err.message });
+  }
+});
+
+app.patch("/api/checkin/user", async (req, res) => {
+  const clientDb = await pool.connect();
+  try {
+    const { fromUserName, toUserName, checkDate } = req.body || {};
+    const fromName = typeof fromUserName === "string" ? fromUserName.trim() : "";
+    const toName = typeof toUserName === "string" ? toUserName.trim() : "";
+    if (!fromName || !toName) {
+      return res.status(400).json({ error: "fromUserName and toUserName required" });
+    }
+    if (fromName === toName) {
+      return res.json({ success: true, unchanged: true, checkDate: checkDate || todayKST() });
+    }
+
+    let date = todayKST();
+    if (checkDate) {
+      if (!/^\d{4}-\d{2}-\d{2}$/.test(checkDate)) {
+        return res.status(400).json({ error: "checkDate must be YYYY-MM-DD" });
+      }
+      date = checkDate;
+    }
+    if (date !== todayKST()) {
+      return res.status(400).json({ error: "오늘 체크인만 이름을 변경할 수 있습니다" });
+    }
+
+    await clientDb.query("BEGIN");
+    const existing = await clientDb.query(
+      `SELECT *
+         FROM checkins
+        WHERE check_date = $1 AND user_name = $2
+        FOR UPDATE`,
+      [date, fromName]
+    );
+    if (!existing.rows.length) {
+      await clientDb.query("ROLLBACK");
+      return res.status(404).json({ error: "checkin not found" });
+    }
+    const source = existing.rows[0];
+
+    const conflict = await clientDb.query(
+      `SELECT *
+         FROM checkins
+        WHERE check_date = $1 AND user_name = $2
+        FOR UPDATE`,
+      [date, toName]
+    );
+    if (conflict.rows.length) {
+      const target = conflict.rows[0];
+      const targetHasCheckin =
+        (target.done || "").trim() ||
+        (target.tasks || "").trim() ||
+        (target.blockers || "").trim();
+      if (targetHasCheckin) {
+        await clientDb.query("ROLLBACK");
+        return res.status(409).json({
+          error: `${toName} 님의 오늘 체크인이 이미 있어요. 먼저 대상 체크인을 정리한 뒤 다시 시도해주세요.`,
+          code: "CHECKIN_USER_EXISTS",
+        });
+      }
+      await clientDb.query(
+        `UPDATE checkins
+            SET done = $1,
+                tasks = $2,
+                blockers = $3,
+                link_url = $4,
+                checked_in_at = $5,
+                updated_at = CURRENT_TIMESTAMP
+          WHERE id = $6`,
+        [
+          source.done || "",
+          source.tasks || "",
+          source.blockers || "",
+          source.link_url || "",
+          source.checked_in_at || null,
+          target.id,
+        ]
+      );
+      await clientDb.query(
+        `UPDATE checkins
+            SET done = '',
+                tasks = '',
+                blockers = '',
+                link_url = '',
+                checked_in_at = NULL,
+                updated_at = CURRENT_TIMESTAMP
+          WHERE id = $1`,
+        [source.id]
+      );
+    } else {
+      await clientDb.query(
+        `UPDATE checkins
+            SET user_name = $1,
+                updated_at = CURRENT_TIMESTAMP
+          WHERE id = $2`,
+        [toName, source.id]
+      );
+    }
+    await clientDb.query("COMMIT");
+    res.json({ success: true, checkDate: date, fromUserName: fromName, toUserName: toName });
+  } catch (err) {
+    await clientDb.query("ROLLBACK").catch(() => {});
+    console.error("Checkin user rename error:", err.message);
+    res.status(500).json({ error: err.message });
+  } finally {
+    clientDb.release();
   }
 });
 

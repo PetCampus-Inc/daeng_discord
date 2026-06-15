@@ -2010,7 +2010,11 @@
 
   <div class="modal-backdrop" id="editModal">
     <div class="modal-content">
-      <h3>체크인 수정 — <span class="who" id="editModalName"></span></h3>
+      <h3>체크인 수정</h3>
+      <div class="field">
+        <label class="field-label">체크인한 사람</label>
+        <select class="input" id="editUserName"></select>
+      </div>
       <div class="field">
         <label class="field-label">한 일 <span class="hint">항목별 URL (필수)</span></label>
         <div class="item-list" id="editDoneItems"></div>
@@ -2814,6 +2818,11 @@
         toast("한 일 / 할 일 / 블락커 중 하나는 입력해주세요");
         return;
       }
+      if (!checkinCutoff) {
+        toast("이번 주 작업 시간을 먼저 저장한 뒤 체크인해주세요");
+        document.getElementById("hoursCard").scrollIntoView({ behavior: "smooth", block: "start" });
+        return;
+      }
 
       const willBeLate =
         !!checkinCutoff && nowMinKST() > checkinCutoff.cutoffMin;
@@ -2841,7 +2850,12 @@
           }),
         });
         const data = await r.json().catch(() => ({}));
-        if (!r.ok) throw new Error((data && data.error) || "fail");
+        if (!r.ok) {
+          if (data && data.code === "WEEK_HOURS_REQUIRED") {
+            document.getElementById("hoursCard").scrollIntoView({ behavior: "smooth", block: "start" });
+          }
+          throw new Error((data && data.error) || "fail");
+        }
         toast(
           data.checkin && data.checkin.isLate
             ? "체크인 완료 (Delayed로 기록)"
@@ -2884,7 +2898,10 @@
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ userName, checkDate: today, done: [], tasks: [], blockers: "" }),
         });
-        if (!r.ok) throw new Error((await r.json()).error || "fail");
+        if (!r.ok) {
+          const data = await r.json().catch(() => ({}));
+          throw new Error((data && data.error) || "fail");
+        }
         clearCheckinOnly();
         loadBoard();
         loadWeek();
@@ -2995,10 +3012,8 @@
             const tasksHtml = renderItems(tasksRows);
             const isMine =
               myName && (c.userName || "").trim().toLowerCase() === myName;
-            const controlsHtml = isMine
-              ? `<button class="team-card-edit" type="button" title="내 체크인 수정">✎</button>
-                 <button class="team-card-delete" type="button" data-user="${esc(c.userName)}" title="내 체크인 삭제">✕</button>`
-              : "";
+            const controlsHtml = `<button class="team-card-edit" type="button" title="체크인 수정">✎</button>
+              ${isMine ? `<button class="team-card-delete" type="button" data-user="${esc(c.userName)}" title="내 체크인 삭제">✕</button>` : ""}`;
             return `
             <div class="team-card ${isMine ? "mine" : ""}"
                  data-user="${esc(c.userName)}"
@@ -3039,10 +3054,6 @@
       if (editBtn) {
         const card = editBtn.closest(".team-card");
         if (!card) return;
-        if (card.dataset.mine !== "1") {
-          toast("다른 사람의 체크인은 오늘의 팀 보드에서 수정할 수 없어요");
-          return;
-        }
         let doneItems = [], tasksItems = [];
         try { doneItems = JSON.parse(card.dataset.doneItems || "[]"); } catch (_) {}
         try { tasksItems = JSON.parse(card.dataset.tasksItems || "[]"); } catch (_) {}
@@ -3117,9 +3128,18 @@
 
     /* ---------------- Edit modal (today's team board) ---------------- */
     let editTargetUser = null;
+    function userOptionsHTML(selected) {
+      const names = [...new Set([
+        selected,
+        ...TEAM_MEMBERS,
+      ].filter(Boolean))];
+      return names.map((name) =>
+        `<option value="${esc(name)}" ${name === selected ? "selected" : ""}>${esc(name)}</option>`
+      ).join("");
+    }
     function openEditModal({ userName, doneItems, tasksItems, blockers }) {
       editTargetUser = userName;
-      document.getElementById("editModalName").textContent = userName;
+      document.getElementById("editUserName").innerHTML = userOptionsHTML(userName);
       renderItemList("editDoneItems", doneItems && doneItems.length ? doneItems : null, "예: KDQA-1101 마무리");
       renderItemList("editTasksItems", tasksItems && tasksItems.length ? tasksItems : null, "예: KDQA-1234 PR 리뷰");
       document.getElementById("editBlockers").value = blockers || "";
@@ -3400,19 +3420,41 @@
 
     document.getElementById("editSaveBtn").addEventListener("click", async () => {
       if (!editTargetUser) return;
+      const nextUserName = document.getElementById("editUserName").value.trim();
       const doneItems = collectItemList("editDoneItems");
       const tasksItems = collectItemList("editTasksItems");
       const blockers = document.getElementById("editBlockers").value.trim();
+      if (!nextUserName) {
+        toast("체크인한 사람을 선택해주세요");
+        return;
+      }
       if (doneItems.length === 0 && tasksItems.length === 0 && !blockers) {
         toast("한 일 / 할 일 / 블락커 중 하나는 입력해주세요");
         return;
       }
       try {
+        if (nextUserName !== editTargetUser) {
+          const renameRes = await fetch("/api/checkin/user", {
+            method: "PATCH",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              fromUserName: editTargetUser,
+              toUserName: nextUserName,
+              checkDate: todayKSTStr(),
+            }),
+          });
+          const renameData = await renameRes.json().catch(() => ({}));
+          if (!renameRes.ok) {
+            throw new Error((renameData && renameData.error) || "이름 변경 실패");
+          }
+          rememberUser(nextUserName);
+          editTargetUser = nextUserName;
+        }
         const r = await fetch("/api/checkin", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
-            userName: editTargetUser,
+            userName: nextUserName,
             checkDate: todayKSTStr(),
             done: doneItems,
             tasks: tasksItems,
@@ -3420,7 +3462,7 @@
           }),
         });
         if (!r.ok) throw new Error((await r.json()).error || "fail");
-        toast(`${editTargetUser} 체크인 수정 완료`);
+        toast(`${nextUserName} 체크인 수정 완료`);
         closeEditModal();
         loadBoard();
         loadWeek();
