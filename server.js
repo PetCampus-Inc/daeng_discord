@@ -343,12 +343,54 @@ const FORUM_CHANNEL_ID = process.env.FORUM_CHANNEL_ID;
 const REPORT_CHANNEL_ID = process.env.REPORT_CHANNEL_ID;
 const CORE_ROLE_ID = process.env.CORE_ROLE_ID;
 const CONTRIBUTOR_ROLE_ID = process.env.CONTRIBUTOR_ROLE_ID;
+const DISCORD_ACTION_WEBHOOK_URL = process.env.DISCORD_ACTION_WEBHOOK_URL || "";
 
 const REQUIRED_COUNT = 3;
 const THREAD_SCAN_LIMIT = 100;
 const GUILD_ID = process.env.GUILD_ID;
 const NOTION_LINK =
   "https://www.notion.so/2de6c15f67fb8039b0f7e6e9c7fe202f?v=2de6c15f67fb815e809d000ce19fbfe7";
+
+function truncateForDiscord(value, max = 900) {
+  const text = String(value || "").trim();
+  if (!text) return "-";
+  return text.length > max ? `${text.slice(0, max - 1)}…` : text;
+}
+
+function actionField(name, value, inline = false) {
+  return {
+    name,
+    value: truncateForDiscord(value, inline ? 240 : 900),
+    inline,
+  };
+}
+
+function emitActionAlert(event) {
+  if (!DISCORD_ACTION_WEBHOOK_URL) return;
+  const fields = (event.fields || [])
+    .filter((f) => f && f.name)
+    .slice(0, 12)
+    .map((f) => actionField(f.name, f.value, Boolean(f.inline)));
+  const payload = {
+    username: "Knockdog Admin",
+    embeds: [
+      {
+        title: event.title || "Admin action",
+        description: truncateForDiscord(event.description || "", 1800),
+        color: event.color || 0x5865f2,
+        fields,
+        timestamp: new Date().toISOString(),
+      },
+    ],
+  };
+  fetch(DISCORD_ACTION_WEBHOOK_URL, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(payload),
+  }).catch((err) => {
+    console.warn("Discord action alert failed:", err.message);
+  });
+}
 
 function validateConfig() {
   const missing = [];
@@ -646,6 +688,14 @@ app.post("/api/members", async (req, res) => {
        ON CONFLICT (name) DO UPDATE SET archived = FALSE, team = COALESCE(NULLIF($2, ''), team_members.team)`,
       [name, team]
     );
+    emitActionAlert({
+      title: "팀원 추가/복원",
+      description: `${name} 님이 팀원 목록에 추가되거나 복원되었습니다.`,
+      fields: [
+        { name: "이름", value: name, inline: true },
+        { name: "팀", value: team || "-", inline: true },
+      ],
+    });
     res.json({ success: true });
   } catch (err) {
     console.error("Members POST error:", err.message);
@@ -735,6 +785,14 @@ app.patch("/api/members/:name", async (req, res) => {
     }
     if (!isRename) {
       await c.query("COMMIT");
+      emitActionAlert({
+        title: "팀원 정보 수정",
+        description: `${dbOldName} 님의 팀 정보가 수정되었습니다.`,
+        fields: [
+          { name: "이름", value: dbOldName, inline: true },
+          { name: "팀", value: newTeam || "-", inline: true },
+        ],
+      });
       return res.json({ success: true, oldName: dbOldName, newName, team: newTeam });
     }
     await c.query(
@@ -766,6 +824,15 @@ app.patch("/api/members/:name", async (req, res) => {
       [newName, dbOldName]
     );
     await c.query("COMMIT");
+    emitActionAlert({
+      title: "팀원 이름 변경",
+      description: `${dbOldName} → ${newName}`,
+      fields: [
+        { name: "기존 이름", value: dbOldName, inline: true },
+        { name: "새 이름", value: newName, inline: true },
+        { name: "팀", value: newTeam || "-", inline: true },
+      ],
+    });
     res.json({ success: true, oldName: dbOldName, newName, team: newTeam });
   } catch (err) {
     await c.query("ROLLBACK").catch(() => {});
@@ -784,6 +851,12 @@ app.delete("/api/members/:name", async (req, res) => {
       `UPDATE team_members SET archived = TRUE WHERE name = $1`,
       [name]
     );
+    emitActionAlert({
+      title: "팀원 아카이브",
+      description: `${name} 님이 팀원 목록에서 숨김 처리되었습니다.`,
+      fields: [{ name: "이름", value: name, inline: true }],
+      color: 0xf1c40f,
+    });
     res.json({ success: true });
   } catch (err) {
     console.error("Members DELETE error:", err.message);
@@ -870,6 +943,20 @@ app.post("/api/checkin", async (req, res) => {
       }
     }
 
+    const beforeResult = await pool.query(
+      `SELECT start_time, end_time, done, tasks, blockers, link_url
+         FROM checkins
+        WHERE check_date = $1 AND user_name = $2`,
+      [date, userName]
+    );
+    const before = beforeResult.rows[0] || null;
+    const beforeHadContent = Boolean(
+      before &&
+        ((before.done || "").trim() ||
+          (before.tasks || "").trim() ||
+          (before.blockers || "").trim())
+    );
+
     await pool.query(
       `INSERT INTO checkins (check_date, user_name)
        VALUES ($1, $2)
@@ -911,6 +998,34 @@ app.post("/api/checkin", async (req, res) => {
     const r = result.rows[0] || {};
     const doneRows = itemsFromStorage(r.done, r.link_url);
     const tasksRows = itemsFromStorage(r.tasks, "");
+    const afterHadContent = Boolean(
+      (r.done || "").trim() || (r.tasks || "").trim() || (r.blockers || "").trim()
+    );
+    let alertTitle = "체크인 수정";
+    let alertColor = 0x5865f2;
+    if (isCheckinWrite && afterHadContent && !beforeHadContent) {
+      alertTitle = "체크인 등록";
+      alertColor = 0x2ecc71;
+    } else if (isCheckinWrite && !afterHadContent && beforeHadContent) {
+      alertTitle = "체크인 삭제";
+      alertColor = 0xe74c3c;
+    } else if (!isCheckinWrite) {
+      alertTitle = "체크인 시간 수정";
+      alertColor = 0xf1c40f;
+    }
+    emitActionAlert({
+      title: alertTitle,
+      description: `${userName} 님의 ${date} 체크인이 변경되었습니다.`,
+      color: alertColor,
+      fields: [
+        { name: "이름", value: userName, inline: true },
+        { name: "날짜", value: date, inline: true },
+        { name: "시간", value: `${r.start_time || "-"} ~ ${r.end_time || "-"}`, inline: true },
+        { name: "완료", value: itemsFlatText(doneRows) || "-" },
+        { name: "예정", value: itemsFlatText(tasksRows) || "-" },
+        { name: "블로커", value: r.blockers || "-" },
+      ],
+    });
     res.json({
       success: true,
       checkDate: date,
@@ -1032,6 +1147,16 @@ app.patch("/api/checkin/user", async (req, res) => {
       );
     }
     await clientDb.query("COMMIT");
+    emitActionAlert({
+      title: "체크인 작성자 변경",
+      description: `${fromName} 님의 ${date} 체크인이 ${toName} 님에게 이동되었습니다.`,
+      fields: [
+        { name: "날짜", value: date, inline: true },
+        { name: "기존 이름", value: fromName, inline: true },
+        { name: "새 이름", value: toName, inline: true },
+      ],
+      color: 0xf1c40f,
+    });
     res.json({ success: true, checkDate: date, fromUserName: fromName, toUserName: toName });
   } catch (err) {
     await clientDb.query("ROLLBACK").catch(() => {});
@@ -1232,6 +1357,24 @@ app.post("/api/checkin/week-hours", async (req, res) => {
         [h.date, userName, text, unavailable, parsed.start, parsed.end]
       );
     }
+    emitActionAlert({
+      title: "주간 작업 시간 저장",
+      description: `${userName} 님의 작업 시간이 저장되었습니다.`,
+      fields: [
+        { name: "이름", value: userName, inline: true },
+        { name: "저장 건수", value: String(hours.length), inline: true },
+        {
+          name: "날짜/시간",
+          value: hours
+            .map((h) => {
+              const unavailable = (h.unavailable || "").trim();
+              return `${h.date}: ${(h.text || "").trim() || "-"}${unavailable ? ` / 불가 ${unavailable}` : ""}`;
+            })
+            .join("\n"),
+        },
+      ],
+      color: 0xf1c40f,
+    });
     res.json({ success: true, saved: hours.length });
   } catch (err) {
     console.error("Week hours error:", err.message);
@@ -1370,6 +1513,15 @@ app.post("/api/memos", async (req, res) => {
       "INSERT INTO memos (week_key, content, color, author) VALUES ($1, $2, $3, $4) RETURNING *",
       [weekKey, content, color || "yellow", author || "Anonymous"]
     );
+    emitActionAlert({
+      title: "메모 작성",
+      description: `${author || "Anonymous"} 님이 ${weekKey} 주차 메모를 작성했습니다.`,
+      fields: [
+        { name: "주차", value: weekKey, inline: true },
+        { name: "작성자", value: author || "Anonymous", inline: true },
+        { name: "내용", value: content },
+      ],
+    });
     res.json({ success: true, memo: result.rows[0] });
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -1380,6 +1532,12 @@ app.delete("/api/memos/:id", async (req, res) => {
   try {
     const { id } = req.params;
     await pool.query("DELETE FROM memos WHERE id = $1", [id]);
+    emitActionAlert({
+      title: "메모 삭제",
+      description: `메모 #${id}가 삭제되었습니다.`,
+      fields: [{ name: "ID", value: id, inline: true }],
+      color: 0xe74c3c,
+    });
     res.json({ success: true });
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -1433,6 +1591,14 @@ app.post("/api/announcements", async (req, res) => {
       }
     }
 
+    emitActionAlert({
+      title: "공지 작성",
+      description: "새 공지가 등록되었습니다.",
+      fields: [
+        { name: "내용", value: content },
+        { name: "DM", value: sendDM ? `${dmResults.sent} sent / ${dmResults.failed} failed` : "미발송", inline: true },
+      ],
+    });
     res.json({ success: true, announcement: result.rows[0], dmResults });
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -1453,6 +1619,15 @@ app.patch("/api/announcements/:id", async (req, res) => {
     if (!result.rows.length) {
       return res.status(404).json({ error: "announcement not found" });
     }
+    emitActionAlert({
+      title: "공지 수정",
+      description: `공지 #${id}가 수정되었습니다.`,
+      fields: [
+        { name: "ID", value: id, inline: true },
+        { name: "내용", value: content.trim() },
+      ],
+      color: 0xf1c40f,
+    });
     res.json({ success: true, announcement: result.rows[0] });
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -1463,6 +1638,12 @@ app.delete("/api/announcements/:id", async (req, res) => {
   try {
     const { id } = req.params;
     await pool.query("UPDATE announcements SET is_active = false WHERE id = $1", [id]);
+    emitActionAlert({
+      title: "공지 삭제",
+      description: `공지 #${id}가 비활성화되었습니다.`,
+      fields: [{ name: "ID", value: id, inline: true }],
+      color: 0xe74c3c,
+    });
     res.json({ success: true });
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -1481,6 +1662,14 @@ app.post("/api/announcements/:id/read", async (req, res) => {
       VALUES ($1, $2)
       ON CONFLICT (announcement_id, user_name) DO NOTHING
     `, [id, userName]);
+    emitActionAlert({
+      title: "공지 확인",
+      description: `${userName} 님이 공지 #${id}를 확인했습니다.`,
+      fields: [
+        { name: "공지 ID", value: id, inline: true },
+        { name: "이름", value: userName, inline: true },
+      ],
+    });
     const reads = await pool.query(
       "SELECT user_name, created_at FROM announcement_reads WHERE announcement_id = $1 ORDER BY created_at",
       [id]
@@ -1529,6 +1718,14 @@ app.post("/api/quick-links", async (req, res) => {
       [name.trim(), url.trim(), (iconUrl || "").trim(), pos]
     );
     const r = result.rows[0];
+    emitActionAlert({
+      title: "바로가기 추가",
+      description: `${r.name} 링크가 추가되었습니다.`,
+      fields: [
+        { name: "이름", value: r.name, inline: true },
+        { name: "URL", value: r.url },
+      ],
+    });
     res.json({
       success: true,
       link: { id: r.id, name: r.name, url: r.url, iconUrl: r.icon_url || "", position: r.position },
@@ -1564,6 +1761,16 @@ app.patch("/api/quick-links/:id", async (req, res) => {
     );
     if (!result.rows.length) return res.status(404).json({ error: "not found" });
     const r = result.rows[0];
+    emitActionAlert({
+      title: "바로가기 수정",
+      description: `${r.name} 링크가 수정되었습니다.`,
+      fields: [
+        { name: "ID", value: String(r.id), inline: true },
+        { name: "이름", value: r.name, inline: true },
+        { name: "URL", value: r.url },
+      ],
+      color: 0xf1c40f,
+    });
     res.json({
       success: true,
       link: { id: r.id, name: r.name, url: r.url, iconUrl: r.icon_url || "", position: r.position },
@@ -1578,6 +1785,12 @@ app.delete("/api/quick-links/:id", async (req, res) => {
     const id = parseInt(req.params.id, 10);
     if (!Number.isFinite(id)) return res.status(400).json({ error: "invalid id" });
     await pool.query(`DELETE FROM quick_links WHERE id = $1`, [id]);
+    emitActionAlert({
+      title: "바로가기 삭제",
+      description: `바로가기 #${id}가 삭제되었습니다.`,
+      fields: [{ name: "ID", value: String(id), inline: true }],
+      color: 0xe74c3c,
+    });
     res.json({ success: true });
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -1720,6 +1933,16 @@ app.post("/api/bugs", async (req, res) => {
        VALUES ($1, $2, $3, $4) RETURNING id, created_at`,
       [title, description, pageUrl, reporterName]
     );
+    emitActionAlert({
+      title: "버그 제보 등록",
+      description: title,
+      fields: [
+        { name: "제보자", value: reporterName || "익명", inline: true },
+        { name: "페이지", value: pageUrl || "-", inline: true },
+        { name: "설명", value: description || "-" },
+      ],
+      color: 0xe67e22,
+    });
     res.json({
       success: true,
       bug: {
@@ -1782,6 +2005,18 @@ app.patch("/api/bugs/:id", async (req, res) => {
       );
       r = autoResult.rows[0] || r;
     }
+    emitActionAlert({
+      title: "버그 상태 변경",
+      description: `#${id} ${r.title}`,
+      fields: [
+        { name: "액션", value: action, inline: true },
+        { name: "상태", value: r.status, inline: true },
+        { name: "처리자", value: r.decided_by || actor || "-", inline: true },
+        { name: "메모", value: r.decision_note || "-" },
+        { name: "자동화", value: r.automation_status || "-", inline: true },
+      ],
+      color: action === "reject" ? 0xe74c3c : 0x2ecc71,
+    });
     res.json({
       success: true,
       bug: mapBugRow(r),
@@ -1796,6 +2031,12 @@ app.delete("/api/bugs/:id", async (req, res) => {
     const id = parseInt(req.params.id, 10);
     if (!Number.isFinite(id)) return res.status(400).json({ error: "invalid id" });
     await pool.query(`DELETE FROM bug_reports WHERE id = $1`, [id]);
+    emitActionAlert({
+      title: "버그 제보 삭제",
+      description: `버그 제보 #${id}가 삭제되었습니다.`,
+      fields: [{ name: "ID", value: String(id), inline: true }],
+      color: 0xe74c3c,
+    });
     res.json({ success: true });
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -1943,6 +2184,16 @@ app.post("/api/post-daily", async (req, res) => {
       message: { content: messageContent.trim() || '오늘의 데일리 업데이트' }
     });
     
+    emitActionAlert({
+      title: "Discord 데일리 게시",
+      description: `${displayName} 님의 데일리가 Discord 포럼에 게시되었습니다.`,
+      fields: [
+        { name: "작성자", value: displayName, inline: true },
+        { name: "날짜", value: postDate, inline: true },
+        { name: "스레드", value: threadName },
+      ],
+      color: 0x2ecc71,
+    });
     res.json({ success: true, threadId: thread.id, threadName });
   } catch (err) {
     console.error("Post daily error:", err.message);
@@ -1997,6 +2248,12 @@ app.post("/api/call-member/:userId", async (req, res) => {
     const message = "🚨 긴급호출!! 🚨 누군가 당신을 찾고 있습니다!! 지금 당장 확인해주세요!! 빨리요!! 🏃💨";
     
     await user.send(message);
+    emitActionAlert({
+      title: "멤버 호출",
+      description: `${user.tag || userId} 님에게 DM 호출을 보냈습니다.`,
+      fields: [{ name: "User ID", value: userId, inline: true }],
+      color: 0xe67e22,
+    });
     res.json({ success: true, message: "DM sent" });
   } catch (err) {
     console.error("Call member error:", err.message);
@@ -2056,6 +2313,15 @@ app.post("/api/polls", async (req, res) => {
       INSERT INTO polls (title, description, options, created_by, deadline)
       VALUES ($1, $2, $3, $4, $5) RETURNING *
     `, [title, description || '', options, createdBy, deadline || null]);
+    emitActionAlert({
+      title: "투표 생성",
+      description: title,
+      fields: [
+        { name: "작성자", value: createdBy, inline: true },
+        { name: "마감", value: deadline || "-", inline: true },
+        { name: "선택지", value: options.join("\n") },
+      ],
+    });
     res.json({ success: true, poll: result.rows[0] });
   } catch (err) {
     console.error("Create poll error:", err.message);
@@ -2088,6 +2354,16 @@ app.post("/api/polls/:id/vote", async (req, res) => {
       DO UPDATE SET selected_option = $3, comment = $4, created_at = CURRENT_TIMESTAMP
       RETURNING *
     `, [id, voterName, selectedOption, comment || '']);
+    emitActionAlert({
+      title: "투표 참여/수정",
+      description: `${voterName} 님이 투표 #${id}에 참여했습니다.`,
+      fields: [
+        { name: "투표 ID", value: id, inline: true },
+        { name: "이름", value: voterName, inline: true },
+        { name: "선택", value: String(selectedOption), inline: true },
+        { name: "코멘트", value: comment || "-" },
+      ],
+    });
     res.json({ success: true, vote: result.rows[0] });
   } catch (err) {
     console.error("Vote error:", err.message);
@@ -2104,6 +2380,12 @@ app.put("/api/polls/:id/close", async (req, res) => {
     if (result.rows.length === 0) {
       return res.status(404).json({ error: "Poll not found" });
     }
+    emitActionAlert({
+      title: "투표 종료",
+      description: `투표 #${id}가 종료되었습니다.`,
+      fields: [{ name: "제목", value: result.rows[0].title || "-" }],
+      color: 0xf1c40f,
+    });
     res.json({ success: true, poll: result.rows[0] });
   } catch (err) {
     console.error("Close poll error:", err.message);
@@ -2115,6 +2397,12 @@ app.delete("/api/polls/:id", async (req, res) => {
   try {
     const { id } = req.params;
     await pool.query(`DELETE FROM polls WHERE id = $1`, [id]);
+    emitActionAlert({
+      title: "투표 삭제",
+      description: `투표 #${id}가 삭제되었습니다.`,
+      fields: [{ name: "ID", value: id, inline: true }],
+      color: 0xe74c3c,
+    });
     res.json({ success: true });
   } catch (err) {
     console.error("Delete poll error:", err.message);
@@ -2148,6 +2436,15 @@ app.post("/api/ideas", async (req, res) => {
       INSERT INTO ideas (title, description, category, author)
       VALUES ($1, $2, $3, $4) RETURNING *
     `, [title, description || '', category || 'general', author]);
+    emitActionAlert({
+      title: "아이디어 등록",
+      description: title,
+      fields: [
+        { name: "작성자", value: author, inline: true },
+        { name: "카테고리", value: category || "general", inline: true },
+        { name: "설명", value: description || "-" },
+      ],
+    });
     res.json({ success: true, idea: result.rows[0] });
   } catch (err) {
     console.error("Create idea error:", err.message);
@@ -2170,6 +2467,14 @@ app.post("/api/ideas/:id/like", async (req, res) => {
     const countResult = await pool.query(
       `SELECT COUNT(*) as count FROM idea_likes WHERE idea_id = $1`, [id]
     );
+    emitActionAlert({
+      title: "아이디어 좋아요",
+      description: `${userName} 님이 아이디어 #${id}에 좋아요를 눌렀습니다.`,
+      fields: [
+        { name: "아이디어 ID", value: id, inline: true },
+        { name: "이름", value: userName, inline: true },
+      ],
+    });
     res.json({ success: true, likeCount: parseInt(countResult.rows[0].count) });
   } catch (err) {
     console.error("Like idea error:", err.message);
@@ -2190,6 +2495,15 @@ app.delete("/api/ideas/:id/like", async (req, res) => {
     const countResult = await pool.query(
       `SELECT COUNT(*) as count FROM idea_likes WHERE idea_id = $1`, [id]
     );
+    emitActionAlert({
+      title: "아이디어 좋아요 취소",
+      description: `${userName} 님이 아이디어 #${id} 좋아요를 취소했습니다.`,
+      fields: [
+        { name: "아이디어 ID", value: id, inline: true },
+        { name: "이름", value: userName, inline: true },
+      ],
+      color: 0xf1c40f,
+    });
     res.json({ success: true, likeCount: parseInt(countResult.rows[0].count) });
   } catch (err) {
     console.error("Unlike idea error:", err.message);
@@ -2230,6 +2544,16 @@ app.patch("/api/ideas/:id/status", async (req, res) => {
     if (result.rows.length === 0) {
       return res.status(404).json({ error: "Idea not found" });
     }
+    emitActionAlert({
+      title: "아이디어 상태 변경",
+      description: `아이디어 #${id} 상태가 ${status}(으)로 변경되었습니다.`,
+      fields: [
+        { name: "ID", value: id, inline: true },
+        { name: "상태", value: status, inline: true },
+        { name: "제목", value: result.rows[0].title || "-" },
+      ],
+      color: 0xf1c40f,
+    });
     res.json({ success: true, idea: result.rows[0] });
   } catch (err) {
     console.error("Update idea status error:", err.message);
@@ -2241,6 +2565,12 @@ app.delete("/api/ideas/:id", async (req, res) => {
   try {
     const { id } = req.params;
     await pool.query(`DELETE FROM ideas WHERE id = $1`, [id]);
+    emitActionAlert({
+      title: "아이디어 삭제",
+      description: `아이디어 #${id}가 삭제되었습니다.`,
+      fields: [{ name: "ID", value: id, inline: true }],
+      color: 0xe74c3c,
+    });
     res.json({ success: true });
   } catch (err) {
     console.error("Delete idea error:", err.message);
