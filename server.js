@@ -353,8 +353,8 @@ const NOTION_LINK =
 
 function truncateForDiscord(value, max = 900) {
   const text = String(value || "").trim();
-  if (!text) return "-";
-  return text.length > max ? `${text.slice(0, max - 1)}…` : text;
+  if (!text || text === "-") return "없음";
+  return text.length > max ? `${text.slice(0, max - 1)}...` : text;
 }
 
 function actionField(name, value, inline = false) {
@@ -365,23 +365,55 @@ function actionField(name, value, inline = false) {
   };
 }
 
+const ACTION_ALERT_STYLES = [
+  [/체크인 등록/, { icon: "✅", color: 0x2ecc71, label: "Check-in" }],
+  [/체크인 삭제/, { icon: "🧹", color: 0xe74c3c, label: "Check-in" }],
+  [/체크인|작업 시간/, { icon: "🕒", color: 0xf1c40f, label: "Check-in" }],
+  [/버그/, { icon: "🛠️", color: 0xe67e22, label: "Bug Queue" }],
+  [/공지/, { icon: "📣", color: 0x3498db, label: "Notice" }],
+  [/팀원|멤버/, { icon: "👤", color: 0x9b59b6, label: "People" }],
+  [/바로가기/, { icon: "🔗", color: 0x1abc9c, label: "Quick Link" }],
+  [/투표/, { icon: "📊", color: 0x5865f2, label: "Poll" }],
+  [/아이디어/, { icon: "💡", color: 0xf1c40f, label: "Idea" }],
+  [/메모/, { icon: "📝", color: 0x95a5a6, label: "Memo" }],
+  [/Discord/, { icon: "💬", color: 0x5865f2, label: "Discord" }],
+];
+
+function getActionAlertStyle(title) {
+  return (
+    ACTION_ALERT_STYLES.find(([pattern]) => pattern.test(title || ""))?.[1] || {
+      icon: "🔔",
+      color: 0x5865f2,
+      label: "Activity",
+    }
+  );
+}
+
 function emitActionAlert(event) {
   if (!DISCORD_ACTION_WEBHOOK_URL) return;
+  const title = event.title || "Admin action";
+  const style = getActionAlertStyle(title);
   const fields = (event.fields || [])
     .filter((f) => f && f.name)
     .slice(0, 12)
     .map((f) => actionField(f.name, f.value, Boolean(f.inline)));
+  const embed = {
+    author: {
+      name: `Knockdog Admin · ${style.label}`,
+    },
+    title: `${style.icon} ${title}`,
+    description: truncateForDiscord(event.description || "", 1800),
+    color: event.color || style.color,
+    timestamp: new Date().toISOString(),
+    footer: {
+      text: "admin.knockdog.net",
+    },
+  };
+  if (fields.length) embed.fields = fields;
   const payload = {
     username: "Knockdog Admin",
-    embeds: [
-      {
-        title: event.title || "Admin action",
-        description: truncateForDiscord(event.description || "", 1800),
-        color: event.color || 0x5865f2,
-        fields,
-        timestamp: new Date().toISOString(),
-      },
-    ],
+    allowed_mentions: { parse: [] },
+    embeds: [embed],
   };
   fetch(DISCORD_ACTION_WEBHOOK_URL, {
     method: "POST",
@@ -1002,27 +1034,32 @@ app.post("/api/checkin", async (req, res) => {
       (r.done || "").trim() || (r.tasks || "").trim() || (r.blockers || "").trim()
     );
     let alertTitle = "체크인 수정";
+    let alertDescription = `${userName} 님이 ${date} 체크인 내용을 업데이트했습니다.`;
     let alertColor = 0x5865f2;
     if (isCheckinWrite && afterHadContent && !beforeHadContent) {
       alertTitle = "체크인 등록";
+      alertDescription = `${userName} 님이 오늘 체크인을 남겼습니다.`;
       alertColor = 0x2ecc71;
     } else if (isCheckinWrite && !afterHadContent && beforeHadContent) {
       alertTitle = "체크인 삭제";
+      alertDescription = `${userName} 님이 ${date} 체크인 내용을 비웠습니다.`;
       alertColor = 0xe74c3c;
     } else if (!isCheckinWrite) {
       alertTitle = "체크인 시간 수정";
+      alertDescription = `${userName} 님의 ${date} 근무 시간이 수정되었습니다.`;
       alertColor = 0xf1c40f;
     }
     emitActionAlert({
       title: alertTitle,
-      description: `${userName} 님의 ${date} 체크인이 변경되었습니다.`,
+      description: alertDescription,
       color: alertColor,
       fields: [
-        { name: "이름", value: userName, inline: true },
+        { name: "작성자", value: userName, inline: true },
         { name: "날짜", value: date, inline: true },
-        { name: "시간", value: `${r.start_time || "-"} ~ ${r.end_time || "-"}`, inline: true },
-        { name: "완료", value: itemsFlatText(doneRows) || "-" },
-        { name: "예정", value: itemsFlatText(tasksRows) || "-" },
+        { name: "근무 시간", value: `${r.start_time || "-"} ~ ${r.end_time || "-"}`, inline: true },
+        { name: "체크인 시각", value: r.checked_in_at || "-", inline: true },
+        { name: "완료한 일", value: itemsFlatText(doneRows) || "-" },
+        { name: "다음 할 일", value: itemsFlatText(tasksRows) || "-" },
         { name: "블로커", value: r.blockers || "-" },
       ],
     });
