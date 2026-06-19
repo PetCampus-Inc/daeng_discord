@@ -15,6 +15,7 @@ const {
 
 const app = express();
 const PORT = process.env.PORT || 5000;
+const LEGACY_PORT = 5000;
 
 app.use(express.json());
 
@@ -2667,9 +2668,16 @@ cron.schedule(
   { timezone: "Asia/Seoul" }
 );
 
-app.listen(PORT, "0.0.0.0", () => {
-  console.log(`Dashboard running at http://0.0.0.0:${PORT}`);
-});
+function startDashboardServer(port) {
+  return app.listen(port, "0.0.0.0", () => {
+    console.log(`Dashboard running at http://0.0.0.0:${port}`);
+  });
+}
+
+startDashboardServer(PORT);
+if (String(PORT) !== String(LEGACY_PORT)) {
+  startDashboardServer(LEGACY_PORT);
+}
 
 if (BOT_TOKEN) {
   client.login(BOT_TOKEN).catch((err) => {
