@@ -7,6 +7,11 @@ const { Pool, types: pgTypes } = require("pg");
 // Keep DATE (OID 1082) as raw "YYYY-MM-DD" string to avoid TZ shifts
 pgTypes.setTypeParser(1082, (val) => val);
 const { getAssigneeStats, getProjects, getProjectStatuses, getMyIssues } = require("./src/jira-client");
+const {
+  currentWeekStartKST,
+  ensureWeeklyReportsTable,
+  generateSaveAndPostWeeklyReport,
+} = require("./src/team-weekly-report");
 
 const app = express();
 const PORT = 5000;
@@ -122,6 +127,7 @@ async function initDatabase() {
     await pool.query(`ALTER TABLE checkins ADD COLUMN IF NOT EXISTS unavailable_text TEXT DEFAULT ''`);
     await pool.query(`ALTER TABLE checkins ADD COLUMN IF NOT EXISTS checked_in_at VARCHAR(5)`);
     await pool.query(`ALTER TABLE checkins ADD COLUMN IF NOT EXISTS link_url TEXT DEFAULT ''`);
+    await ensureWeeklyReportsTable(pool);
     await pool.query(`
       CREATE TABLE IF NOT EXISTS bug_reports (
         id SERIAL PRIMARY KEY,
@@ -2637,6 +2643,25 @@ cron.schedule(
     const channel = await client.channels.fetch(REPORT_CHANNEL_ID);
     if (channel?.isTextBased()) {
       channel.send(report);
+    }
+  },
+  { timezone: "Asia/Seoul" }
+);
+
+cron.schedule(
+  "0 20 * * 0",
+  async () => {
+    const webhookUrl = process.env.TEAM_WEEKLY_WEBHOOK_URL || "";
+    if (!webhookUrl) {
+      console.log("TEAM_WEEKLY_WEBHOOK_URL not set - skipping team weekly wrap-up");
+      return;
+    }
+    try {
+      const weekStart = currentWeekStartKST();
+      const result = await generateSaveAndPostWeeklyReport(pool, weekStart, webhookUrl);
+      console.log(`Team weekly wrap-up posted for ${result.weekStart}`);
+    } catch (err) {
+      console.error("Team weekly wrap-up error:", err.message);
     }
   },
   { timezone: "Asia/Seoul" }

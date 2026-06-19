@@ -16,7 +16,9 @@
     "inflearn:login": "node scripts/inflearn/login.js",
     "inflearn:ping": "node scripts/inflearn/ping.js",
     "inflearn:post": "node scripts/inflearn/post.js",
-    "inflearn:post:dry": "INFLEARN_DRY_RUN=1 HEADFUL=1 node scripts/inflearn/post.js"
+    "inflearn:post:dry": "INFLEARN_DRY_RUN=1 HEADFUL=1 node scripts/inflearn/post.js",
+    "team-weekly:post": "node scripts/post-team-weekly-reports.js",
+    "team-weekly:dry": "node scripts/post-team-weekly-reports.js --dry-run"
   },
   "keywords": [],
   "author": "",
