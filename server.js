@@ -2672,7 +2672,9 @@ app.listen(PORT, "0.0.0.0", () => {
 });
 
 if (BOT_TOKEN) {
-  client.login(BOT_TOKEN);
+  client.login(BOT_TOKEN).catch((err) => {
+    console.error("Discord bot login failed:", err.message);
+  });
 } else {
   console.log("BOT_TOKEN not set - running in dashboard-only mode");
 }
