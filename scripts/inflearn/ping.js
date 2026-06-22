@@ -65,9 +65,13 @@ async function makeContext(browser) {
       String(cookie.domain || "").includes("inflearn.com") &&
       ["connect.sid", "group_token"].includes(cookie.name)
   );
-  const looksLoggedOut =
-    /로그인|login/i.test(bodyText) &&
-    !/로그아웃|내 강의|대시보드|프로필|마이페이지|알림/i.test(bodyText);
+  const loginButtonVisible = await page
+    .getByRole("link", { name: /^로그인$/ })
+    .or(page.getByRole("button", { name: /^로그인$/ }))
+    .first()
+    .isVisible()
+    .catch(() => false);
+  const looksLoggedOut = /\/login/i.test(page.url()) || loginButtonVisible;
 
   if (!hasAuthCookie || looksLoggedOut) {
     console.error("Inflearn 로그인 세션이 만료된 것 같습니다. 'npm run inflearn:login' 후 재업로드하세요.");
