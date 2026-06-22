@@ -3,6 +3,7 @@
 //   node scripts/hola/post.js                       # headless, submit (config.js)
 //   HOLA_CONFIG=config-b.js node scripts/hola/post.js # use a different config
 //   HOLA_DRY_RUN=1 node scripts/hola/post.js        # fill fields but don't submit
+//   HOLA_SKIP_DUPLICATE_DELETE=1 node scripts/hola/post.js # don't delete matching old posts
 //   HEADFUL=1 node scripts/hola/post.js             # show the browser
 
 const { chromium } = require("playwright");
@@ -18,7 +19,9 @@ console.log(`[config] ${CONFIG_PATH}`);
 const config = require(CONFIG_PATH);
 
 const REGISTER_URL = "https://holaworld.io/register";
+const MY_POSTS_URL = "https://holaworld.io/myPosts";
 const headful = process.env.HEADFUL === "1";
+const skipDuplicateDelete = process.env.HOLA_SKIP_DUPLICATE_DELETE === "1";
 
 (async () => {
   if (!fs.existsSync(STATE_PATH)) {
@@ -53,6 +56,149 @@ const headful = process.env.HEADFUL === "1";
   }
 
   // ---------- helpers ----------
+  function normalizeText(text) {
+    return String(text || "").normalize("NFC").replace(/\s+/g, " ").trim();
+  }
+
+  async function isLoggedOut() {
+    return page.getByRole("button", { name: "로그인" }).first().isVisible().catch(() => false);
+  }
+
+  async function expandMyPostsList() {
+    for (let i = 0; i < 8; i++) {
+      const before = await page.locator("a").count().catch(() => 0);
+      const moreBtn = page
+        .getByRole("button", { name: /더\s*보기|더보기|More/i })
+        .first();
+      if (await moreBtn.isVisible().catch(() => false)) {
+        await moreBtn.click();
+        await page.waitForTimeout(1000);
+      } else {
+        await page.evaluate(() => window.scrollTo(0, document.body.scrollHeight));
+        await page.waitForTimeout(800);
+      }
+      const after = await page.locator("a").count().catch(() => 0);
+      if (after === before && !(await moreBtn.isVisible().catch(() => false))) break;
+    }
+  }
+
+  async function findDuplicatePostLinks() {
+    const targetTitle = normalizeText(config.title);
+    return page.evaluate((title) => {
+      const normalize = (text) => String(text || "").normalize("NFC").replace(/\s+/g, " ").trim();
+      const candidates = [];
+      for (const anchor of document.querySelectorAll("a[href]")) {
+        const text = normalize(anchor.innerText || anchor.textContent);
+        if (text !== title && !text.includes(title)) continue;
+        candidates.push({
+          href: anchor.href,
+          title: text,
+        });
+      }
+      return Array.from(new Map(candidates.map((item) => [item.href, item])).values());
+    }, targetTitle);
+  }
+
+  async function clickConfirming(action) {
+    page.once("dialog", async (dialog) => {
+      console.log(`  확인창: ${dialog.message()}`);
+      await dialog.accept();
+    });
+    await action();
+  }
+
+  async function deletePostFromDetail(postUrl, index, dryRun = false) {
+    console.log(`→ 중복 글 #${index} 상세 확인: ${postUrl}`);
+    await page.goto(postUrl, { waitUntil: "networkidle", timeout: 45000 });
+
+    const detailTitle = normalizeText(
+      await page.locator("body").innerText({ timeout: 10000 }).catch(() => "")
+    );
+    if (!detailTitle.includes(normalizeText(config.title))) {
+      console.warn("  제목이 상세 페이지에서 다시 확인되지 않아 삭제를 건너뜁니다.");
+      return false;
+    }
+
+    if (config.contactValue && !detailTitle.includes(normalizeText(config.contactValue))) {
+      console.warn("  연락처 URL이 상세 페이지에서 확인되지 않아 삭제를 건너뜁니다.");
+      return false;
+    }
+
+    const deleteButton = page
+      .getByRole("button", { name: /삭제|Delete/i })
+      .or(page.getByText(/^삭제$/))
+      .first();
+    if (!(await deleteButton.isVisible().catch(() => false))) {
+      console.warn("  삭제 버튼을 찾지 못해 건너뜁니다.");
+      return false;
+    }
+
+    if (dryRun) {
+      console.log("  DRY RUN 삭제 가능: 제목/연락처/삭제 버튼 확인됨");
+      return true;
+    }
+
+    await clickConfirming(async () => {
+      await deleteButton.click();
+    });
+
+    const confirmButton = page
+      .getByRole("button", { name: /확인|삭제|예|네|OK|Delete/i })
+      .first();
+    if (await confirmButton.isVisible().catch(() => false)) {
+      await clickConfirming(async () => {
+        await confirmButton.click();
+      });
+    }
+
+    await page.waitForTimeout(1500);
+    console.log("  삭제 요청 완료");
+    return true;
+  }
+
+  async function deleteDuplicatePosts() {
+    if (skipDuplicateDelete) {
+      console.log("→ 중복 글 삭제 건너뜀 (HOLA_SKIP_DUPLICATE_DELETE=1)");
+      return;
+    }
+
+    console.log("→ 내 게시글에서 중복 제목 확인");
+    await page.goto(MY_POSTS_URL, { waitUntil: "networkidle", timeout: 45000 });
+    if (await isLoggedOut()) {
+      console.error("로그인 세션이 만료된 것 같아요. 'node scripts/hola/login.js' 로 다시 로그인 후 시도해주세요.");
+      await browser.close();
+      process.exit(3);
+    }
+
+    await expandMyPostsList();
+    const duplicates = await findDuplicatePostLinks();
+    console.log(`→ 중복 후보 ${duplicates.length}개`);
+
+    if (config.dryRun) {
+      let verified = 0;
+      for (let i = 0; i < duplicates.length; i++) {
+        console.log(`  DRY RUN 삭제 대상: ${duplicates[i].href}`);
+        try {
+          if (await deletePostFromDetail(duplicates[i].href, i + 1, true)) verified++;
+        } catch (e) {
+          console.warn(`  DRY RUN 상세 확인 실패, 계속 진행: ${e.message}`);
+        }
+      }
+      console.log(`→ DRY RUN 중복 글 검증 완료: ${verified}/${duplicates.length}`);
+      return;
+    }
+
+    let deleted = 0;
+    for (let i = 0; i < duplicates.length; i++) {
+      try {
+        if (await deletePostFromDetail(duplicates[i].href, i + 1)) deleted++;
+      } catch (e) {
+        console.warn(`  중복 글 #${i + 1} 삭제 실패, 새 글 등록은 계속 진행: ${e.message}`);
+      }
+    }
+    console.log(`→ 중복 글 삭제 완료: ${deleted}/${duplicates.length}`);
+  }
+
   // Find the combobox associated with a given label text.
   async function openCombobox(labelText) {
     const label = page.locator("label", { hasText: labelText }).first();
@@ -124,6 +270,14 @@ const headful = process.env.HEADFUL === "1";
       if (i < lines.length - 1) await page.keyboard.press("Enter");
     }
   }
+
+  try {
+    await deleteDuplicatePosts();
+  } catch (e) {
+    console.warn(`→ 중복 글 삭제 단계 실패, 새 글 등록은 계속 진행: ${e.message}`);
+  }
+
+  await page.goto(REGISTER_URL, { waitUntil: "networkidle", timeout: 45000 });
 
   console.log("→ 모집 구분");
   await selectSingle("모집 구분", config.type);
