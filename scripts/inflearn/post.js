@@ -3,6 +3,8 @@
 //   node scripts/inflearn/post.js
 //   INFLEARN_CONFIG=../hola/config-b.js node scripts/inflearn/post.js
 //   INFLEARN_DRY_RUN=1 node scripts/inflearn/post.js
+//   INFLEARN_SKIP_DUPLICATE_DELETE=1 node scripts/inflearn/post.js
+//   INFLEARN_KEEP_LATEST_DUPLICATE=1 INFLEARN_CLEANUP_ONLY=1 node scripts/inflearn/post.js
 
 const { chromium } = require("playwright");
 const path = require("path");
@@ -16,9 +18,13 @@ const CONFIG_PATH = path.isAbsolute(CONFIG_REL)
 const config = require(CONFIG_PATH);
 
 const POST_URL = "https://www.inflearn.com/community/post/new?category=PROJECT";
+const PROFILE_URL = "https://biz.inflearn.com/users/233779/@cjy92496609";
 const ART_DIR = "/tmp/inflearn-debug";
 const headful = process.env.HEADFUL === "1";
 const dryRun = process.env.INFLEARN_DRY_RUN === "1" || config.dryRun;
+const skipDuplicateDelete = process.env.INFLEARN_SKIP_DUPLICATE_DELETE === "1";
+const keepLatestDuplicate = process.env.INFLEARN_KEEP_LATEST_DUPLICATE === "1";
+const cleanupOnly = process.env.INFLEARN_CLEANUP_ONLY === "1";
 const UA =
   "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36";
 
@@ -65,6 +71,145 @@ async function fillTags(page, tags) {
   }
 }
 
+function normalizeText(text) {
+  return String(text || "").normalize("NFC").replace(/\s+/g, " ").trim();
+}
+
+async function clickConfirming(page, action) {
+  page.once("dialog", async (dialog) => {
+    console.log(`  확인창: ${dialog.message()}`);
+    await dialog.accept();
+  });
+  await action();
+}
+
+async function expandProfilePosts(page) {
+  for (let i = 0; i < 6; i++) {
+    const before = await page.locator("a[href*='/projects/']").count().catch(() => 0);
+    const moreBtn = page
+      .getByRole("button", { name: /더\s*보기|더보기|More/i })
+      .first();
+    if (await moreBtn.isVisible().catch(() => false)) {
+      await moreBtn.click();
+      await page.waitForTimeout(1000);
+    } else {
+      await page.evaluate(() => window.scrollTo(0, document.body.scrollHeight));
+      await page.waitForTimeout(800);
+    }
+    const after = await page.locator("a[href*='/projects/']").count().catch(() => 0);
+    if (after === before && !(await moreBtn.isVisible().catch(() => false))) break;
+  }
+}
+
+async function findDuplicateProjectLinks(page) {
+  const targetTitle = normalizeText(config.title);
+  return page.evaluate((title) => {
+    const normalize = (text) => String(text || "").normalize("NFC").replace(/\s+/g, " ").trim();
+    const candidates = [];
+    for (const anchor of document.querySelectorAll("a[href*='/projects/']")) {
+      const text = normalize(anchor.innerText || anchor.textContent);
+      if (text !== title && !text.includes(title)) continue;
+      candidates.push({ href: anchor.href, title: text });
+    }
+    return Array.from(new Map(candidates.map((item) => [item.href, item])).values());
+  }, targetTitle);
+}
+
+async function deleteProjectFromDetail(page, projectUrl, index, dryRunMode = false) {
+  console.log(`→ 인프런 중복 글 #${index} 상세 확인: ${projectUrl}`);
+  await page.goto(projectUrl, { waitUntil: "domcontentloaded", timeout: 45000 });
+  await page.waitForTimeout(2500);
+
+  const bodyText = normalizeText(await page.locator("body").innerText({ timeout: 10000 }).catch(() => ""));
+  if (!bodyText.includes(normalizeText(config.title))) {
+    console.warn("  제목이 상세 페이지에서 다시 확인되지 않아 삭제를 건너뜁니다.");
+    return false;
+  }
+  if (!bodyText.includes("home.knockdog.net/careers")) {
+    console.warn("  커리어 페이지 URL이 상세 페이지에서 확인되지 않아 삭제를 건너뜁니다.");
+    return false;
+  }
+
+  const deleteButton = page
+    .locator("button.post__remove-btn, button.e-remove")
+    .or(page.getByRole("button", { name: /^삭제$/ }))
+    .first();
+  if ((await deleteButton.count().catch(() => 0)) < 1) {
+    console.warn("  삭제 버튼을 찾지 못해 건너뜁니다.");
+    return false;
+  }
+
+  if (dryRunMode) {
+    console.log("  DRY RUN 삭제 가능: 제목/커리어 URL/삭제 버튼 확인됨");
+    return true;
+  }
+
+  await clickConfirming(page, async () => {
+    await deleteButton.click({ force: true }).catch(async () => {
+      await deleteButton.evaluate((button) => button.click());
+    });
+  });
+
+  const confirmButton = page.locator("button.e-confirm").or(page.getByRole("button", { name: /^확인$/ })).last();
+  await confirmButton.waitFor({ state: "visible", timeout: 5000 });
+  await clickConfirming(page, async () => {
+    await confirmButton.click();
+  });
+
+  await page.waitForTimeout(2500);
+  console.log("  삭제 요청 완료");
+  return true;
+}
+
+async function deleteDuplicateProjects(page) {
+  if (skipDuplicateDelete) {
+    console.log("→ 인프런 중복 글 삭제 건너뜀 (INFLEARN_SKIP_DUPLICATE_DELETE=1)");
+    return;
+  }
+
+  console.log("→ 인프런 프로필에서 중복 제목 확인");
+  await page.goto(PROFILE_URL, { waitUntil: "domcontentloaded", timeout: 45000 });
+  await page.waitForTimeout(3500);
+
+  const bodyText = await page.locator("body").innerText().catch(() => "");
+  if (/로그인|회원가입/.test(bodyText) && !/프로필|대시보드|작성한 게시글/.test(bodyText)) {
+    throw new Error("Inflearn 로그인 세션이 만료된 것 같습니다.");
+  }
+
+  await expandProfilePosts(page);
+  const duplicates = await findDuplicateProjectLinks(page);
+  console.log(`→ 인프런 중복 후보 ${duplicates.length}개`);
+  const targets = keepLatestDuplicate ? duplicates.slice(1) : duplicates;
+  if (keepLatestDuplicate && duplicates[0]) {
+    console.log(`→ 최신 중복 글 1개 보존: ${duplicates[0].href}`);
+  }
+  console.log(`→ 인프런 삭제 대상 ${targets.length}개`);
+
+  if (dryRun) {
+    let verified = 0;
+    for (let i = 0; i < targets.length; i++) {
+      console.log(`  DRY RUN 삭제 대상: ${targets[i].href}`);
+      try {
+        if (await deleteProjectFromDetail(page, targets[i].href, i + 1, true)) verified++;
+      } catch (e) {
+        console.warn(`  DRY RUN 상세 확인 실패, 계속 진행: ${e.message}`);
+      }
+    }
+    console.log(`→ DRY RUN 인프런 중복 글 검증 완료: ${verified}/${targets.length}`);
+    return;
+  }
+
+  let deleted = 0;
+  for (let i = 0; i < targets.length; i++) {
+    try {
+      if (await deleteProjectFromDetail(page, targets[i].href, i + 1)) deleted++;
+    } catch (e) {
+      console.warn(`  인프런 중복 글 #${i + 1} 삭제 실패, 새 글 등록은 계속 진행: ${e.message}`);
+    }
+  }
+  console.log(`→ 인프런 중복 글 삭제 완료: ${deleted}/${targets.length}`);
+}
+
 (async () => {
   fs.mkdirSync(ART_DIR, { recursive: true });
   const browser = await chromium.launch({
@@ -89,6 +234,19 @@ async function fillTags(page, tags) {
       projectResponses.push(res);
     }
   });
+
+  try {
+    await deleteDuplicateProjects(page);
+  } catch (e) {
+    console.warn(`→ 인프런 중복 글 삭제 단계 실패, 새 글 등록은 계속 진행: ${e.message}`);
+  }
+
+  if (cleanupOnly) {
+    console.log("CLEANUP ONLY — 새 글 등록 안 함.");
+    await ctx.storageState({ path: STATE_PATH, indexedDB: true }).catch(() => {});
+    await browser.close();
+    return;
+  }
 
   const res = await page.goto(POST_URL, { waitUntil: "domcontentloaded", timeout: 45000 });
   await page.waitForTimeout(3500);
