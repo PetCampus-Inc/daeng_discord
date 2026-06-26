@@ -1545,6 +1545,13 @@
     }
     .team-item:last-child { border-bottom: none; }
     .team-item-text { flex: 1; min-width: 0; white-space: pre-wrap; word-break: break-word; }
+    .team-item-actions {
+      flex-shrink: 0;
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      max-width: 48%;
+    }
     .team-item-link {
       flex-shrink: 0;
       font-size: 0.78rem; font-weight: 600;
@@ -1556,6 +1563,21 @@
       border-radius: 999px;
     }
     .team-item-link:hover { background: var(--accent-soft); }
+    .team-item-copy {
+      flex-shrink: 0;
+      width: 24px; height: 24px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      border: 1px solid #f1ddc4;
+      background: #fff;
+      color: var(--accent-strong);
+      border-radius: 999px;
+      cursor: pointer;
+      font-size: 0.78rem;
+      line-height: 1;
+    }
+    .team-item-copy:hover { background: var(--accent-soft); border-color: var(--accent); }
 
     /* Bug report floating button + list */
     .bug-fab {
@@ -3060,7 +3082,7 @@
               } catch (_) {}
               const text = it.text ? `<span class="team-item-text">${highlightJira(it.text)}</span>` : "";
               const link = it.url
-                ? `<a class="team-item-link" href="${esc(it.url)}" target="_blank" rel="noopener" title="${esc(it.url)}">🔗 ${esc(host || "링크")}</a>`
+                ? `<span class="team-item-actions"><a class="team-item-link" href="${esc(it.url)}" target="_blank" rel="noopener" title="${esc(it.url)}">🔗 ${esc(host || "링크")}</a><button class="team-item-copy" type="button" data-copy-url="${esc(it.url)}" title="링크 복사" aria-label="링크 복사">📋</button></span>`
                 : "";
               return `<div class="team-item">${text}${link}</div>`;
             })
@@ -3114,7 +3136,38 @@
       }
     }
     document.getElementById("refreshBtn").addEventListener("click", loadBoard);
+    async function copyToClipboard(text) {
+      if (navigator.clipboard && window.isSecureContext) {
+        try {
+          await navigator.clipboard.writeText(text);
+          return;
+        } catch (_) {
+          // Fall back below when browser permissions block Clipboard API.
+        }
+      }
+      const ta = document.createElement("textarea");
+      ta.value = text;
+      ta.setAttribute("readonly", "");
+      ta.style.position = "fixed";
+      ta.style.left = "-9999px";
+      document.body.appendChild(ta);
+      ta.select();
+      document.execCommand("copy");
+      ta.remove();
+    }
     document.getElementById("teamBoard").addEventListener("click", async (e) => {
+      const copyBtn = e.target.closest(".team-item-copy");
+      if (copyBtn) {
+        e.preventDefault();
+        e.stopPropagation();
+        try {
+          await copyToClipboard(copyBtn.dataset.copyUrl || "");
+          toast("링크 복사됨");
+        } catch (err) {
+          toast("복사 실패: " + err.message);
+        }
+        return;
+      }
       const editBtn = e.target.closest(".team-card-edit");
       if (editBtn) {
         const card = editBtn.closest(".team-card");
