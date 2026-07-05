@@ -1424,6 +1424,7 @@ app.get("/api/checkin/week", async (req, res) => {
   try {
     const result = await pool.query(
       `SELECT user_name, check_date, start_time, end_time, hours_text, unavailable_text, checked_in_at,
+              done, tasks, blockers, link_url,
               (COALESCE(done,'') <> '' OR COALESCE(tasks,'') <> '' OR COALESCE(blockers,'') <> '') AS has_checkin
        FROM checkins
        WHERE check_date BETWEEN $1 AND $2
@@ -1440,6 +1441,8 @@ app.get("/api/checkin/week", async (req, res) => {
       const isLate =
         row.has_checkin &&
         isLateCheckin(row.start_time, row.checked_in_at);
+      const doneRows = itemsFromStorage(row.done, row.link_url);
+      const tasksRows = itemsFromStorage(row.tasks, "");
       byUser.get(row.user_name).push({
         date: dateStr,
         startTime: row.start_time,
@@ -1449,6 +1452,9 @@ app.get("/api/checkin/week", async (req, res) => {
         hasCheckin: row.has_checkin,
         checkedInAt: row.checked_in_at || "",
         isLate,
+        doneItems: doneRows,
+        tasksItems: tasksRows,
+        blockers: row.blockers || "",
         dailyMin: dailyMinutes(row.start_time, row.end_time, row.unavailable_text),
       });
     }
