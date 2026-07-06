@@ -7,9 +7,15 @@ const { Pool, types: pgTypes } = require("pg");
 // Keep DATE (OID 1082) as raw "YYYY-MM-DD" string to avoid TZ shifts
 pgTypes.setTypeParser(1082, (val) => val);
 const { getAssigneeStats, getProjects, getProjectStatuses, getMyIssues } = require("./src/jira-client");
+const {
+  currentWeekStartKST,
+  ensureWeeklyReportsTable,
+  generateSaveAndPostWeeklyReport,
+} = require("./src/team-weekly-report");
 
 const app = express();
-const PORT = 5000;
+const PORT = process.env.PORT || 5000;
+const LEGACY_PORT = 5000;
 
 app.use(express.json());
 
@@ -122,6 +128,7 @@ async function initDatabase() {
     await pool.query(`ALTER TABLE checkins ADD COLUMN IF NOT EXISTS unavailable_text TEXT DEFAULT ''`);
     await pool.query(`ALTER TABLE checkins ADD COLUMN IF NOT EXISTS checked_in_at VARCHAR(5)`);
     await pool.query(`ALTER TABLE checkins ADD COLUMN IF NOT EXISTS link_url TEXT DEFAULT ''`);
+    await ensureWeeklyReportsTable(pool);
     await pool.query(`
       CREATE TABLE IF NOT EXISTS bug_reports (
         id SERIAL PRIMARY KEY,
@@ -2648,12 +2655,40 @@ cron.schedule(
   { timezone: "Asia/Seoul" }
 );
 
-app.listen(PORT, "0.0.0.0", () => {
-  console.log(`Dashboard running at http://0.0.0.0:${PORT}`);
-});
+cron.schedule(
+  "0 20 * * 0",
+  async () => {
+    const webhookUrl = process.env.TEAM_WEEKLY_WEBHOOK_URL || "";
+    if (!webhookUrl) {
+      console.log("TEAM_WEEKLY_WEBHOOK_URL not set - skipping team weekly wrap-up");
+      return;
+    }
+    try {
+      const weekStart = currentWeekStartKST();
+      const result = await generateSaveAndPostWeeklyReport(pool, weekStart, webhookUrl);
+      console.log(`Team weekly wrap-up posted for ${result.weekStart}`);
+    } catch (err) {
+      console.error("Team weekly wrap-up error:", err.message);
+    }
+  },
+  { timezone: "Asia/Seoul" }
+);
+
+function startDashboardServer(port) {
+  return app.listen(port, "0.0.0.0", () => {
+    console.log(`Dashboard running at http://0.0.0.0:${port}`);
+  });
+}
+
+startDashboardServer(PORT);
+if (String(PORT) !== String(LEGACY_PORT)) {
+  startDashboardServer(LEGACY_PORT);
+}
 
 if (BOT_TOKEN) {
-  client.login(BOT_TOKEN);
+  client.login(BOT_TOKEN).catch((err) => {
+    console.error("Discord bot login failed:", err.message);
+  });
 } else {
   console.log("BOT_TOKEN not set - running in dashboard-only mode");
 }
