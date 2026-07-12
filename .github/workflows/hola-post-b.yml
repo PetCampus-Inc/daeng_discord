@@ -2,8 +2,8 @@ name: hola-post-b
 
 on:
   schedule:
-    # Even days (2,4,6,...,30) at 01:00 UTC == 10:00 KST.
-    - cron: "0 1 2-30/2 * *"
+    # Daily wake-up at 01:00 UTC == 10:00 KST. A guard below posts B every 6 days.
+    - cron: "0 1 * * *"
   workflow_dispatch:
     inputs:
       dry_run:
@@ -20,33 +20,61 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
+      - name: Check 3-day posting slot
+        id: schedule
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            echo "should_run=true" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          # Overall Hola posting cadence: every 3 days, alternating A/B.
+          # B posts on 2026-07-16, 2026-07-22, 2026-07-28, ...
+          today=$(TZ=Asia/Seoul date +%F)
+          today_epoch=$(date -u -d "$today" +%s)
+          anchor_epoch=$(date -u -d "2026-07-16" +%s)
+          days_since=$(( (today_epoch - anchor_epoch) / 86400 ))
+
+          if [ "$days_since" -ge 0 ] && [ $(( days_since % 6 )) -eq 0 ]; then
+            echo "should_run=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "should_run=false" >> "$GITHUB_OUTPUT"
+            echo "Skipping B post for $today KST."
+          fi
+
       - uses: actions/checkout@v4
+        if: steps.schedule.outputs.should_run == 'true'
 
       - uses: actions/setup-node@v4
+        if: steps.schedule.outputs.should_run == 'true'
         with:
           node-version: 22
           cache: npm
 
       - name: Install deps
+        if: steps.schedule.outputs.should_run == 'true'
         run: npm ci --no-audit --no-fund
 
       - name: Install Chromium
+        if: steps.schedule.outputs.should_run == 'true'
         run: npx playwright install --with-deps chromium
 
       - name: Restore HOLA session
+        if: steps.schedule.outputs.should_run == 'true'
         run: |
           mkdir -p scripts/hola
           echo "${{ secrets.HOLA_STATE_B64 }}" | base64 -d > scripts/hola/state.json
           test -s scripts/hola/state.json
 
       - name: Post recruitment article (B = PM/디자이너)
+        if: steps.schedule.outputs.should_run == 'true'
         env:
           HOLA_DRY_RUN: ${{ inputs.dry_run && '1' || '' }}
           HOLA_CONFIG: config-b.js
         run: node scripts/hola/post.js
 
       - name: Upload debug screenshots
-        if: always()
+        if: always() && steps.schedule.outputs.should_run == 'true'
         uses: actions/upload-artifact@v4
         with:
           name: hola-debug-${{ github.run_id }}
@@ -55,7 +83,7 @@ jobs:
           retention-days: 7
 
       - name: Rotate HOLA_STATE_B64 secret with refreshed cookies
-        if: success()
+        if: success() && steps.schedule.outputs.should_run == 'true'
         env:
           GH_TOKEN: ${{ secrets.GH_PAT }}
         run: |
@@ -68,7 +96,7 @@ jobs:
           echo "HOLA_STATE_B64 갱신 완료"
 
       - name: Discord alert on failure
-        if: failure()
+        if: failure() && steps.schedule.outputs.should_run == 'true'
         env:
           WEBHOOK: ${{ secrets.DISCORD_WEBHOOK_URL }}
         run: |
