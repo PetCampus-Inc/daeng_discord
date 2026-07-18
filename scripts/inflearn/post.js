@@ -1,7 +1,7 @@
 // Auto-post a project recruitment article to Inflearn community.
 // Usage:
 //   node scripts/inflearn/post.js
-//   INFLEARN_CONFIG=../hola/config-b.js node scripts/inflearn/post.js
+//   INFLEARN_CONFIG=./config.js node scripts/inflearn/post.js
 //   INFLEARN_DRY_RUN=1 node scripts/inflearn/post.js
 //   INFLEARN_SKIP_DUPLICATE_DELETE=1 node scripts/inflearn/post.js
 //   INFLEARN_KEEP_LATEST_DUPLICATE=1 INFLEARN_CLEANUP_ONLY=1 node scripts/inflearn/post.js
