@@ -163,8 +163,13 @@ test("processJob posts generated review directly to Jira and notifies Discord", 
       return Response.json({ output_text: "# AI PM 자동 리뷰\n- 결론: 통과\n## 다음 행동\n- 구현 범위를 유지합니다." });
     }
     if (url.endsWith("/rest/api/3/issue/KD3-70/comment")) return Response.json({ id: "12345" });
-    if (url === `${env.REVIEW_DISCORD_WEBHOOK_URL}?wait=true`) return Response.json({ id: "discord-1" });
-    if (url === `${env.REVIEW_DISCORD_WEBHOOK_URL}/messages/discord-1`) return new Response(null, { status: 204 });
+    if (url === `${env.REVIEW_DISCORD_WEBHOOK_URL}?wait=true`) {
+      assert.match(options.body, /thread_name/);
+      return Response.json({ id: "discord-1", channel_id: "thread-1" });
+    }
+    if (url === `${env.REVIEW_DISCORD_WEBHOOK_URL}/messages/discord-1?thread_id=thread-1`) {
+      return new Response(null, { status: 204 });
+    }
     throw new Error(`Unexpected fetch: ${url}`);
   };
 
@@ -177,7 +182,7 @@ test("processJob posts generated review directly to Jira and notifies Discord", 
     assert.match(jiraPost.options.body, /AI PM 자동 리뷰/);
     const preparingIndex = calls.findIndex((call) => call.url.endsWith("?wait=true"));
     const jiraIndex = calls.findIndex((call) => call.url.endsWith("/comment"));
-    const completionIndex = calls.findIndex((call) => call.url.endsWith("/messages/discord-1"));
+    const completionIndex = calls.findIndex((call) => call.url.endsWith("/messages/discord-1?thread_id=thread-1"));
     assert.ok(preparingIndex >= 0 && preparingIndex < jiraIndex);
     assert.ok(completionIndex > jiraIndex);
     assert.equal(calls[completionIndex].options.method, "PATCH");

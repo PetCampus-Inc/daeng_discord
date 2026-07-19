@@ -269,6 +269,7 @@ function createJiraReviewAutomation({ pool, fetchImpl = fetch, logger = console 
         review_body TEXT DEFAULT '',
         jira_comment_id VARCHAR(100) DEFAULT '',
         discord_message_id VARCHAR(100) DEFAULT '',
+        discord_thread_id VARCHAR(100) DEFAULT '',
         error TEXT DEFAULT '',
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
         updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
@@ -276,6 +277,7 @@ function createJiraReviewAutomation({ pool, fetchImpl = fetch, logger = console 
       )
     `);
     await pool.query(`ALTER TABLE jira_ai_reviews ADD COLUMN IF NOT EXISTS discord_message_id VARCHAR(100) DEFAULT ''`);
+    await pool.query(`ALTER TABLE jira_ai_reviews ADD COLUMN IF NOT EXISTS discord_thread_id VARCHAR(100) DEFAULT ''`);
     await pool.query(`CREATE INDEX IF NOT EXISTS jira_ai_reviews_status_idx ON jira_ai_reviews(status, updated_at)`);
   }
 
@@ -538,18 +540,25 @@ function createJiraReviewAutomation({ pool, fetchImpl = fetch, logger = console 
 
   async function prepareDiscord(job, issue) {
     if (!config.discordWebhook) return null;
-    if (job.discord_message_id) return job.discord_message_id;
-    const payload = discordPayload(job, issue, "🔄 Jira에 AI PM 리뷰 코멘트를 등록하고 있습니다.");
+    if (job.discord_message_id) {
+      return { messageId: job.discord_message_id, threadId: job.discord_thread_id || null };
+    }
+    const payload = {
+      ...discordPayload(job, issue, "🔄 Jira에 AI PM 리뷰 코멘트를 등록하고 있습니다."),
+      thread_name: `${job.issue_key} AI PM 자동 리뷰`.slice(0, 100),
+    };
     const separator = config.discordWebhook.includes("?") ? "&" : "?";
     const message = await request(
       `${config.discordWebhook}${separator}wait=true`,
       { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) },
       "Discord preparing webhook"
     );
-    return message?.id ? String(message.id) : null;
+    return message?.id
+      ? { messageId: String(message.id), threadId: message.channel_id ? String(message.channel_id) : null }
+      : null;
   }
 
-  async function completeDiscord(job, issue, review, messageId) {
+  async function completeDiscord(job, issue, review, messageId, threadId = null) {
     if (!config.discordWebhook) return;
     const resultLine = review.split("\n").find((line) => /^- 결론:/.test(line.trim())) || "- 결론: 리뷰 완료";
     const nextIndex = review.indexOf("## 다음 행동");
@@ -558,7 +567,10 @@ function createJiraReviewAutomation({ pool, fetchImpl = fetch, logger = console 
       : "Jira 코멘트를 확인해 주세요.";
     const payload = discordPayload(job, issue, `✅ Jira에 리뷰 코멘트를 등록했습니다.\n${resultLine}\n${nextAction}`);
     const baseUrl = config.discordWebhook.split("?")[0];
-    const url = messageId ? `${baseUrl}/messages/${encodeURIComponent(messageId)}` : `${baseUrl}?wait=true`;
+    const threadQuery = threadId ? `?thread_id=${encodeURIComponent(threadId)}` : "";
+    const url = messageId
+      ? `${baseUrl}/messages/${encodeURIComponent(messageId)}${threadQuery}`
+      : `${baseUrl}?wait=true`;
     await request(
       url,
       { method: messageId ? "PATCH" : "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) },
@@ -617,7 +629,13 @@ function createJiraReviewAutomation({ pool, fetchImpl = fetch, logger = console 
 
       const existingComment = await findExistingReviewComment(job.issue_key, job.review_key);
       if (existingComment) {
-        await completeDiscord(job, issue, "- 결론: 기존 Jira 리뷰 코멘트 확인\n## 다음 행동\n- Jira 코멘트를 확인해 주세요.", job.discord_message_id).catch(() => null);
+        await completeDiscord(
+          job,
+          issue,
+          "- 결론: 기존 Jira 리뷰 코멘트 확인\n## 다음 행동\n- Jira 코멘트를 확인해 주세요.",
+          job.discord_message_id,
+          job.discord_thread_id
+        ).catch(() => null);
         await pool.query(
           `UPDATE jira_ai_reviews
            SET status = 'posted', jira_comment_id = $2, processed_at = CURRENT_TIMESTAMP,
@@ -633,18 +651,23 @@ function createJiraReviewAutomation({ pool, fetchImpl = fetch, logger = console 
       const review = artifacts.missing.length
         ? missingArtifactReview(job.issue_key, artifacts.missing, job.review_key)
         : await generateReview(actualKind, bundle, artifacts, job.review_key);
-      const discordMessageId = await prepareDiscord(job, issue);
+      const discordNotice = await prepareDiscord(job, issue);
+      const discordMessageId = discordNotice?.messageId || null;
+      const discordThreadId = discordNotice?.threadId || null;
       if (discordMessageId && discordMessageId !== job.discord_message_id) {
         await pool.query(
-          `UPDATE jira_ai_reviews SET discord_message_id = $2, updated_at = CURRENT_TIMESTAMP WHERE id = $1`,
-          [id, discordMessageId]
+          `UPDATE jira_ai_reviews
+           SET discord_message_id = $2, discord_thread_id = $3, updated_at = CURRENT_TIMESTAMP
+           WHERE id = $1`,
+          [id, discordMessageId, discordThreadId]
         );
         job.discord_message_id = discordMessageId;
+        job.discord_thread_id = discordThreadId;
       }
       const comment = await addJiraComment(job.issue_key, review);
 
       try {
-        await completeDiscord(job, issue, review, discordMessageId);
+        await completeDiscord(job, issue, review, discordMessageId, discordThreadId);
       } catch (discordError) {
         logger.warn(`Discord review notification failed for ${job.issue_key}:`, discordError.message);
       }
