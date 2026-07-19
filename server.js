@@ -12,6 +12,7 @@ const {
   ensureWeeklyReportsTable,
   generateSaveAndPostWeeklyReport,
 } = require("./src/team-weekly-report");
+const { createJiraReviewAutomation } = require("./src/jira-review-automation");
 
 const app = express();
 const PORT = process.env.PORT || 5000;
@@ -22,6 +23,7 @@ app.use(express.json());
 const pool = new Pool({
   connectionString: process.env.DATABASE_URL,
 });
+const jiraReviewAutomation = createJiraReviewAutomation({ pool });
 
 async function initDatabase() {
   try {
@@ -149,6 +151,7 @@ async function initDatabase() {
     await pool.query(`ALTER TABLE bug_reports ADD COLUMN IF NOT EXISTS automation_status VARCHAR(30) DEFAULT ''`);
     await pool.query(`ALTER TABLE bug_reports ADD COLUMN IF NOT EXISTS automation_url TEXT DEFAULT ''`);
     await pool.query(`ALTER TABLE bug_reports ADD COLUMN IF NOT EXISTS automation_error TEXT DEFAULT ''`);
+    await jiraReviewAutomation.ensureTable();
     await pool.query(`
       CREATE TABLE IF NOT EXISTS team_members (
         id SERIAL PRIMARY KEY,
@@ -1536,6 +1539,9 @@ app.get("/api/status", (req, res) => {
   });
 });
 
+app.post("/webhooks/jira/ai-review", (req, res) => jiraReviewAutomation.webhook(req, res));
+app.get("/api/jira-review/health", (req, res) => jiraReviewAutomation.health(req, res));
+
 // Memo API endpoints
 app.get("/api/memos", async (req, res) => {
   try {
@@ -2673,6 +2679,15 @@ cron.schedule(
   },
   { timezone: "Asia/Seoul" }
 );
+
+cron.schedule("* * * * *", async () => {
+  try {
+    const processed = await jiraReviewAutomation.processPending(5);
+    if (processed) console.log(`Jira AI review queue processed: ${processed}`);
+  } catch (err) {
+    console.error("Jira AI review queue error:", err.message);
+  }
+});
 
 function startDashboardServer(port) {
   return app.listen(port, "0.0.0.0", () => {

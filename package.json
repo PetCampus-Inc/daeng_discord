@@ -9,7 +9,7 @@
   "scripts": {
     "start": "node server.js",
     "bot": "node index.js",
-    "test": "echo \"Error: no test specified\" && exit 1",
+    "test": "node --test src/*.test.js",
     "inflearn:login": "node scripts/inflearn/login.js",
     "inflearn:ping": "node scripts/inflearn/ping.js",
     "inflearn:post": "node scripts/inflearn/post.js",
