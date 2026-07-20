@@ -13,19 +13,23 @@ const {
 
 test("classifies only configured transitions", () => {
   assert.equal(
-    classifyTransition({ issueType: "스토리", fromStatus: "기획", toStatus: "디자인" }),
-    "story-planning-complete"
+    classifyTransition({ issueType: "스토리", fromStatus: "완료", toStatus: "AI리뷰" }),
+    "ai-review"
   );
   assert.equal(
-    classifyTransition({ issueType: "작업", fromStatus: "할 일", toStatus: "진행중" }),
-    "task-start"
+    classifyTransition({ issueType: "Bug", fromStatus: "진행중", toStatus: "AI 리뷰" }),
+    "ai-review"
   );
   assert.equal(
-    classifyTransition({ issueType: "하위 작업", fromStatus: "진행중", toStatus: "완료", summary: "UX/UI 디자인" }),
-    "artifact-subtask-complete"
+    classifyTransition({ issueType: "하위 작업", fromStatus: "진행중", toStatus: "AI리뷰" }),
+    "ai-review"
   );
   assert.equal(
-    classifyTransition({ issueType: "스토리", fromStatus: "할 일", toStatus: "기획" }),
+    classifyTransition({ issueType: "작업", fromStatus: "진행중", toStatus: "AI리뷰" }),
+    null
+  );
+  assert.equal(
+    classifyTransition({ issueType: "스토리", fromStatus: "디자인", toStatus: "완료" }),
     null
   );
 });
@@ -66,7 +70,7 @@ test("converts review Markdown to Jira ADF", () => {
   assert.ok(adf.content.some((node) => node.type === "bulletList"));
 });
 
-test("enqueue filters sprint and deduplicates review keys", async () => {
+test("enqueue accepts AI review across sprints, excludes tasks, and deduplicates review keys", async () => {
   const rows = new Map();
   let id = 0;
   const pool = {
@@ -80,21 +84,22 @@ test("enqueue filters sprint and deduplicates review keys", async () => {
     },
   };
   const automation = createJiraReviewAutomation({ pool, fetchImpl: async () => assert.fail("fetch not expected") });
-  automation.config.sprintId = "338";
   const payload = {
     issueKey: "KD3-139",
     issueType: "스토리",
-    fromStatus: "기획",
-    toStatus: "디자인",
+    fromStatus: "디자인",
+    toStatus: "AI리뷰",
     updatedAt: "2026-07-19T12:00:00.000+0900",
     sprintId: 338,
   };
   const first = await automation.enqueue(payload);
   const duplicate = await automation.enqueue(payload);
   const otherSprint = await automation.enqueue({ ...payload, sprintId: 999 });
+  const task = await automation.enqueue({ ...payload, issueKey: "KD3-140", issueType: "작업" });
   assert.equal(first.accepted, true);
   assert.equal(duplicate.duplicate, true);
-  assert.equal(otherSprint.reason, "different-sprint");
+  assert.equal(otherSprint.duplicate, true);
+  assert.equal(task.reason, "transition-not-configured");
 });
 
 test("processJob posts generated review directly to Jira and notifies Discord", async () => {
@@ -116,12 +121,12 @@ test("processJob posts generated review directly to Jira and notifies Discord", 
     id: 1,
     review_key: "review-key",
     issue_key: "KD3-70",
-    issue_type: "작업",
-    from_status: "할 일",
-    to_status: "진행중",
+    issue_type: "Bug",
+    from_status: "진행중",
+    to_status: "AI리뷰",
     issue_updated: "2026-07-19T12:00:00.000+0900",
     sprint_id: "338",
-    review_kind: "task-start",
+    review_kind: "ai-review",
     status: "queued",
     attempts: 0,
   };
@@ -145,9 +150,9 @@ test("processJob posts generated review directly to Jira and notifies Discord", 
       return Response.json({
         key: "KD3-70",
         fields: {
-          summary: "구성원 탭 개발",
-          issuetype: { name: "작업" },
-          status: { name: "진행중" },
+          summary: "로그인 오류",
+          issuetype: { name: "Bug" },
+          status: { name: "AI리뷰" },
           customfield_10020: [{ id: 338, name: "KD3 - 비숑" }],
           subtasks: [],
           issuelinks: [],

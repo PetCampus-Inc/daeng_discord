@@ -2,7 +2,7 @@
 
 ## Jira AI review webhook
 
-`POST /webhooks/jira/ai-review` receives configured Jira status transitions, reviews linked Jira/Notion/Figma evidence with the OpenAI Responses API, posts the result directly to Jira, and sends a summary to Discord.
+`POST /webhooks/jira/ai-review` receives Jira transitions into `AI리뷰`, reviews linked Jira/Notion/Figma evidence with the OpenAI Responses API, posts the result directly to Jira, and sends a summary to Discord. Jira Task (`Task`/`작업`) issues are excluded; all other issue types and sprints are eligible.
 
 Required Railway variables:
 
@@ -12,9 +12,8 @@ Required Railway variables:
 - `JIRA_REVIEW_WEBHOOK_SECRET`
 - `OPENAI_API_KEY`
 
-Review scope and integrations:
+Review integrations:
 
-- `JIRA_REVIEW_SPRINT_ID` — defaults to `338`
 - `JIRA_SPRINT_FIELD` — defaults to `customfield_10020`
 - `OPENAI_MODEL` — defaults to `gpt-5.6-terra`
 - `NOTION_TOKEN` — required when a review needs a Notion PRD
@@ -32,8 +31,7 @@ Jira Automation must send JSON in this shape and include the shared secret in th
   "summary": "{{issue.summary}}",
   "fromStatus": "{{changelog.status.fromString}}",
   "toStatus": "{{changelog.status.toString}}",
-  "updatedAt": "{{issue.updated}}",
-  "sprintId": 338
+  "updatedAt": "{{issue.updated}}"
 }
 ```
 

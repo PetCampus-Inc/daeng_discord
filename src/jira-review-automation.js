@@ -1,7 +1,6 @@
 const crypto = require("crypto");
 
-const RULE_VERSION = "sprint-status-review-v1";
-const DEFAULT_SPRINT_ID = "338";
+const RULE_VERSION = "ai-review-status-v2";
 const DEFAULT_MODEL = "gpt-5.6-terra";
 const MAX_CONTEXT_CHARS = 120000;
 const MAX_FIGMA_IMAGES = 3;
@@ -34,29 +33,9 @@ function isSubtask(issueType) {
   );
 }
 
-function classifyTransition({ issueType, fromStatus, toStatus, summary = "" }) {
-  const from = normalizeStatus(fromStatus);
+function classifyTransition({ issueType, toStatus }) {
   const to = normalizeStatus(toStatus);
-
-  if (isStory(issueType) && from === "기획" && to === "디자인") {
-    return "story-planning-complete";
-  }
-  if (isStory(issueType) && from === "디자인" && to === "완료") {
-    return "story-design-complete";
-  }
-  if (isTask(issueType) && from === "할일" && to === "진행중") {
-    return "task-start";
-  }
-  if (isTask(issueType) && from === "진행중" && to === "완료") {
-    return "task-complete";
-  }
-  if (isSubtask(issueType) && to === "완료" && /(기획|디자인|ux|ui)/i.test(summary)) {
-    return "artifact-subtask-complete";
-  }
-  if (from === "완료" && to !== "완료") {
-    return "review-regressed";
-  }
-  return null;
+  return to === "ai리뷰" && !isTask(issueType) ? "ai-review" : null;
 }
 
 function safeEqual(actual, expected) {
@@ -224,11 +203,7 @@ Jira에 바로 게시될 한국어 Markdown 코멘트만 작성한다.
 각 주요 피드백은 관찰 근거, 원인(미확인이면 표시), 영향, 수정 방법을 포함한다.`;
 
   const instructions = {
-    "story-planning-complete": "Notion PRD의 문제·대상·목표, MVP 범위, 인수 조건, 권한·상태·오류·빈 상태와 미확인 정책을 검토하라. 디자인 착수 가능 여부를 결론낸다.",
-    "story-design-complete": "승인된 PRD와 Figma의 요구사항·흐름·문구·상태가 일치하는지, 오류 후 복구와 개발 전달 범위가 충분한지 검토하라.",
-    "artifact-subtask-complete": "완료된 기획 또는 디자인 Sub-task의 산출물을 상위 Story 목적과 비교해 검토하라.",
-    "task-start": "개발 Task의 Epic·Story 직접 매핑, FE·BE 분해, 요구사항 커버리지, 선행 의존성과 착수 가능성을 검토하라. Task 자체에 PRD·Figma 첨부를 요구하지 않는다.",
-    "task-complete": "개발 Task의 Story 완료 조건, FE·BE 구현 증거, 연동, 미완료 Sub-task와 의존성을 검토하라. 코드 품질은 평가하지 않는다.",
+    "ai-review": "현재 이슈 유형과 Jira 본문·상하위·연결 이슈, 제공된 Notion/Figma 근거를 기준으로 다음 단계 진행 가능 여부를 검토하라. 자료가 없는 항목을 만들어내거나 무조건 차단하지 말고, 확인 가능한 범위와 핵심 미확인 사항을 분리하라. 개발 Task는 이 리뷰 대상이 아니다.",
   };
   return `${common}\n\n이번 리뷰 유형: ${kind}\n${instructions[kind] || "제공된 근거를 기준으로 검토하라."}`;
 }
@@ -248,7 +223,6 @@ function createJiraReviewAutomation({ pool, fetchImpl = fetch, logger = console 
     planningRoleId: text(process.env.DISCORD_PLANNING_ROLE_ID),
     developmentRoleId: text(process.env.DISCORD_DEVELOPMENT_ROLE_ID),
     webhookSecret: text(process.env.JIRA_REVIEW_WEBHOOK_SECRET),
-    sprintId: text(process.env.JIRA_REVIEW_SPRINT_ID) || DEFAULT_SPRINT_ID,
     sprintField: text(process.env.JIRA_SPRINT_FIELD) || "customfield_10020",
   };
 
@@ -453,8 +427,8 @@ function createJiraReviewAutomation({ pool, fetchImpl = fetch, logger = console 
       }
     }
 
-    const needsNotion = ["story-planning-complete", "story-design-complete", "artifact-subtask-complete"].includes(kind);
-    const needsFigma = ["story-design-complete"].includes(kind);
+    const needsNotion = false;
+    const needsFigma = false;
     const missing = [];
     if (needsNotion && notionTargets.length === 0) missing.push("Notion PRD");
     if (needsFigma && figmaTargets.length === 0) missing.push("Figma 디자인");
@@ -635,16 +609,8 @@ function createJiraReviewAutomation({ pool, fetchImpl = fetch, logger = console 
         summary: issue.fields?.summary || "",
       });
       if (!actualKind || actualKind !== job.review_kind) throw new Error("Transition no longer matches review rules");
-
-      const ids = sprintIds(issue.fields?.[config.sprintField]);
-      if (!ids.has(config.sprintId)) throw new Error(`Issue is not in configured sprint ${config.sprintId}`);
-
-      if (actualKind === "review-regressed") {
-        await pool.query(
-          `UPDATE jira_ai_reviews SET status = 'regressed', processed_at = CURRENT_TIMESTAMP, updated_at = CURRENT_TIMESTAMP WHERE id = $1`,
-          [id]
-        );
-        return { status: "regressed" };
+      if (normalizeStatus(issue.fields?.status?.name) !== "ai리뷰") {
+        throw new Error("Issue is no longer in AI리뷰 status");
       }
 
       const existingComment = await findExistingReviewComment(job.issue_key, job.review_key);
@@ -732,7 +698,7 @@ function createJiraReviewAutomation({ pool, fetchImpl = fetch, logger = console 
       fromStatus: text(payload.fromStatus || payload.changelog?.status?.fromString),
       toStatus: text(payload.toStatus || payload.changelog?.status?.toString),
       updatedAt: text(payload.updatedAt || payload.issue?.fields?.updated),
-      sprintId: text(payload.sprintId) || config.sprintId,
+      sprintId: "all",
       summary: text(payload.summary || payload.issue?.fields?.summary),
     };
     if (!event.issueKey || !event.issueType || !event.fromStatus || !event.toStatus || !event.updatedAt) {
@@ -740,7 +706,6 @@ function createJiraReviewAutomation({ pool, fetchImpl = fetch, logger = console 
       error.statusCode = 400;
       throw error;
     }
-    if (event.sprintId !== config.sprintId) return { accepted: false, reason: "different-sprint" };
     const kind = classifyTransition(event);
     if (!kind) return { accepted: false, reason: "transition-not-configured" };
     const key = reviewKey(event);
@@ -780,7 +745,8 @@ function createJiraReviewAutomation({ pool, fetchImpl = fetch, logger = console 
       );
       return res.json({
         ready: Boolean(config.jiraBaseUrl && config.jiraEmail && config.jiraToken && config.openaiKey),
-        sprintId: config.sprintId,
+        triggerStatus: "AI리뷰",
+        excludedIssueTypes: ["Task", "작업"],
         ruleVersion: RULE_VERSION,
         integrations: {
           jira: Boolean(config.jiraBaseUrl && config.jiraEmail && config.jiraToken),
