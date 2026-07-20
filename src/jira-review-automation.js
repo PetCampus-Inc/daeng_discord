@@ -296,7 +296,10 @@ function createJiraReviewAutomation({ pool, fetchImpl = fetch, logger = console 
     const response = await fetchImpl(url, options);
     if (!response.ok) {
       const body = await response.text().catch(() => "");
-      throw new Error(`${label} failed (${response.status}): ${body.slice(0, 500)}`);
+      const error = new Error(`${label} failed (${response.status}): ${body.slice(0, 500)}`);
+      error.statusCode = response.status;
+      error.retryAfter = Number(response.headers.get("retry-after")) || null;
+      throw error;
     }
     if (response.status === 204) return null;
     return response.json();
@@ -384,17 +387,21 @@ function createJiraReviewAutomation({ pool, fetchImpl = fetch, logger = console 
   async function figmaArtifact(target) {
     const headers = { "X-Figma-Token": config.figmaToken };
     const ids = target.nodeId ? `?ids=${encodeURIComponent(target.nodeId)}` : "?depth=2";
-    const data = await request(
-      `https://api.figma.com/v1/files/${encodeURIComponent(target.fileKey)}/nodes${ids}`,
-      { headers },
-      "Figma nodes"
-    ).catch(async () => {
-      return request(
+    let data;
+    try {
+      data = await request(
+        `https://api.figma.com/v1/files/${encodeURIComponent(target.fileKey)}/nodes${ids}`,
+        { headers },
+        "Figma nodes"
+      );
+    } catch (error) {
+      if (error.statusCode !== 404) throw error;
+      data = await request(
         `https://api.figma.com/v1/files/${encodeURIComponent(target.fileKey)}?depth=2`,
         { headers },
         "Figma file"
       );
-    });
+    }
     const imageUrls = [];
     if (target.nodeId) {
       const images = await request(
@@ -453,29 +460,42 @@ function createJiraReviewAutomation({ pool, fetchImpl = fetch, logger = console 
     if (needsFigma && figmaTargets.length === 0) missing.push("Figma 디자인");
 
     const notion = [];
-    if (notionTargets.length && !config.notionToken) missing.push("Notion 접근 토큰");
+    const notionFailures = [];
+    if (needsNotion && notionTargets.length && !config.notionToken) missing.push("Notion 접근 토큰");
     if (config.notionToken) {
       for (const target of notionTargets.slice(0, 5)) {
         try {
           notion.push({ url: target.url, content: await notionPage(target.id) });
         } catch (error) {
           logger.warn(`Notion artifact unavailable (${target.url}):`, error.message);
-          missing.push("Notion 접근 권한");
+          notionFailures.push(error);
         }
       }
     }
+    if (needsNotion && notionTargets.length && config.notionToken && notion.length === 0 && notionFailures.length) {
+      missing.push("Notion 접근 권한");
+    }
 
     const figma = [];
-    if (figmaTargets.length && !config.figmaToken) missing.push("Figma 접근 토큰");
+    const figmaFailures = [];
+    if (needsFigma && figmaTargets.length && !config.figmaToken) missing.push("Figma 접근 토큰");
     if (config.figmaToken) {
       for (const target of figmaTargets.slice(0, 5)) {
         try {
           figma.push({ ...target, ...(await figmaArtifact(target)) });
         } catch (error) {
           logger.warn(`Figma artifact unavailable (${target.url}):`, error.message);
-          missing.push("Figma 접근 권한");
+          figmaFailures.push(error);
         }
       }
+    }
+    if (needsFigma && figmaTargets.length && config.figmaToken && figma.length === 0 && figmaFailures.length) {
+      const rateLimit = figmaFailures.find((error) => error.statusCode === 429);
+      if (rateLimit) {
+        const retryText = rateLimit.retryAfter ? `; retry after ${rateLimit.retryAfter}s` : "";
+        throw new Error(`Figma API rate limited${retryText}`);
+      }
+      missing.push("Figma 접근 권한");
     }
     return { notion, figma, missing: Array.from(new Set(missing)) };
   }
