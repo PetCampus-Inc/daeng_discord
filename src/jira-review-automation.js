@@ -4,7 +4,7 @@ const RULE_VERSION = "ai-review-status-v3";
 const DEFAULT_MODEL = "gpt-5.6-terra";
 const MAX_CONTEXT_CHARS = 120000;
 const MAX_FIGMA_IMAGES = 3;
-const MAX_SUCCESSFUL_REVIEWS = 3;
+const MAX_SUCCESSFUL_REVIEWS = 5;
 
 function text(value) {
   if (typeof value === "string") return value.trim();

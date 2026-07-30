@@ -225,7 +225,7 @@ test("processJob posts generated review directly to Jira and notifies Discord", 
     const jiraPost = calls.find((call) => call.url.endsWith("/comment"));
     assert.equal(jiraPost.options.method, "POST");
     assert.match(jiraPost.options.body, /AI PM 자동 리뷰/);
-    assert.match(jiraPost.options.body, /AI 리뷰 1\/3/);
+    assert.match(jiraPost.options.body, /AI 리뷰 1\/5/);
     const preparingIndex = calls.findIndex((call) => call.url.endsWith("?wait=true"));
     const jiraIndex = calls.findIndex((call) => call.url.endsWith("/comment"));
     const completionIndex = calls.findIndex((call) => call.url.endsWith("/messages/discord-1?thread_id=thread-1"));
@@ -325,7 +325,7 @@ test("processJob skips unchanged evidence without posting a review", async () =>
   }
 });
 
-test("processJob enforces a maximum of three successful reviews", async () => {
+test("processJob enforces a maximum of five successful reviews", async () => {
   const previous = {};
   const env = {
     JIRA_BASE_URL: "https://jira.example.com",
@@ -368,7 +368,7 @@ test("processJob enforces a maximum of three successful reviews", async () => {
         return { rowCount: 1, rows: [{ ...job, status: "processing", attempts: 1 }] };
       }
       if (sql.includes("successful_reviews")) {
-        return { rowCount: 1, rows: [{ successful_reviews: 3, latest_evidence_hash: "old" }] };
+        return { rowCount: 1, rows: [{ successful_reviews: 5, latest_evidence_hash: "old" }] };
       }
       if (sql.startsWith("UPDATE jira_ai_reviews")) {
         updates.push({ sql, params });
@@ -393,7 +393,7 @@ test("processJob enforces a maximum of three successful reviews", async () => {
       status: "skipped",
       issueKey: "KD3-25",
       reason: "review-limit-reached",
-      reviewCount: 3,
+      reviewCount: 5,
     });
     assert.equal(calls.some((call) => call.url === "https://api.openai.com/v1/responses"), false);
     assert.ok(updates.some((update) => update.sql.includes("review-limit-reached")));
