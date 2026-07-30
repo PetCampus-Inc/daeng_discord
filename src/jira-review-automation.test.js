@@ -73,9 +73,19 @@ test("converts review Markdown to Jira ADF", () => {
 });
 
 test("recognizes only the exact AI re-review comment command", () => {
-  assert.equal(isReviewCommand({ body: { content: [{ content: [{ text: "AI 재리뷰" }] }] } }), true);
-  assert.equal(isReviewCommand({ body: { content: [{ content: [{ text: "AI 재리뷰 부탁해요" }] }] } }), false);
-  assert.equal(isReviewCommand({ body: { content: [{ content: [{ text: "ai 재리뷰" }] }] } }), false);
+  assert.equal(isReviewCommand({
+    body: {
+      type: "doc",
+      version: 1,
+      content: [{ type: "paragraph", content: [{ type: "text", text: "AI 재리뷰" }] }],
+    },
+  }), true);
+  assert.equal(isReviewCommand({
+    body: { type: "doc", content: [{ type: "paragraph", content: [{ type: "text", text: "AI 재리뷰 부탁해요" }] }] },
+  }), false);
+  assert.equal(isReviewCommand({
+    body: { type: "doc", content: [{ type: "paragraph", content: [{ type: "text", text: "ai 재리뷰" }] }] },
+  }), false);
 });
 
 test("evidence fingerprint ignores AI comments and status-only changes", () => {

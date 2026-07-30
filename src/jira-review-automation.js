@@ -58,6 +58,16 @@ function collectStrings(value, output = []) {
   return output;
 }
 
+function adfPlainText(value, output = []) {
+  if (Array.isArray(value)) {
+    for (const item of value) adfPlainText(item, output);
+  } else if (value && typeof value === "object") {
+    if (value.type === "text" && typeof value.text === "string") output.push(value.text);
+    if (value.content) adfPlainText(value.content, output);
+  }
+  return output.join(" ");
+}
+
 function extractUrls(value) {
   const urls = new Set();
   for (const chunk of collectStrings(value)) {
@@ -224,7 +234,7 @@ function evidenceFingerprint(bundle, artifacts) {
 }
 
 function isReviewCommand(comment) {
-  return collectStrings(comment?.body).join(" ").replace(/\s+/g, " ").trim() === REVIEW_COMMAND;
+  return adfPlainText(comment?.body).replace(/\s+/g, " ").trim() === REVIEW_COMMAND;
 }
 
 function reviewPrompt(kind) {
