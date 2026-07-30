@@ -102,6 +102,14 @@ test("evidence fingerprint ignores AI comments and status-only changes", () => {
           comments: [
             { id: "1", body: { content: [{ content: [{ text: "담당자 보완 완료" }] }] }, updated: "2026-07-30" },
             { id: "2", body: { content: [{ content: [{ text: "# AI PM 자동 리뷰" }] }] }, updated: "2026-07-30" },
+            {
+              id: "3",
+              body: {
+                type: "doc",
+                content: [{ type: "paragraph", content: [{ type: "text", text: "AI 재리뷰" }] }],
+              },
+              updated: "2026-07-30",
+            },
           ],
         },
       },
@@ -113,6 +121,7 @@ test("evidence fingerprint ignores AI comments and status-only changes", () => {
   bundle.issues[0].fields.status.name = "디자인";
   bundle.issues[0].fields.updated = "2026-07-31T10:00:00.000+0900";
   bundle.issues[0].fields.comment.comments[1].id = "3";
+  bundle.issues[0].fields.comment.comments[2].id = "4";
   assert.equal(evidenceFingerprint(bundle, artifacts), first);
   bundle.issues[0].fields.description.content[0].content[0].text = "PRD v3";
   assert.notEqual(evidenceFingerprint(bundle, artifacts), first);

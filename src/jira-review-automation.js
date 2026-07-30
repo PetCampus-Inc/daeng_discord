@@ -200,7 +200,9 @@ function reviewKey(event) {
 
 function isAutomationComment(comment) {
   const content = collectStrings(comment?.body).join("\n");
-  return content.includes("AI PM 자동 리뷰") || content.includes("검토 식별자:");
+  return isReviewCommand(comment)
+    || content.includes("AI PM 자동 리뷰")
+    || content.includes("검토 식별자:");
 }
 
 function evidenceFingerprint(bundle, artifacts) {
