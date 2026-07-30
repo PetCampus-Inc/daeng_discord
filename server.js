@@ -2688,6 +2688,8 @@ cron.schedule("* * * * *", async () => {
   try {
     const processed = await jiraReviewAutomation.processPending(5);
     if (processed) console.log(`Jira AI review queue processed: ${processed}`);
+    const commands = await jiraReviewAutomation.scanReviewCommands();
+    if (commands) console.log(`Jira AI review commands processed: ${commands}`);
   } catch (err) {
     console.error("Jira AI review queue error:", err.message);
   }

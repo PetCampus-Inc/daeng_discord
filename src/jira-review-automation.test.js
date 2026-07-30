@@ -9,6 +9,7 @@ const {
   sprintIds,
   markdownToAdf,
   evidenceFingerprint,
+  isReviewCommand,
   createJiraReviewAutomation,
 } = require("./jira-review-automation");
 
@@ -69,6 +70,12 @@ test("converts review Markdown to Jira ADF", () => {
   assert.equal(adf.version, 1);
   assert.ok(adf.content.some((node) => node.type === "heading"));
   assert.ok(adf.content.some((node) => node.type === "bulletList"));
+});
+
+test("recognizes only the exact AI re-review comment command", () => {
+  assert.equal(isReviewCommand({ body: { content: [{ content: [{ text: "AI 재리뷰" }] }] } }), true);
+  assert.equal(isReviewCommand({ body: { content: [{ content: [{ text: "AI 재리뷰 부탁해요" }] }] } }), false);
+  assert.equal(isReviewCommand({ body: { content: [{ content: [{ text: "ai 재리뷰" }] }] } }), false);
 });
 
 test("evidence fingerprint ignores AI comments and status-only changes", () => {

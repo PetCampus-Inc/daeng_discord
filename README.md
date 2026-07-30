@@ -37,6 +37,8 @@ Jira Automation must send JSON in this shape and include the shared secret in th
 
 The endpoint queues accepted events in PostgreSQL before returning `202`. Duplicate event keys are ignored, and failed jobs are retried up to three times. A Jira issue can receive at most five successful AI reviews. Re-entering `AI리뷰` without changes to Jira evidence or linked Notion/Figma artifacts is skipped and does not consume a review. Failed jobs also do not consume the review limit. Before posting the Jira comment, Discord receives an `in progress` notification; after Jira succeeds, that same Discord message is updated to `completed`.
 
+To request another review without changing Jira status, add a Jira comment containing exactly `AI 재리뷰`. The service checks recent comments every minute, processes each comment ID once, and posts a Jira explanation when the evidence is unchanged or the five-review limit has been reached.
+
 `GET /api/jira-review/health` returns integration readiness and queue counts when called with the same secret header. It never returns credential values.
 
 ## Jira sprint due-date reminder

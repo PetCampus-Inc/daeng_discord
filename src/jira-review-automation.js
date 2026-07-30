@@ -5,6 +5,8 @@ const DEFAULT_MODEL = "gpt-5.6-terra";
 const MAX_CONTEXT_CHARS = 120000;
 const MAX_FIGMA_IMAGES = 3;
 const MAX_SUCCESSFUL_REVIEWS = 5;
+const REVIEW_COMMAND = "AI 재리뷰";
+const COMMENT_COMMAND_STATUS = "댓글 명령";
 
 function text(value) {
   if (typeof value === "string") return value.trim();
@@ -221,6 +223,10 @@ function evidenceFingerprint(bundle, artifacts) {
   return crypto.createHash("sha256").update(JSON.stringify(evidence)).digest("hex");
 }
 
+function isReviewCommand(comment) {
+  return collectStrings(comment?.body).join(" ").replace(/\s+/g, " ").trim() === REVIEW_COMMAND;
+}
+
 function reviewPrompt(kind) {
   const common = `당신은 똑독(Knockdog)의 Senior Product Manager이자 Product Designer다.
 현재 제품 단계는 MVP이며 최상위 목표는 첫 실제 사용자 확보, 핵심 KPI는 가입 수다.
@@ -296,6 +302,17 @@ function createJiraReviewAutomation({ pool, fetchImpl = fetch, logger = console 
     await pool.query(`ALTER TABLE jira_ai_reviews ADD COLUMN IF NOT EXISTS skip_reason VARCHAR(100) DEFAULT ''`);
     await pool.query(`CREATE INDEX IF NOT EXISTS jira_ai_reviews_status_idx ON jira_ai_reviews(status, updated_at)`);
     await pool.query(`CREATE INDEX IF NOT EXISTS jira_ai_reviews_issue_idx ON jira_ai_reviews(issue_key, processed_at DESC)`);
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS jira_ai_review_commands (
+        comment_id VARCHAR(100) PRIMARY KEY,
+        issue_key VARCHAR(50) NOT NULL,
+        job_id BIGINT,
+        status VARCHAR(30) NOT NULL DEFAULT 'detected',
+        result TEXT DEFAULT '',
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        processed_at TIMESTAMP
+      )
+    `);
   }
 
   function assertRuntimeConfig() {
@@ -657,7 +674,8 @@ function createJiraReviewAutomation({ pool, fetchImpl = fetch, logger = console 
         summary: issue.fields?.summary || "",
       });
       if (!actualKind || actualKind !== job.review_kind) throw new Error("Transition no longer matches review rules");
-      if (normalizeStatus(issue.fields?.status?.name) !== "ai리뷰") {
+      const commentCommand = normalizeStatus(job.from_status) === normalizeStatus(COMMENT_COMMAND_STATUS);
+      if (!commentCommand && normalizeStatus(issue.fields?.status?.name) !== "ai리뷰") {
         throw new Error("Issue is no longer in AI리뷰 status");
       }
 
@@ -695,6 +713,12 @@ function createJiraReviewAutomation({ pool, fetchImpl = fetch, logger = console 
       const successfulReviews = Number(history.rows[0]?.successful_reviews || 0);
       const latestEvidenceHash = text(history.rows[0]?.latest_evidence_hash);
       if (successfulReviews >= MAX_SUCCESSFUL_REVIEWS) {
+        if (commentCommand) {
+          await addJiraComment(
+            job.issue_key,
+            `# AI PM 자동 리뷰\n\n- 결론: 재리뷰 미실행\n- 리뷰 회차: AI 리뷰 ${successfulReviews}/${MAX_SUCCESSFUL_REVIEWS}\n\n## 다음 행동\n\n- AI 리뷰 한도에 도달했습니다. 담당자가 최종 판단해 주세요.\n\n검토 식별자: \`${job.review_key}\``
+          );
+        }
         await pool.query(
           `UPDATE jira_ai_reviews
            SET status = 'skipped', skip_reason = 'review-limit-reached',
@@ -710,6 +734,12 @@ function createJiraReviewAutomation({ pool, fetchImpl = fetch, logger = console 
         };
       }
       if (latestEvidenceHash && latestEvidenceHash === fingerprint) {
+        if (commentCommand) {
+          await addJiraComment(
+            job.issue_key,
+            `# AI PM 자동 리뷰\n\n- 결론: 재리뷰 미실행\n- 리뷰 회차: AI 리뷰 ${successfulReviews}/${MAX_SUCCESSFUL_REVIEWS}\n\n## 다음 행동\n\n- 이전 리뷰 이후 변경된 Jira·Notion·Figma 검토 자료가 없습니다. 자료를 수정한 뒤 댓글에 \`${REVIEW_COMMAND}\`를 다시 입력해 주세요.\n\n검토 식별자: \`${job.review_key}\``
+          );
+        }
         await pool.query(
           `UPDATE jira_ai_reviews
            SET status = 'skipped', skip_reason = 'evidence-unchanged',
@@ -786,6 +816,53 @@ function createJiraReviewAutomation({ pool, fetchImpl = fetch, logger = console 
       await processJob(row.id).catch(() => null);
     }
     return pending.rowCount;
+  }
+
+  async function scanReviewCommands() {
+    const jql = encodeURIComponent("project = KD3 AND updated >= -10m ORDER BY updated DESC");
+    const fields = encodeURIComponent("summary,status,issuetype,updated,comment");
+    const response = await jiraGet(`/rest/api/3/search/jql?jql=${jql}&fields=${fields}&maxResults=100`);
+    let processed = 0;
+    for (const issue of response.issues || []) {
+      for (const comment of issue.fields?.comment?.comments || []) {
+        if (!comment?.id || !isReviewCommand(comment)) continue;
+        const inserted = await pool.query(
+          `INSERT INTO jira_ai_review_commands (comment_id, issue_key)
+           VALUES ($1, $2)
+           ON CONFLICT (comment_id) DO NOTHING
+           RETURNING comment_id`,
+          [String(comment.id), issue.key]
+        );
+        if (!inserted.rowCount) continue;
+        try {
+          const queued = await enqueue({
+            issueKey: issue.key,
+            issueType: issue.fields?.issuetype?.name,
+            summary: issue.fields?.summary,
+            fromStatus: COMMENT_COMMAND_STATUS,
+            toStatus: "AI리뷰",
+            updatedAt: `${issue.fields?.updated || comment.updated || comment.created}:${comment.id}`,
+          });
+          const result = queued.accepted ? await processJob(queued.id) : queued;
+          await pool.query(
+            `UPDATE jira_ai_review_commands
+             SET job_id = $2, status = 'processed', result = $3, processed_at = CURRENT_TIMESTAMP
+             WHERE comment_id = $1`,
+            [String(comment.id), queued.id || null, JSON.stringify(result)]
+          );
+          processed += 1;
+        } catch (error) {
+          await pool.query(
+            `UPDATE jira_ai_review_commands
+             SET status = 'failed', result = $2, processed_at = CURRENT_TIMESTAMP
+             WHERE comment_id = $1`,
+            [String(comment.id), String(error.message || error).slice(0, 1000)]
+          );
+          logger.error(`Jira AI review command failed for ${issue.key}:`, error.message);
+        }
+      }
+    }
+    return processed;
   }
 
   async function enqueue(payload) {
@@ -868,12 +945,14 @@ function createJiraReviewAutomation({ pool, fetchImpl = fetch, logger = console 
     enqueue,
     processJob,
     processPending,
+    scanReviewCommands,
   };
 }
 
 module.exports = {
   RULE_VERSION,
   MAX_SUCCESSFUL_REVIEWS,
+  REVIEW_COMMAND,
   classifyTransition,
   extractUrls,
   parseNotionPageId,
@@ -881,5 +960,6 @@ module.exports = {
   sprintIds,
   markdownToAdf,
   evidenceFingerprint,
+  isReviewCommand,
   createJiraReviewAutomation,
 };
