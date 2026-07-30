@@ -8,6 +8,7 @@ const {
   parseFigmaTarget,
   sprintIds,
   markdownToAdf,
+  evidenceFingerprint,
   createJiraReviewAutomation,
 } = require("./jira-review-automation");
 
@@ -68,6 +69,36 @@ test("converts review Markdown to Jira ADF", () => {
   assert.equal(adf.version, 1);
   assert.ok(adf.content.some((node) => node.type === "heading"));
   assert.ok(adf.content.some((node) => node.type === "bulletList"));
+});
+
+test("evidence fingerprint ignores AI comments and status-only changes", () => {
+  const bundle = {
+    issues: [{
+      key: "KD3-25",
+      fields: {
+        summary: "유치원 연결 신청",
+        description: { type: "doc", content: [{ type: "paragraph", content: [{ type: "text", text: "PRD v2" }] }] },
+        issuetype: { name: "스토리" },
+        status: { name: "AI리뷰" },
+        updated: "2026-07-30T13:05:59.242+0900",
+        comment: {
+          comments: [
+            { id: "1", body: { content: [{ content: [{ text: "담당자 보완 완료" }] }] }, updated: "2026-07-30" },
+            { id: "2", body: { content: [{ content: [{ text: "# AI PM 자동 리뷰" }] }] }, updated: "2026-07-30" },
+          ],
+        },
+      },
+    }],
+    remoteLinks: [],
+  };
+  const artifacts = { notion: [], figma: [], missing: [] };
+  const first = evidenceFingerprint(bundle, artifacts);
+  bundle.issues[0].fields.status.name = "디자인";
+  bundle.issues[0].fields.updated = "2026-07-31T10:00:00.000+0900";
+  bundle.issues[0].fields.comment.comments[1].id = "3";
+  assert.equal(evidenceFingerprint(bundle, artifacts), first);
+  bundle.issues[0].fields.description.content[0].content[0].text = "PRD v3";
+  assert.notEqual(evidenceFingerprint(bundle, artifacts), first);
 });
 
 test("enqueue accepts AI review across sprints, excludes tasks, and deduplicates review keys", async () => {
@@ -131,6 +162,7 @@ test("processJob posts generated review directly to Jira and notifies Discord", 
     attempts: 0,
   };
   const updates = [];
+  let history = { successful_reviews: 0, latest_evidence_hash: null };
   const pool = {
     async query(sql, params) {
       if (sql.startsWith("UPDATE jira_ai_reviews") && sql.includes("RETURNING *")) {
@@ -139,6 +171,9 @@ test("processJob posts generated review directly to Jira and notifies Discord", 
       if (sql.startsWith("UPDATE jira_ai_reviews")) {
         updates.push({ sql, params });
         return { rowCount: 1, rows: [] };
+      }
+      if (sql.includes("successful_reviews")) {
+        return { rowCount: 1, rows: [history] };
       }
       throw new Error(`Unexpected query: ${sql}`);
     },
@@ -181,10 +216,16 @@ test("processJob posts generated review directly to Jira and notifies Discord", 
   try {
     const automation = createJiraReviewAutomation({ pool, fetchImpl, logger: { warn() {}, error() {} } });
     const result = await automation.processJob(1);
-    assert.deepEqual(result, { status: "posted", issueKey: "KD3-70", commentId: "12345" });
+    assert.deepEqual(result, {
+      status: "posted",
+      issueKey: "KD3-70",
+      commentId: "12345",
+      reviewNumber: 1,
+    });
     const jiraPost = calls.find((call) => call.url.endsWith("/comment"));
     assert.equal(jiraPost.options.method, "POST");
     assert.match(jiraPost.options.body, /AI PM 자동 리뷰/);
+    assert.match(jiraPost.options.body, /AI 리뷰 1\/3/);
     const preparingIndex = calls.findIndex((call) => call.url.endsWith("?wait=true"));
     const jiraIndex = calls.findIndex((call) => call.url.endsWith("/comment"));
     const completionIndex = calls.findIndex((call) => call.url.endsWith("/messages/discord-1?thread_id=thread-1"));
@@ -192,6 +233,170 @@ test("processJob posts generated review directly to Jira and notifies Discord", 
     assert.ok(completionIndex > jiraIndex);
     assert.equal(calls[completionIndex].options.method, "PATCH");
     assert.ok(updates.some((update) => update.sql.includes("status = 'posted'")));
+  } finally {
+    for (const [key, value] of Object.entries(previous)) {
+      if (value === undefined) delete process.env[key];
+      else process.env[key] = value;
+    }
+  }
+});
+
+test("processJob skips unchanged evidence without posting a review", async () => {
+  const previous = {};
+  const env = {
+    JIRA_BASE_URL: "https://jira.example.com",
+    JIRA_EMAIL: "pm@example.com",
+    JIRA_API_TOKEN: "jira-token",
+    OPENAI_API_KEY: "openai-token",
+  };
+  for (const [key, value] of Object.entries(env)) {
+    previous[key] = process.env[key];
+    process.env[key] = value;
+  }
+  const issue = {
+    key: "KD3-25",
+    fields: {
+      summary: "유치원 연결 신청",
+      issuetype: { name: "스토리" },
+      status: { name: "AI리뷰" },
+      subtasks: [],
+      issuelinks: [],
+      description: { content: [{ content: [{ text: "동일한 PRD" }] }] },
+      attachment: [],
+      comment: { comments: [] },
+    },
+  };
+  const fingerprint = evidenceFingerprint(
+    { issues: [issue], remoteLinks: [] },
+    { notion: [], figma: [], missing: [] }
+  );
+  const job = {
+    id: 2,
+    review_key: "review-key-2",
+    issue_key: "KD3-25",
+    issue_type: "스토리",
+    from_status: "디자인",
+    to_status: "AI리뷰",
+    review_kind: "ai-review",
+    status: "queued",
+    attempts: 0,
+  };
+  const updates = [];
+  const pool = {
+    async query(sql, params) {
+      if (sql.includes("RETURNING *")) {
+        return { rowCount: 1, rows: [{ ...job, status: "processing", attempts: 1 }] };
+      }
+      if (sql.includes("successful_reviews")) {
+        return { rowCount: 1, rows: [{ successful_reviews: 1, latest_evidence_hash: fingerprint }] };
+      }
+      if (sql.startsWith("UPDATE jira_ai_reviews")) {
+        updates.push({ sql, params });
+        return { rowCount: 1, rows: [] };
+      }
+      throw new Error(`Unexpected query: ${sql}`);
+    },
+  };
+  const calls = [];
+  const fetchImpl = async (url, options = {}) => {
+    calls.push({ url, options });
+    if (url.includes("/rest/api/3/issue/KD3-25?")) return Response.json(issue);
+    if (url.includes("/rest/api/3/issue/KD3-25/comment?")) return Response.json({ comments: [] });
+    if (url.endsWith("/rest/api/3/issue/KD3-25/remotelink")) return Response.json([]);
+    throw new Error(`Unexpected fetch: ${url}`);
+  };
+
+  try {
+    const automation = createJiraReviewAutomation({ pool, fetchImpl, logger: { warn() {}, error() {} } });
+    const result = await automation.processJob(2);
+    assert.deepEqual(result, {
+      status: "skipped",
+      issueKey: "KD3-25",
+      reason: "evidence-unchanged",
+      reviewCount: 1,
+    });
+    assert.equal(calls.some((call) => call.url === "https://api.openai.com/v1/responses"), false);
+    assert.ok(updates.some((update) => update.sql.includes("evidence-unchanged")));
+  } finally {
+    for (const [key, value] of Object.entries(previous)) {
+      if (value === undefined) delete process.env[key];
+      else process.env[key] = value;
+    }
+  }
+});
+
+test("processJob enforces a maximum of three successful reviews", async () => {
+  const previous = {};
+  const env = {
+    JIRA_BASE_URL: "https://jira.example.com",
+    JIRA_EMAIL: "pm@example.com",
+    JIRA_API_TOKEN: "jira-token",
+    OPENAI_API_KEY: "openai-token",
+  };
+  for (const [key, value] of Object.entries(env)) {
+    previous[key] = process.env[key];
+    process.env[key] = value;
+  }
+  const job = {
+    id: 3,
+    review_key: "review-key-3",
+    issue_key: "KD3-25",
+    issue_type: "스토리",
+    from_status: "디자인",
+    to_status: "AI리뷰",
+    review_kind: "ai-review",
+    status: "queued",
+    attempts: 0,
+  };
+  const issue = {
+    key: "KD3-25",
+    fields: {
+      summary: "유치원 연결 신청",
+      issuetype: { name: "스토리" },
+      status: { name: "AI리뷰" },
+      subtasks: [],
+      issuelinks: [],
+      description: { content: [{ content: [{ text: "새 PRD" }] }] },
+      attachment: [],
+      comment: { comments: [] },
+    },
+  };
+  const updates = [];
+  const pool = {
+    async query(sql, params) {
+      if (sql.includes("RETURNING *")) {
+        return { rowCount: 1, rows: [{ ...job, status: "processing", attempts: 1 }] };
+      }
+      if (sql.includes("successful_reviews")) {
+        return { rowCount: 1, rows: [{ successful_reviews: 3, latest_evidence_hash: "old" }] };
+      }
+      if (sql.startsWith("UPDATE jira_ai_reviews")) {
+        updates.push({ sql, params });
+        return { rowCount: 1, rows: [] };
+      }
+      throw new Error(`Unexpected query: ${sql}`);
+    },
+  };
+  const calls = [];
+  const fetchImpl = async (url, options = {}) => {
+    calls.push({ url, options });
+    if (url.includes("/rest/api/3/issue/KD3-25?")) return Response.json(issue);
+    if (url.includes("/rest/api/3/issue/KD3-25/comment?")) return Response.json({ comments: [] });
+    if (url.endsWith("/rest/api/3/issue/KD3-25/remotelink")) return Response.json([]);
+    throw new Error(`Unexpected fetch: ${url}`);
+  };
+
+  try {
+    const automation = createJiraReviewAutomation({ pool, fetchImpl, logger: { warn() {}, error() {} } });
+    const result = await automation.processJob(3);
+    assert.deepEqual(result, {
+      status: "skipped",
+      issueKey: "KD3-25",
+      reason: "review-limit-reached",
+      reviewCount: 3,
+    });
+    assert.equal(calls.some((call) => call.url === "https://api.openai.com/v1/responses"), false);
+    assert.ok(updates.some((update) => update.sql.includes("review-limit-reached")));
   } finally {
     for (const [key, value] of Object.entries(previous)) {
       if (value === undefined) delete process.env[key];
