@@ -41,6 +41,6 @@ The endpoint queues accepted events in PostgreSQL before returning `202`. Duplic
 
 ## Jira sprint due-date reminder
 
-At 10:00 KST each day, the service checks whether two calendar days have passed since the last successful check. When due, it posts active-sprint unresolved issues without a Jira due date to the AI PM Discord forum. Empty checks are recorded without posting, so the reminder still keeps its two-day cadence.
+At 10:00 KST each day, the service checks whether two calendar days have passed since the last successful check. When due, it posts active-sprint unresolved issues without a Jira due date to the AI PM Discord forum and mentions `@everyone`. Empty checks are recorded without posting, so the reminder still keeps its two-day cadence.
 
 `POST /api/jira-sprint-due-reminder/run` runs the check immediately and uses the same `x-jira-webhook-secret` header as the AI review webhook. A successful run is recorded once per KST calendar day to prevent duplicate Discord posts.

@@ -29,7 +29,6 @@ function createSprintDueReminder({ pool, fetchImpl = fetch, logger = console } =
     jiraToken: text(process.env.JIRA_API_TOKEN),
     projectKey: text(process.env.JIRA_SPRINT_REMINDER_PROJECT) || "KD3",
     discordWebhook: text(process.env.REVIEW_DISCORD_WEBHOOK_URL),
-    planningRoleId: text(process.env.DISCORD_PLANNING_ROLE_ID),
     webhookSecret: text(process.env.JIRA_REVIEW_WEBHOOK_SECRET),
   };
 
@@ -108,10 +107,9 @@ function createSprintDueReminder({ pool, fetchImpl = fetch, logger = console } =
   }
 
   function buildDiscordPayload(results, runDate) {
-    const roleMention = config.planningRoleId ? `<@&${config.planningRoleId}> ` : "";
     const total = results.reduce((sum, item) => sum + item.issues.length, 0);
     const lines = [
-      `${roleMention}**[Jira] 스프린트 완료 날짜 미입력 알림**`,
+      "@everyone **[Jira] 스프린트 완료 날짜 미입력 알림**",
       `현재 활성 스프린트에서 완료 날짜가 비어 있는 미완료 티켓이 **${total}개** 있습니다.`,
       "",
     ];
@@ -129,8 +127,7 @@ function createSprintDueReminder({ pool, fetchImpl = fetch, logger = console } =
     return {
       content: lines.join("\n").slice(0, 1950),
       allowed_mentions: {
-        parse: [],
-        roles: config.planningRoleId ? [config.planningRoleId] : [],
+        parse: ["everyone"],
       },
       thread_name: `${runDate} 스프린트 완료 날짜 미입력`.slice(0, 100),
     };

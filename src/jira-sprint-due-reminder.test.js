@@ -21,7 +21,6 @@ test("posts active sprint issues missing due dates to Discord", async () => {
     JIRA_EMAIL: "pm@example.com",
     JIRA_API_TOKEN: "jira-token",
     REVIEW_DISCORD_WEBHOOK_URL: "https://discord.example.com/webhook",
-    DISCORD_PLANNING_ROLE_ID: "planning-role",
     JIRA_REVIEW_WEBHOOK_SECRET: "secret",
   };
   for (const [key, value] of Object.entries(env)) {
@@ -68,6 +67,8 @@ test("posts active sprint issues missing due dates to Discord", async () => {
       const payload = JSON.parse(options.body);
       assert.match(payload.content, /KD3-112/);
       assert.match(payload.content, /완료 날짜가 비어 있는/);
+      assert.match(payload.content, /^@everyone/);
+      assert.deepEqual(payload.allowed_mentions, { parse: ["everyone"] });
       assert.equal(payload.thread_name, "2026-07-30 스프린트 완료 날짜 미입력");
       return Response.json({ id: "discord-message" });
     }
