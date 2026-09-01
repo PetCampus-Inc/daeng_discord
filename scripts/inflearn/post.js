@@ -105,7 +105,7 @@ async function expandProfilePosts(page) {
 
 async function findProjectLinks(page) {
   const targetTitle = normalizeText(config.title);
-  return page.evaluate(({ title, includeAll }) => {
+  const candidates = await page.evaluate(({ title, includeAll }) => {
     const normalize = (text) => String(text || "").normalize("NFC").replace(/\s+/g, " ").trim();
     const candidates = [];
     for (const anchor of document.querySelectorAll("a[href*='/projects/']")) {
@@ -115,6 +115,17 @@ async function findProjectLinks(page) {
     }
     return Array.from(new Map(candidates.map((item) => [item.href, item])).values());
   }, { title: targetTitle, includeAll: deleteAllKnockdog });
+
+  if (deleteAllKnockdog) {
+    const response = await fetch(PROFILE_URL, { headers: { "User-Agent": UA } });
+    if (!response.ok) throw new Error(`Inflearn 공개 프로필 조회 실패 (${response.status})`);
+    const html = await response.text();
+    const publicLinks = html.match(/https:\/\/www\.inflearn\.com\/projects\/\d+\/[^"'<>\\\s]+/g) || [];
+    for (const href of publicLinks) candidates.push({ href, title: "" });
+    console.log(`→ 공개 프로필 HTML에서 프로젝트 링크 ${new Set(publicLinks).size}개 확인`);
+  }
+
+  return Array.from(new Map(candidates.map((item) => [item.href, item])).values());
 }
 
 async function deleteProjectFromDetail(page, projectUrl, index, dryRunMode = false) {
