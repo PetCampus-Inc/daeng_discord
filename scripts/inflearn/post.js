@@ -27,6 +27,10 @@ const skipDuplicateDelete = process.env.INFLEARN_SKIP_DUPLICATE_DELETE === "1";
 const keepLatestDuplicate = process.env.INFLEARN_KEEP_LATEST_DUPLICATE === "1";
 const cleanupOnly = process.env.INFLEARN_CLEANUP_ONLY === "1";
 const deleteAllKnockdog = process.env.INFLEARN_DELETE_ALL_KNOCKDOG === "1";
+const cleanupUrls = String(process.env.INFLEARN_CLEANUP_URLS || "")
+  .split(",")
+  .map((value) => value.trim())
+  .filter((value) => /^https:\/\/www\.inflearn\.com\/projects\/\d+(?:\/|$)/.test(value));
 const UA =
   "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36";
 
@@ -123,6 +127,11 @@ async function findProjectLinks(page) {
     const publicLinks = html.match(/https:\/\/www\.inflearn\.com\/projects\/\d+\/[^"'<>\\\s]+/g) || [];
     for (const href of publicLinks) candidates.push({ href, title: "" });
     console.log(`→ 공개 프로필 HTML에서 프로젝트 링크 ${new Set(publicLinks).size}개 확인`);
+  }
+
+  for (const href of cleanupUrls) candidates.push({ href, title: "" });
+  if (cleanupUrls.length) {
+    console.log(`→ 수동 지정 프로젝트 링크 ${cleanupUrls.length}개 확인`);
   }
 
   return Array.from(new Map(candidates.map((item) => [item.href, item])).values());

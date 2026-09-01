@@ -14,6 +14,10 @@ on:
         description: "Knockdog 모집글 전체 삭제 후 새 글 등록 안 함"
         type: boolean
         default: false
+      cleanup_urls:
+        description: "삭제할 Inflearn 프로젝트 URL 목록 (쉼표 구분, 상세 검증 필수)"
+        type: string
+        default: ""
 
 concurrency:
   group: inflearn-session
@@ -68,6 +72,7 @@ jobs:
           INFLEARN_DRY_RUN: ${{ inputs.dry_run && '1' || '' }}
           INFLEARN_DELETE_ALL_KNOCKDOG: ${{ inputs.cleanup_all && '1' || '' }}
           INFLEARN_CLEANUP_ONLY: ${{ inputs.cleanup_all && '1' || '' }}
+          INFLEARN_CLEANUP_URLS: ${{ inputs.cleanup_urls || '' }}
         run: node scripts/inflearn/post.js
 
       - name: Upload debug screenshots
