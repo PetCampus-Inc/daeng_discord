@@ -2,12 +2,16 @@ name: post-c
 
 on:
   schedule:
-    # 10:00 KST daily (GitHub cron runs in UTC).
+    # Check at 10:00 KST daily; the cadence gate below runs scheduled posts every 48 hours.
     - cron: "0 1 * * *"
   workflow_dispatch:
     inputs:
       dry_run:
         description: "폼만 채우고 등록은 안 함 (true/false)"
+        type: boolean
+        default: false
+      cleanup_all:
+        description: "Knockdog 모집글 전체 삭제 후 새 글 등록 안 함"
         type: boolean
         default: false
 
@@ -20,32 +24,54 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
+      - name: Decide whether this run should post
+        id: cadence
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            echo "should_run=true" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          epoch_day=$(( $(date -u +%s) / 86400 ))
+          if [ $((epoch_day % 2)) -eq 0 ]; then
+            echo "should_run=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "should_run=false" >> "$GITHUB_OUTPUT"
+          fi
+
       - uses: actions/checkout@v4
+        if: steps.cadence.outputs.should_run == 'true'
 
       - uses: actions/setup-node@v4
+        if: steps.cadence.outputs.should_run == 'true'
         with:
           node-version: 22
           cache: npm
 
       - name: Install deps
+        if: steps.cadence.outputs.should_run == 'true'
         run: npm ci --no-audit --no-fund
 
       - name: Install Chromium
+        if: steps.cadence.outputs.should_run == 'true'
         run: npx playwright install --with-deps chromium
 
       - name: Restore Inflearn session
+        if: steps.cadence.outputs.should_run == 'true'
         run: |
           mkdir -p scripts/inflearn
           echo "${{ secrets.INFLEARN_STATE_B64 }}" | base64 -d > scripts/inflearn/state.json
           test -s scripts/inflearn/state.json
 
       - name: Post recruitment article to Inflearn
+        if: steps.cadence.outputs.should_run == 'true'
         env:
           INFLEARN_DRY_RUN: ${{ inputs.dry_run && '1' || '' }}
+          INFLEARN_DELETE_ALL_KNOCKDOG: ${{ inputs.cleanup_all && '1' || '' }}
+          INFLEARN_CLEANUP_ONLY: ${{ inputs.cleanup_all && '1' || '' }}
         run: node scripts/inflearn/post.js
 
       - name: Upload debug screenshots
-        if: always()
+        if: always() && steps.cadence.outputs.should_run == 'true'
         uses: actions/upload-artifact@v4
         with:
           name: inflearn-debug-${{ github.run_id }}
@@ -54,7 +80,7 @@ jobs:
           retention-days: 7
 
       - name: Rotate INFLEARN_STATE_B64 secret with refreshed cookies
-        if: success()
+        if: success() && steps.cadence.outputs.should_run == 'true'
         env:
           GH_TOKEN: ${{ secrets.GH_PAT }}
         run: |
@@ -93,7 +119,7 @@ jobs:
           echo "INFLEARN_STATE_B64 갱신 완료"
 
       - name: Discord alert on failure
-        if: failure()
+        if: failure() && steps.cadence.outputs.should_run == 'true'
         env:
           WEBHOOK: ${{ secrets.DISCORD_WEBHOOK_URL }}
         run: |

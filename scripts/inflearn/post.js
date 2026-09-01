@@ -5,6 +5,7 @@
 //   INFLEARN_DRY_RUN=1 node scripts/inflearn/post.js
 //   INFLEARN_SKIP_DUPLICATE_DELETE=1 node scripts/inflearn/post.js
 //   INFLEARN_KEEP_LATEST_DUPLICATE=1 INFLEARN_CLEANUP_ONLY=1 node scripts/inflearn/post.js
+//   INFLEARN_DELETE_ALL_KNOCKDOG=1 INFLEARN_CLEANUP_ONLY=1 node scripts/inflearn/post.js
 
 const { chromium } = require("playwright");
 const path = require("path");
@@ -25,6 +26,7 @@ const dryRun = process.env.INFLEARN_DRY_RUN === "1" || config.dryRun;
 const skipDuplicateDelete = process.env.INFLEARN_SKIP_DUPLICATE_DELETE === "1";
 const keepLatestDuplicate = process.env.INFLEARN_KEEP_LATEST_DUPLICATE === "1";
 const cleanupOnly = process.env.INFLEARN_CLEANUP_ONLY === "1";
+const deleteAllKnockdog = process.env.INFLEARN_DELETE_ALL_KNOCKDOG === "1";
 const UA =
   "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36";
 
@@ -101,18 +103,18 @@ async function expandProfilePosts(page) {
   }
 }
 
-async function findDuplicateProjectLinks(page) {
+async function findProjectLinks(page) {
   const targetTitle = normalizeText(config.title);
-  return page.evaluate((title) => {
+  return page.evaluate(({ title, includeAll }) => {
     const normalize = (text) => String(text || "").normalize("NFC").replace(/\s+/g, " ").trim();
     const candidates = [];
     for (const anchor of document.querySelectorAll("a[href*='/projects/']")) {
       const text = normalize(anchor.innerText || anchor.textContent);
-      if (text !== title && !text.includes(title)) continue;
+      if (!includeAll && text !== title && !text.includes(title)) continue;
       candidates.push({ href: anchor.href, title: text });
     }
     return Array.from(new Map(candidates.map((item) => [item.href, item])).values());
-  }, targetTitle);
+  }, { title: targetTitle, includeAll: deleteAllKnockdog });
 }
 
 async function deleteProjectFromDetail(page, projectUrl, index, dryRunMode = false) {
@@ -121,7 +123,7 @@ async function deleteProjectFromDetail(page, projectUrl, index, dryRunMode = fal
   await page.waitForTimeout(2500);
 
   const bodyText = normalizeText(await page.locator("body").innerText({ timeout: 10000 }).catch(() => ""));
-  if (!bodyText.includes(normalizeText(config.title))) {
+  if (!deleteAllKnockdog && !bodyText.includes(normalizeText(config.title))) {
     console.warn("  제목이 상세 페이지에서 다시 확인되지 않아 삭제를 건너뜁니다.");
     return false;
   }
@@ -167,7 +169,11 @@ async function deleteDuplicateProjects(page) {
     return;
   }
 
-  console.log("→ 인프런 프로필에서 중복 제목 확인");
+  console.log(
+    deleteAllKnockdog
+      ? "→ 인프런 프로필에서 Knockdog 모집글 전체 확인"
+      : "→ 인프런 프로필에서 중복 제목 확인"
+  );
   await page.goto(PROFILE_URL, { waitUntil: "domcontentloaded", timeout: 45000 });
   await page.waitForTimeout(3500);
 
@@ -177,11 +183,11 @@ async function deleteDuplicateProjects(page) {
   }
 
   await expandProfilePosts(page);
-  const duplicates = await findDuplicateProjectLinks(page);
-  console.log(`→ 인프런 중복 후보 ${duplicates.length}개`);
-  const targets = keepLatestDuplicate ? duplicates.slice(1) : duplicates;
-  if (keepLatestDuplicate && duplicates[0]) {
-    console.log(`→ 최신 중복 글 1개 보존: ${duplicates[0].href}`);
+  const candidates = await findProjectLinks(page);
+  console.log(`→ 인프런 게시글 후보 ${candidates.length}개`);
+  const targets = keepLatestDuplicate && !deleteAllKnockdog ? candidates.slice(1) : candidates;
+  if (keepLatestDuplicate && !deleteAllKnockdog && candidates[0]) {
+    console.log(`→ 최신 중복 글 1개 보존: ${candidates[0].href}`);
   }
   console.log(`→ 인프런 삭제 대상 ${targets.length}개`);
 
