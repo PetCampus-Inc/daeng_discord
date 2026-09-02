@@ -13,6 +13,7 @@ const {
   generateSaveAndPostWeeklyReport,
 } = require("./src/team-weekly-report");
 const { createJiraReviewAutomation } = require("./src/jira-review-automation");
+const { createSprintDueReminder } = require("./src/jira-sprint-due-reminder");
 
 const app = express();
 const PORT = process.env.PORT || 5000;
@@ -24,6 +25,7 @@ const pool = new Pool({
   connectionString: process.env.DATABASE_URL,
 });
 const jiraReviewAutomation = createJiraReviewAutomation({ pool });
+const sprintDueReminder = createSprintDueReminder({ pool });
 
 async function initDatabase() {
   try {
@@ -152,6 +154,7 @@ async function initDatabase() {
     await pool.query(`ALTER TABLE bug_reports ADD COLUMN IF NOT EXISTS automation_url TEXT DEFAULT ''`);
     await pool.query(`ALTER TABLE bug_reports ADD COLUMN IF NOT EXISTS automation_error TEXT DEFAULT ''`);
     await jiraReviewAutomation.ensureTable();
+    await sprintDueReminder.ensureTable();
     await pool.query(`
       CREATE TABLE IF NOT EXISTS team_members (
         id SERIAL PRIMARY KEY,
@@ -1541,6 +1544,7 @@ app.get("/api/status", (req, res) => {
 
 app.post("/webhooks/jira/ai-review", (req, res) => jiraReviewAutomation.webhook(req, res));
 app.get("/api/jira-review/health", (req, res) => jiraReviewAutomation.health(req, res));
+app.post("/api/jira-sprint-due-reminder/run", (req, res) => sprintDueReminder.manualRun(req, res));
 
 // Memo API endpoints
 app.get("/api/memos", async (req, res) => {
@@ -2684,10 +2688,27 @@ cron.schedule("* * * * *", async () => {
   try {
     const processed = await jiraReviewAutomation.processPending(5);
     if (processed) console.log(`Jira AI review queue processed: ${processed}`);
+    const commands = await jiraReviewAutomation.scanReviewCommands();
+    if (commands) console.log(`Jira AI review commands processed: ${commands}`);
   } catch (err) {
     console.error("Jira AI review queue error:", err.message);
   }
 });
+
+cron.schedule(
+  "0 10 * * *",
+  async () => {
+    try {
+      const result = await sprintDueReminder.run();
+      if (result.posted) {
+        console.log(`Jira sprint due reminder posted: ${result.missingCount} issue(s)`);
+      }
+    } catch (err) {
+      console.error("Jira sprint due reminder error:", err.message);
+    }
+  },
+  { timezone: "Asia/Seoul" }
+);
 
 function startDashboardServer(port) {
   return app.listen(port, "0.0.0.0", () => {

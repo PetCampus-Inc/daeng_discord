@@ -1,9 +1,12 @@
 const crypto = require("crypto");
 
-const RULE_VERSION = "ai-review-status-v2";
+const RULE_VERSION = "ai-review-status-v3";
 const DEFAULT_MODEL = "gpt-5.6-terra";
 const MAX_CONTEXT_CHARS = 120000;
 const MAX_FIGMA_IMAGES = 3;
+const MAX_SUCCESSFUL_REVIEWS = 5;
+const REVIEW_COMMAND = "AI 재리뷰";
+const COMMENT_COMMAND_STATUS = "댓글 명령";
 
 function text(value) {
   if (typeof value === "string") return value.trim();
@@ -53,6 +56,16 @@ function collectStrings(value, output = []) {
     for (const item of Object.values(value)) collectStrings(item, output);
   }
   return output;
+}
+
+function adfPlainText(value, output = []) {
+  if (Array.isArray(value)) {
+    for (const item of value) adfPlainText(item, output);
+  } else if (value && typeof value === "object") {
+    if (value.type === "text" && typeof value.text === "string") output.push(value.text);
+    if (value.content) adfPlainText(value.content, output);
+  }
+  return output.join(" ");
 }
 
 function extractUrls(value) {
@@ -185,6 +198,47 @@ function reviewKey(event) {
     .digest("hex");
 }
 
+function isAutomationComment(comment) {
+  const content = collectStrings(comment?.body).join("\n");
+  return isReviewCommand(comment)
+    || content.includes("AI PM 자동 리뷰")
+    || content.includes("검토 식별자:");
+}
+
+function evidenceFingerprint(bundle, artifacts) {
+  const issues = bundle.issues.map((issue) => ({
+    key: issue.key,
+    fields: {
+      summary: issue.fields?.summary,
+      description: issue.fields?.description,
+      issuetype: issue.fields?.issuetype,
+      parent: issue.fields?.parent,
+      subtasks: issue.fields?.subtasks,
+      attachment: issue.fields?.attachment,
+      issuelinks: issue.fields?.issuelinks,
+      comments: (issue.fields?.comment?.comments || [])
+        .filter((comment) => !isAutomationComment(comment))
+        .map((comment) => ({
+          id: comment.id,
+          body: comment.body,
+          updated: comment.updated || comment.created,
+        })),
+    },
+  }));
+  const evidence = {
+    issues,
+    remoteLinks: bundle.remoteLinks,
+    notion: artifacts.notion,
+    figma: artifacts.figma.map(({ imageUrls, ...artifact }) => artifact),
+    missing: artifacts.missing,
+  };
+  return crypto.createHash("sha256").update(JSON.stringify(evidence)).digest("hex");
+}
+
+function isReviewCommand(comment) {
+  return adfPlainText(comment?.body).replace(/\s+/g, " ").trim() === REVIEW_COMMAND;
+}
+
 function reviewPrompt(kind) {
   const common = `당신은 똑독(Knockdog)의 Senior Product Manager이자 Product Designer다.
 현재 제품 단계는 MVP이며 최상위 목표는 첫 실제 사용자 확보, 핵심 KPI는 가입 수다.
@@ -245,6 +299,9 @@ function createJiraReviewAutomation({ pool, fetchImpl = fetch, logger = console 
         discord_message_id VARCHAR(100) DEFAULT '',
         discord_thread_id VARCHAR(100) DEFAULT '',
         error TEXT DEFAULT '',
+        evidence_hash VARCHAR(64) DEFAULT '',
+        review_number INTEGER,
+        skip_reason VARCHAR(100) DEFAULT '',
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
         updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
         processed_at TIMESTAMP
@@ -252,7 +309,22 @@ function createJiraReviewAutomation({ pool, fetchImpl = fetch, logger = console 
     `);
     await pool.query(`ALTER TABLE jira_ai_reviews ADD COLUMN IF NOT EXISTS discord_message_id VARCHAR(100) DEFAULT ''`);
     await pool.query(`ALTER TABLE jira_ai_reviews ADD COLUMN IF NOT EXISTS discord_thread_id VARCHAR(100) DEFAULT ''`);
+    await pool.query(`ALTER TABLE jira_ai_reviews ADD COLUMN IF NOT EXISTS evidence_hash VARCHAR(64) DEFAULT ''`);
+    await pool.query(`ALTER TABLE jira_ai_reviews ADD COLUMN IF NOT EXISTS review_number INTEGER`);
+    await pool.query(`ALTER TABLE jira_ai_reviews ADD COLUMN IF NOT EXISTS skip_reason VARCHAR(100) DEFAULT ''`);
     await pool.query(`CREATE INDEX IF NOT EXISTS jira_ai_reviews_status_idx ON jira_ai_reviews(status, updated_at)`);
+    await pool.query(`CREATE INDEX IF NOT EXISTS jira_ai_reviews_issue_idx ON jira_ai_reviews(issue_key, processed_at DESC)`);
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS jira_ai_review_commands (
+        comment_id VARCHAR(100) PRIMARY KEY,
+        issue_key VARCHAR(50) NOT NULL,
+        job_id BIGINT,
+        status VARCHAR(30) NOT NULL DEFAULT 'detected',
+        result TEXT DEFAULT '',
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        processed_at TIMESTAMP
+      )
+    `);
   }
 
   function assertRuntimeConfig() {
@@ -474,11 +546,16 @@ function createJiraReviewAutomation({ pool, fetchImpl = fetch, logger = console 
     return { notion, figma, missing: Array.from(new Set(missing)) };
   }
 
-  function missingArtifactReview(issueKey, missing, key) {
+  function reviewProgress(reviewNumber) {
+    return `AI 리뷰 ${reviewNumber}/${MAX_SUCCESSFUL_REVIEWS}`;
+  }
+
+  function missingArtifactReview(issueKey, missing, key, reviewNumber) {
     return `# AI PM 자동 리뷰 — 자료 요청
 
 - 결론: 검토 불가
 - 우선순위: P1
+- 리뷰 회차: ${reviewProgress(reviewNumber)}
 
 ## 차단 이슈
 
@@ -494,7 +571,7 @@ function createJiraReviewAutomation({ pool, fetchImpl = fetch, logger = console 
 - 규칙 버전: \`${RULE_VERSION}\``;
   }
 
-  async function generateReview(kind, bundle, artifacts, key) {
+  async function generateReview(kind, bundle, artifacts, key, reviewNumber) {
     const issueContext = clip(bundle.issues, 60000);
     const artifactContext = clip({ notion: artifacts.notion, figma: artifacts.figma.map(({ imageUrls, ...rest }) => rest) }, 60000);
     const content = [
@@ -519,7 +596,7 @@ function createJiraReviewAutomation({ pool, fetchImpl = fetch, logger = console 
     );
     const result = outputText(response);
     if (!result) throw new Error("OpenAI returned an empty review");
-    return `${result}\n\n검토 식별자: \`${key}\`\n규칙 버전: \`${RULE_VERSION}\``;
+    return `${result}\n\n리뷰 회차: ${reviewProgress(reviewNumber)}\n검토 식별자: \`${key}\`\n규칙 버전: \`${RULE_VERSION}\``;
   }
 
   function discordPayload(job, issue, body) {
@@ -609,7 +686,8 @@ function createJiraReviewAutomation({ pool, fetchImpl = fetch, logger = console 
         summary: issue.fields?.summary || "",
       });
       if (!actualKind || actualKind !== job.review_kind) throw new Error("Transition no longer matches review rules");
-      if (normalizeStatus(issue.fields?.status?.name) !== "ai리뷰") {
+      const commentCommand = normalizeStatus(job.from_status) === normalizeStatus(COMMENT_COMMAND_STATUS);
+      if (!commentCommand && normalizeStatus(issue.fields?.status?.name) !== "ai리뷰") {
         throw new Error("Issue is no longer in AI리뷰 status");
       }
 
@@ -634,9 +712,64 @@ function createJiraReviewAutomation({ pool, fetchImpl = fetch, logger = console 
 
       const bundle = await collectIssueBundle(issue, actualKind);
       const artifacts = await loadArtifacts(bundle, actualKind);
+      const fingerprint = evidenceFingerprint(bundle, artifacts);
+      const history = await pool.query(
+        `SELECT
+           COUNT(*) FILTER (WHERE status = 'posted')::int AS successful_reviews,
+           (ARRAY_AGG(evidence_hash ORDER BY processed_at DESC)
+             FILTER (WHERE status = 'posted' AND evidence_hash <> ''))[1] AS latest_evidence_hash
+         FROM jira_ai_reviews
+         WHERE issue_key = $1`,
+        [job.issue_key]
+      );
+      const successfulReviews = Number(history.rows[0]?.successful_reviews || 0);
+      const latestEvidenceHash = text(history.rows[0]?.latest_evidence_hash);
+      if (successfulReviews >= MAX_SUCCESSFUL_REVIEWS) {
+        if (commentCommand) {
+          await addJiraComment(
+            job.issue_key,
+            `# AI PM 자동 리뷰\n\n- 결론: 재리뷰 미실행\n- 리뷰 회차: AI 리뷰 ${successfulReviews}/${MAX_SUCCESSFUL_REVIEWS}\n\n## 다음 행동\n\n- AI 리뷰 한도에 도달했습니다. 담당자가 최종 판단해 주세요.\n\n검토 식별자: \`${job.review_key}\``
+          );
+        }
+        await pool.query(
+          `UPDATE jira_ai_reviews
+           SET status = 'skipped', skip_reason = 'review-limit-reached',
+               processed_at = CURRENT_TIMESTAMP, updated_at = CURRENT_TIMESTAMP
+           WHERE id = $1`,
+          [id]
+        );
+        return {
+          status: "skipped",
+          issueKey: job.issue_key,
+          reason: "review-limit-reached",
+          reviewCount: successfulReviews,
+        };
+      }
+      if (latestEvidenceHash && latestEvidenceHash === fingerprint) {
+        if (commentCommand) {
+          await addJiraComment(
+            job.issue_key,
+            `# AI PM 자동 리뷰\n\n- 결론: 재리뷰 미실행\n- 리뷰 회차: AI 리뷰 ${successfulReviews}/${MAX_SUCCESSFUL_REVIEWS}\n\n## 다음 행동\n\n- 이전 리뷰 이후 변경된 Jira·Notion·Figma 검토 자료가 없습니다. 자료를 수정한 뒤 댓글에 \`${REVIEW_COMMAND}\`를 다시 입력해 주세요.\n\n검토 식별자: \`${job.review_key}\``
+          );
+        }
+        await pool.query(
+          `UPDATE jira_ai_reviews
+           SET status = 'skipped', skip_reason = 'evidence-unchanged',
+               evidence_hash = $2, processed_at = CURRENT_TIMESTAMP, updated_at = CURRENT_TIMESTAMP
+           WHERE id = $1`,
+          [id, fingerprint]
+        );
+        return {
+          status: "skipped",
+          issueKey: job.issue_key,
+          reason: "evidence-unchanged",
+          reviewCount: successfulReviews,
+        };
+      }
+      const reviewNumber = successfulReviews + 1;
       const review = artifacts.missing.length
-        ? missingArtifactReview(job.issue_key, artifacts.missing, job.review_key)
-        : await generateReview(actualKind, bundle, artifacts, job.review_key);
+        ? missingArtifactReview(job.issue_key, artifacts.missing, job.review_key, reviewNumber)
+        : await generateReview(actualKind, bundle, artifacts, job.review_key, reviewNumber);
       const discordNotice = await prepareDiscord(job, issue);
       const discordMessageId = discordNotice?.messageId || null;
       const discordThreadId = discordNotice?.threadId || null;
@@ -661,11 +794,17 @@ function createJiraReviewAutomation({ pool, fetchImpl = fetch, logger = console 
       await pool.query(
         `UPDATE jira_ai_reviews
          SET status = 'posted', review_body = $2, jira_comment_id = $3,
+             evidence_hash = $4, review_number = $5, skip_reason = '',
              processed_at = CURRENT_TIMESTAMP, updated_at = CURRENT_TIMESTAMP
          WHERE id = $1`,
-        [id, review, String(comment?.id || "")]
+        [id, review, String(comment?.id || ""), fingerprint, reviewNumber]
       );
-      return { status: "posted", issueKey: job.issue_key, commentId: comment?.id || null };
+      return {
+        status: "posted",
+        issueKey: job.issue_key,
+        commentId: comment?.id || null,
+        reviewNumber,
+      };
     } catch (error) {
       await pool.query(
         `UPDATE jira_ai_reviews SET status = 'failed', error = $2, updated_at = CURRENT_TIMESTAMP WHERE id = $1`,
@@ -689,6 +828,53 @@ function createJiraReviewAutomation({ pool, fetchImpl = fetch, logger = console 
       await processJob(row.id).catch(() => null);
     }
     return pending.rowCount;
+  }
+
+  async function scanReviewCommands() {
+    const jql = encodeURIComponent("project = KD3 AND updated >= -10m ORDER BY updated DESC");
+    const fields = encodeURIComponent("summary,status,issuetype,updated,comment");
+    const response = await jiraGet(`/rest/api/3/search/jql?jql=${jql}&fields=${fields}&maxResults=100`);
+    let processed = 0;
+    for (const issue of response.issues || []) {
+      for (const comment of issue.fields?.comment?.comments || []) {
+        if (!comment?.id || !isReviewCommand(comment)) continue;
+        const inserted = await pool.query(
+          `INSERT INTO jira_ai_review_commands (comment_id, issue_key)
+           VALUES ($1, $2)
+           ON CONFLICT (comment_id) DO NOTHING
+           RETURNING comment_id`,
+          [String(comment.id), issue.key]
+        );
+        if (!inserted.rowCount) continue;
+        try {
+          const queued = await enqueue({
+            issueKey: issue.key,
+            issueType: issue.fields?.issuetype?.name,
+            summary: issue.fields?.summary,
+            fromStatus: COMMENT_COMMAND_STATUS,
+            toStatus: "AI리뷰",
+            updatedAt: `${issue.fields?.updated || comment.updated || comment.created}:${comment.id}`,
+          });
+          const result = queued.accepted ? await processJob(queued.id) : queued;
+          await pool.query(
+            `UPDATE jira_ai_review_commands
+             SET job_id = $2, status = 'processed', result = $3, processed_at = CURRENT_TIMESTAMP
+             WHERE comment_id = $1`,
+            [String(comment.id), queued.id || null, JSON.stringify(result)]
+          );
+          processed += 1;
+        } catch (error) {
+          await pool.query(
+            `UPDATE jira_ai_review_commands
+             SET status = 'failed', result = $2, processed_at = CURRENT_TIMESTAMP
+             WHERE comment_id = $1`,
+            [String(comment.id), String(error.message || error).slice(0, 1000)]
+          );
+          logger.error(`Jira AI review command failed for ${issue.key}:`, error.message);
+        }
+      }
+    }
+    return processed;
   }
 
   async function enqueue(payload) {
@@ -746,6 +932,7 @@ function createJiraReviewAutomation({ pool, fetchImpl = fetch, logger = console 
       return res.json({
         ready: Boolean(config.jiraBaseUrl && config.jiraEmail && config.jiraToken && config.openaiKey),
         triggerStatus: "AI리뷰",
+        maxSuccessfulReviews: MAX_SUCCESSFUL_REVIEWS,
         excludedIssueTypes: ["Task", "작업"],
         ruleVersion: RULE_VERSION,
         integrations: {
@@ -770,16 +957,21 @@ function createJiraReviewAutomation({ pool, fetchImpl = fetch, logger = console 
     enqueue,
     processJob,
     processPending,
+    scanReviewCommands,
   };
 }
 
 module.exports = {
   RULE_VERSION,
+  MAX_SUCCESSFUL_REVIEWS,
+  REVIEW_COMMAND,
   classifyTransition,
   extractUrls,
   parseNotionPageId,
   parseFigmaTarget,
   sprintIds,
   markdownToAdf,
+  evidenceFingerprint,
+  isReviewCommand,
   createJiraReviewAutomation,
 };
