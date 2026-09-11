@@ -7,6 +7,10 @@ function text(value, max = 900) {
   return String(value || "").trim().slice(0, max) || "-";
 }
 
+function wantsJoinNotification(data) {
+  return data.wantsJoinNotification ?? data.wantsResultNotification ?? false;
+}
+
 function setCorsHeaders(req, res) {
   const origin = req.get("origin");
   if (ALLOWED_ORIGINS.has(origin)) {
@@ -56,7 +60,7 @@ function createCareersWebhookHandler({
                 fields: [
                   { name: "지원 포지션", value: text(data.position), inline: true },
                   { name: "이름", value: text(data.name), inline: true },
-                  { name: "결과 안내", value: data.wantsResultNotification ? "희망" : "희망하지 않음", inline: true },
+                  { name: "합류 여부 안내", value: wantsJoinNotification(data) ? "희망" : "희망하지 않음", inline: true },
                   { name: "연락처", value: text(data.phone), inline: true },
                   { name: "이메일", value: text(data.email), inline: false },
                   { name: "성별", value: text(data.gender), inline: true },

@@ -38,7 +38,7 @@ test("sends a careers application to Discord", async () => {
       phone: "010-1234-5678",
       email: "test@example.com",
       position: "Frontend 개발자",
-      wantsResultNotification: true,
+      wantsJoinNotification: true,
     }),
     get: (name) => (name === "origin" ? "https://home.knockdog.net" : undefined),
   };
@@ -50,6 +50,32 @@ test("sends a careers application to Discord", async () => {
   assert.deepEqual(res.body, { success: true });
   assert.equal(request.url, "https://discord.example/webhook");
   const payload = JSON.parse(request.options.body);
+  assert.equal(payload.embeds[0].fields[2].name, "합류 여부 안내");
+  assert.equal(payload.embeds[0].fields[2].value, "희망");
+});
+
+test("supports the previous result-notification field name", async () => {
+  let payload;
+  const handler = createCareersWebhookHandler({
+    webhookUrl: "https://discord.example/webhook",
+    fetchImpl: async (_url, options) => {
+      payload = JSON.parse(options.body);
+      return { ok: true };
+    },
+  });
+  const req = {
+    body: {
+      name: "홍길동",
+      phone: "010-1234-5678",
+      email: "test@example.com",
+      position: "Frontend 개발자",
+      wantsResultNotification: true,
+    },
+    get: () => "https://home.knockdog.net",
+  };
+
+  await handler.post(req, createResponse());
+
   assert.equal(payload.embeds[0].fields[2].value, "희망");
 });
 
