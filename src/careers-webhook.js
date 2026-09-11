@@ -51,6 +51,7 @@ function createCareersWebhookHandler({
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
+            thread_name: `지원 - ${text(data.name, 40)} (${text(data.position, 40)})`.slice(0, 100),
             username: "Knockdog Careers",
             allowed_mentions: { parse: [] },
             embeds: [

@@ -50,6 +50,7 @@ test("sends a careers application to Discord", async () => {
   assert.deepEqual(res.body, { success: true });
   assert.equal(request.url, "https://discord.example/webhook");
   const payload = JSON.parse(request.options.body);
+  assert.equal(payload.thread_name, "지원 - 홍길동 (Frontend 개발자)");
   assert.equal(payload.embeds[0].fields[2].name, "합류 여부 안내");
   assert.equal(payload.embeds[0].fields[2].value, "희망");
 });
