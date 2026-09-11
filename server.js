@@ -13,6 +13,7 @@ const {
   generateSaveAndPostWeeklyReport,
 } = require("./src/team-weekly-report");
 const { createJiraReviewAutomation } = require("./src/jira-review-automation");
+const { createCareersWebhookHandler } = require("./src/careers-webhook");
 
 const app = express();
 const PORT = process.env.PORT || 5000;
@@ -24,6 +25,7 @@ const pool = new Pool({
   connectionString: process.env.DATABASE_URL,
 });
 const jiraReviewAutomation = createJiraReviewAutomation({ pool });
+const careersWebhookHandler = createCareersWebhookHandler();
 
 async function initDatabase() {
   try {
@@ -698,6 +700,13 @@ async function generateReport() {
 }
 
 app.use(express.static(path.join(__dirname, "public")));
+
+app.options("/api/careers/application-alert", careersWebhookHandler.options);
+app.post(
+  "/api/careers/application-alert",
+  express.text({ type: "text/plain", limit: "32kb" }),
+  careersWebhookHandler.post
+);
 
 app.get("/api/members", async (req, res) => {
   try {
