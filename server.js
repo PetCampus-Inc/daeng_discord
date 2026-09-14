@@ -13,6 +13,7 @@ const {
   generateSaveAndPostWeeklyReport,
 } = require("./src/team-weekly-report");
 const { createJiraReviewAutomation } = require("./src/jira-review-automation");
+const { createSubwayGapAlert } = require("./src/subway-gap-alert");
 const { createCareersWebhookHandler } = require("./src/careers-webhook");
 
 const app = express();
@@ -25,6 +26,7 @@ const pool = new Pool({
   connectionString: process.env.DATABASE_URL,
 });
 const jiraReviewAutomation = createJiraReviewAutomation({ pool });
+const subwayGapAlert = createSubwayGapAlert();
 const careersWebhookHandler = createCareersWebhookHandler();
 
 async function initDatabase() {
@@ -2697,6 +2699,19 @@ cron.schedule("* * * * *", async () => {
     console.error("Jira AI review queue error:", err.message);
   }
 });
+
+cron.schedule(
+  "*/30 * 7-9 * * *",
+  async () => {
+    try {
+      const result = await subwayGapAlert.run();
+      if (result.sent?.length) console.log(`Subway gap alert sent: ${result.sent.length}`);
+    } catch (err) {
+      console.error("Subway gap alert error:", err.message);
+    }
+  },
+  { timezone: "Asia/Seoul", noOverlap: true }
+);
 
 function startDashboardServer(port) {
   return app.listen(port, "0.0.0.0", () => {
