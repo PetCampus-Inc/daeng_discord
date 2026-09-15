@@ -19,7 +19,7 @@ function monitoringWindow(now = new Date()) {
   return {
     date: kst.toISOString().slice(0, 10),
     time: `${String(kst.getUTCHours()).padStart(2, "0")}:${String(kst.getUTCMinutes()).padStart(2, "0")}`,
-    threshold: 2,
+    threshold: 3,
   };
 }
 

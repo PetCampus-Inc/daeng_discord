@@ -16,12 +16,12 @@ function mapHtml(...trains) {
   return `<div class="4line" title="4호선 노선도"><div class="4line_metro">${trains.join("")}</div></div>`;
 }
 
-test("uses a constant two-station threshold from 07:30 through 09:09 KST", () => {
+test("uses a constant three-station threshold from 07:30 through 09:09 KST", () => {
   assert.equal(monitoringWindow(new Date("2026-09-14T07:29:59+09:00")), null);
-  assert.equal(monitoringWindow(new Date("2026-09-14T07:30:00+09:00")).threshold, 2);
-  assert.equal(monitoringWindow(new Date("2026-09-14T08:59:59+09:00")).threshold, 2);
-  assert.equal(monitoringWindow(new Date("2026-09-14T09:00:00+09:00")).threshold, 2);
-  assert.equal(monitoringWindow(new Date("2026-09-14T09:09:59+09:00")).threshold, 2);
+  assert.equal(monitoringWindow(new Date("2026-09-14T07:30:00+09:00")).threshold, 3);
+  assert.equal(monitoringWindow(new Date("2026-09-14T08:59:59+09:00")).threshold, 3);
+  assert.equal(monitoringWindow(new Date("2026-09-14T09:00:00+09:00")).threshold, 3);
+  assert.equal(monitoringWindow(new Date("2026-09-14T09:09:59+09:00")).threshold, 3);
   assert.equal(monitoringWindow(new Date("2026-09-14T09:10:00+09:00")), null);
 });
 
@@ -29,18 +29,18 @@ test("keeps only southbound trains from Sanggye through Gireum", () => {
   const positions = parseTrainPositions(mapHtml(
     train("4201", "0409", "불암산"),
     train("4202", "0410", "상계"),
-    train("4203", "0412", "창동"),
+    train("4203", "0413", "쌍문"),
     train("4204", "0417", "길음", 1),
     train("4205", "0417", "길음", 2, "출발"),
     train("4206", "0418", "성신여대입구")
   ));
   assert.deepEqual(positions.map((position) => position.id), ["4202", "4203"]);
-  assert.deepEqual(findGaps(positions, 2).map((gap) => gap.distance), [2]);
-  assert.deepEqual(findGaps(positions, 3), []);
+  assert.deepEqual(findGaps(positions, 3).map((gap) => gap.distance), [3]);
+  assert.deepEqual(findGaps(positions, 4), []);
 });
 
-test("alerts after two observations, deduplicates, and still detects two stations after 09:00", async () => {
-  let html = mapHtml(train("4201", "0412", "창동"), train("4203", "0410", "상계"));
+test("alerts after two observations, deduplicates, and ignores two-station gaps", async () => {
+  let html = mapHtml(train("4201", "0413", "쌍문"), train("4203", "0410", "상계"));
   const posts = [];
   const fetchImpl = async (url, options) => {
     if (url.includes("traininfoUserMap.do")) return new Response(html);
@@ -56,7 +56,7 @@ test("alerts after two observations, deduplicates, and still detects two station
   assert.equal(posts.length, 0);
   await alert.run({ now: beforeNine });
   assert.equal(posts.length, 1);
-  assert.match(posts[0].content, /2정거장/);
+  assert.match(posts[0].content, /3정거장/);
   assert.match(posts[0].thread_name, /4호선 간격 알림/);
   assert.deepEqual(posts[0].allowed_mentions, { parse: [] });
   await alert.run({ now: beforeNine });
@@ -71,9 +71,12 @@ test("alerts after two observations, deduplicates, and still detects two station
   html = mapHtml(train("4201", "0412", "창동"), train("4203", "0410", "상계"));
   await alert.run({ now: afterNine });
   assert.equal(posts.length, 1);
+  html = mapHtml(train("4201", "0413", "쌍문"), train("4203", "0410", "상계"));
+  await alert.run({ now: afterNine });
+  assert.equal(posts.length, 1);
   await alert.run({ now: afterNine });
   assert.equal(posts.length, 2);
-  assert.match(posts[1].content, /2정거장/);
+  assert.match(posts[1].content, /3정거장/);
 });
 
 test("does not fetch outside the window or post when source HTML is invalid", async () => {
@@ -92,7 +95,7 @@ test("does not fetch outside the window or post when source HTML is invalid", as
 test("a failed source poll breaks the two-observation streak", async () => {
   let sourceCalls = 0;
   let posts = 0;
-  const html = mapHtml(train("4201", "0412", "창동"), train("4203", "0410", "상계"));
+  const html = mapHtml(train("4201", "0413", "쌍문"), train("4203", "0410", "상계"));
   const alert = createSubwayGapAlert({
     env: { SUBWAY_GAP_DISCORD_WEBHOOK_URL: "https://discord.example/webhook" },
     fetchImpl: async (url) => {
