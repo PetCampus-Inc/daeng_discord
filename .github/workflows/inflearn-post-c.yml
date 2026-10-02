@@ -71,7 +71,7 @@ jobs:
         env:
           INFLEARN_DRY_RUN: ${{ inputs.dry_run && '1' || '' }}
           INFLEARN_DELETE_ALL_KNOCKDOG: ${{ inputs.cleanup_all && '1' || '' }}
-          INFLEARN_CLEANUP_ONLY: ${{ inputs.cleanup_all && '1' || '' }}
+          INFLEARN_CLEANUP_ONLY: ${{ (inputs.cleanup_all || inputs.cleanup_urls != '') && '1' || '' }}
           INFLEARN_CLEANUP_URLS: ${{ inputs.cleanup_urls || '' }}
         run: node scripts/inflearn/post.js
 
