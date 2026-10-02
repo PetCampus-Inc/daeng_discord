@@ -143,7 +143,8 @@ async function deleteProjectFromDetail(page, projectUrl, index, dryRunMode = fal
   await page.waitForTimeout(2500);
 
   const bodyText = normalizeText(await page.locator("body").innerText({ timeout: 10000 }).catch(() => ""));
-  if (!deleteAllKnockdog && !bodyText.includes(normalizeText(config.title))) {
+  const manuallySelected = cleanupUrls.includes(projectUrl);
+  if (!deleteAllKnockdog && !manuallySelected && !bodyText.includes(normalizeText(config.title))) {
     console.warn("  제목이 상세 페이지에서 다시 확인되지 않아 삭제를 건너뜁니다.");
     return false;
   }
