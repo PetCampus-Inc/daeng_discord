@@ -825,7 +825,12 @@ function maskBusinessNumber(value) {
   return `${digits.slice(0, 3)}-**-${digits.slice(-5)}`;
 }
 
-app.use("/service-admin.html", requireServiceAdmin);
+app.get("/home", requireServiceAdmin, (req, res) => {
+  res.sendFile(path.join(__dirname, "public", "service-admin.html"));
+});
+app.get("/service-admin.html", (req, res) => {
+  res.redirect(308, "/home");
+});
 app.use("/api/service-admin", requireServiceAdmin, requireServiceDb);
 app.use(express.static(path.join(__dirname, "public")));
 
