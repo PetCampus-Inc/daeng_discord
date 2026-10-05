@@ -23,8 +23,8 @@ function currentWeekStartKST() {
 }
 
 function weekRange(weekStart) {
-  const dates = Array.from({ length: 7 }, (_, i) => addDaysISO(weekStart, i));
-  return { weekStart, weekEnd: dates[6], dates };
+  const dates = Array.from({ length: 5 }, (_, i) => addDaysISO(weekStart, i));
+  return { weekStart, weekEnd: dates[4], dates };
 }
 
 function previousWeekStarts(count, baseWeekStart = currentWeekStartKST()) {
@@ -110,25 +110,34 @@ function itemsFromStorage(raw, fallbackUrl) {
         .map((it) => ({
           text: (it && typeof it.text === "string" ? it.text : "").trim(),
           url: (it && typeof it.url === "string" ? it.url : "").trim(),
+          insight: (it && typeof it.insight === "string" ? it.insight : "").trim(),
         }))
-        .filter((it) => it.text || it.url);
+        .filter((it) => it.text || it.url || it.insight);
     }
   } catch (_) {
     // Legacy plain-text storage.
   }
-  return [{ text: String(raw).trim(), url: (fallbackUrl || "").trim() }].filter(
+  return [{ text: String(raw).trim(), url: (fallbackUrl || "").trim(), insight: "" }].filter(
     (it) => it.text || it.url
   );
 }
 
-function itemText(item) {
-  if (!item.url) return item.text;
-  if (!item.text) return item.url;
-  return `${item.text} (${item.url})`;
-}
-
 function extractJiraKeys(text) {
   return String(text || "").match(/\b[A-Z][A-Z0-9]+-\d+\b/g) || [];
+}
+
+function ticketKeysFromItem(item) {
+  const textKeys = extractJiraKeys(item && item.text);
+  const url = String((item && item.url) || "");
+  const urlKeys = url.includes("atlassian.net") ? extractJiraKeys(url) : [];
+  return [...new Set(urlKeys.length ? urlKeys : textKeys)];
+}
+
+function itemTitleWithoutTicket(item) {
+  return String((item && item.text) || "")
+    .replace(/^\s*\[[A-Z][A-Z0-9]+-\d+\]\s*/, "")
+    .replace(/^\s*[A-Z][A-Z0-9]+-\d+\s*/, "")
+    .trim();
 }
 
 function bulletList(items, emptyText = "-") {
@@ -153,15 +162,19 @@ async function ensureWeeklyReportsTable(pool) {
 
 async function loadWeekCheckins(pool, weekStart) {
   const { weekEnd, dates } = weekRange(weekStart);
-  const result = await pool.query(
+  const [result, membersResult] = await Promise.all([
+    pool.query(
     `SELECT user_name, check_date, start_time, end_time, hours_text,
             unavailable_text, done, tasks, blockers, checked_in_at, link_url
        FROM checkins
       WHERE check_date BETWEEN $1 AND $2
       ORDER BY user_name, check_date`,
     [weekStart, weekEnd]
-  );
+    ),
+    pool.query(`SELECT name FROM team_members WHERE archived = FALSE ORDER BY name`),
+  ]);
   const byUser = new Map();
+  for (const row of membersResult.rows) byUser.set(row.name, []);
   for (const row of result.rows) {
     const date =
       row.check_date instanceof Date
@@ -198,102 +211,145 @@ async function loadWeekCheckins(pool, weekStart) {
 }
 
 function buildWeeklyReportMarkdown(data) {
-  const weekdays = data.dates.slice(0, 5);
-  const jiraKeys = new Set();
   const memberSummaries = data.users
     .map((user) => {
-      const done = [];
-      const tasks = [];
-      const blockers = [];
       let checkinCount = 0;
       let lateCount = 0;
       let weeklyMin = 0;
-
+      const evidence = [];
+      const insights = [];
       for (const entry of user.entries) {
-        const dayLabel = entry.date.slice(5).replace("-", "/");
-        if (entry.hasCheckin && weekdays.includes(entry.date)) checkinCount++;
-        if (entry.isLate && weekdays.includes(entry.date)) lateCount++;
+        if (entry.hasCheckin) checkinCount++;
+        if (entry.isLate) lateCount++;
         if (typeof entry.dailyMin === "number") weeklyMin += entry.dailyMin;
-        for (const item of entry.doneItems) done.push(`${dayLabel} ${itemText(item)}`);
-        for (const item of entry.taskItems) tasks.push(`${dayLabel} ${itemText(item)}`);
-        if (entry.blockers && entry.blockers.trim()) blockers.push(`${dayLabel} ${entry.blockers.trim()}`);
-        for (const value of [...entry.doneItems, ...entry.taskItems].map(itemText)) {
-          extractJiraKeys(value).forEach((key) => jiraKeys.add(key));
+        for (const item of [...(entry.doneItems || []), ...(entry.taskItems || entry.tasksItems || [])]) {
+          if (item?.text) evidence.push(item.text);
+          if (item?.insight) insights.push(item.insight);
         }
-        extractJiraKeys(entry.blockers).forEach((key) => jiraKeys.add(key));
       }
-
       return {
         name: user.userName,
-        done,
-        tasks,
-        blockers,
         checkinCount,
         lateCount,
         weeklyMin,
+        evidence: [...new Set(evidence)].slice(0, 6),
+        insights: [...new Set(insights)].slice(0, 6),
       };
     })
     .sort((a, b) => a.name.localeCompare(b.name));
 
-  const totalMin = memberSummaries.reduce((sum, m) => sum + m.weeklyMin, 0);
-  const totalCheckins = memberSummaries.reduce((sum, m) => sum + m.checkinCount, 0);
-  const mainTopics = [...jiraKeys].slice(0, 8);
-
+  const totalMin = memberSummaries.reduce((sum, member) => sum + member.weeklyMin, 0);
+  const totalCheckins = memberSummaries.reduce((sum, member) => sum + member.checkinCount, 0);
+  const totalLate = memberSummaries.reduce((sum, member) => sum + member.lateCount, 0);
   const lines = [
-    "## 주간 팀 랩업",
-    `**${data.weekStart} ~ ${data.weekEnd}**`,
-    "",
-    "### 전체 요약",
-    `- 체크인: ${memberSummaries.map((m) => `${m.name} ${m.checkinCount}/5일`).join(", ") || "기록 없음"}`,
-    `- 총 작업 시간: ${formatHours(totalMin)} (${memberSummaries.map((m) => `${m.name} ${formatHours(m.weeklyMin)}`).join(", ") || "기록 없음"})`,
-    `- 주요 진행: ${mainTopics.length ? mainTopics.join(", ") : "체크인 내용을 기준으로 확인 필요"}`,
-    `- 다음 주 집중: ${memberSummaries.flatMap((m) => m.tasks).slice(0, 5).map((v) => v.replace(/^\d{2}\/\d{2}\s+/, "")).join(", ") || "등록된 다음 액션 없음"}`,
-    "",
-    "---",
+    "## 🐶 주간 참여 리포트",
+    `**${data.weekStart}(월) ~ ${data.weekEnd}(금)**`,
+    "출결·Delayed·결과물·Insight를 기반으로 정리한 기록입니다.",
     "",
   ];
 
   for (const member of memberSummaries) {
     lines.push(
-      `### ${member.name}`,
-      `체크인 ${member.checkinCount}/5일 · 작업 시간 ${formatHours(member.weeklyMin)}${member.lateCount ? ` · Delayed ${member.lateCount}회` : ""}`,
-      "",
-      "**이번 주 한 일**",
-      bulletList(member.done, "기록 없음"),
-      "",
-      "**다음 액션**",
-      bulletList(member.tasks, "기록 없음"),
-      "",
-      "**Blocker**",
-      bulletList(member.blockers, "없음"),
-      "",
-      "---",
+      `### ${member.name} · 출결 ${member.checkinCount}/5일${member.lateCount ? ` · Delayed ${member.lateCount}회` : ""}`,
+      `- 작업시간: ${formatHours(member.weeklyMin)}`,
+      `- 결과물: ${member.evidence.length ? member.evidence.join(" / ") : "기록 없음"}`,
+      `- Insight: ${member.insights.length ? member.insights.join(" / ") : "기록 없음"}`,
       ""
     );
   }
 
-  const allBlockers = memberSummaries.flatMap((m) => m.blockers.map((b) => `${m.name}: ${b}`));
   lines.push(
-    "### 이번 주 Blocker",
-    bulletList(allBlockers, "없음"),
+    "---",
     "",
-    "### Jira 키",
-    jiraKeys.size ? [...jiraKeys].sort().map((key) => `\`${key}\``).join(" ") : "없음"
+    "### 팀 요약",
+    `- 총 작업시간: ${formatHours(totalMin)}`,
+    `- 참여 인원: ${memberSummaries.length}명`,
+    `- 체크인: ${totalCheckins}건`,
+    `- Delayed: ${totalLate}회`
   );
-
   if (!memberSummaries.length || totalCheckins === 0) {
-    lines.push("", "", "_이번 주 체크인 기록이 없거나 체크인 내용이 비어 있습니다._");
+    lines.push("", "_이번 주 체크인 기록이 없거나 체크인 내용이 비어 있습니다._");
   }
-
-  return lines.join("\n");
+  return { content: lines.join("\n"), memberSummaries };
 }
 
-async function generateWeeklyReport(pool, weekStart) {
+function rankMembers(members, field) {
+  let previousValue = null;
+  let previousRank = 0;
+  return [...members]
+    .sort((a, b) => b[field] - a[field] || a.name.localeCompare(b.name))
+    .map((member, index) => {
+      const rank = member[field] === previousValue ? previousRank : index + 1;
+      previousValue = member[field];
+      previousRank = rank;
+      return { ...member, rank };
+    });
+}
+
+function rankingLines(rankedMembers, formatValue) {
+  if (!rankedMembers.length) return ["- 기록 없음"];
+  return rankedMembers.map(
+    (member) => `${member.rank}. ${member.name} — ${formatValue(member)}`
+  );
+}
+
+function responseText(response) {
+  if (typeof response?.output_text === "string") return response.output_text.trim();
+  return (response?.output || [])
+    .flatMap((item) => item?.content || [])
+    .map((item) => item?.text || "")
+    .filter(Boolean)
+    .join("\n")
+    .trim();
+}
+
+async function generateParticipationInsights(memberSummaries, {
+  openaiKey = process.env.OPENAI_API_KEY,
+  openaiModel = process.env.OPENAI_MODEL || "gpt-5-mini",
+  fetchImpl = fetch,
+} = {}) {
+  if (!openaiKey || !memberSummaries.length) return "";
+  const facts = JSON.stringify(memberSummaries, null, 2).slice(0, 30000);
+  const prompt = `당신은 팀 운영 리포트 작성자다. 아래 체크인 집계만 근거로 한국어 Markdown을 작성하라.
+각 구성원마다 '참여 현황', '결과물·Insight 근거', '다음 주 확인 사항'을 한 줄씩 쓴다.
+체크인 3일 미만, Delayed 반복, 결과물 또는 Insight 부재는 '확인 필요'로 분명히 표시한다.
+근거 없는 업무 성과나 사유를 만들지 말고, 사람의 하차 여부를 판단하거나 결정하지 않는다.
+랭킹·점수·비교 표현은 쓰지 않는다.
+
+집계 데이터:
+${facts}`;
+  const response = await fetchImpl("https://api.openai.com/v1/responses", {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${openaiKey}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      model: openaiModel,
+      input: prompt,
+      max_output_tokens: 1800,
+    }),
+  });
+  if (!response.ok) {
+    throw new Error(`OpenAI weekly report failed (${response.status}): ${(await response.text()).slice(0, 300)}`);
+  }
+  return responseText(await response.json());
+}
+
+async function generateWeeklyReport(pool, weekStart, options = {}) {
   const data = await loadWeekCheckins(pool, weekStart);
+  const { content: factualContent, memberSummaries } = buildWeeklyReportMarkdown(data);
+  let aiContent = "";
+  try {
+    aiContent = await generateParticipationInsights(memberSummaries, options);
+  } catch (error) {
+    console.error("Weekly participation AI report error:", error.message);
+    aiContent = "_AI 참여 인사이트 생성에 실패했습니다. 위의 사실 기록을 확인해 주세요._";
+  }
   return {
     weekStart: data.weekStart,
     weekEnd: data.weekEnd,
-    content: buildWeeklyReportMarkdown(data),
+    content: aiContent ? `${factualContent}\n\n---\n\n## AI 참여 인사이트\n${aiContent}` : factualContent,
   };
 }
 
@@ -331,27 +387,52 @@ function splitDiscordContent(content) {
   return chunks;
 }
 
-async function postReportToDiscordWebhook(webhookUrl, content) {
+async function postReportToDiscordWebhook(webhookUrl, content, threadName = "주간 참여 리포트") {
   if (!webhookUrl) throw new Error("TEAM_WEEKLY_WEBHOOK_URL is required");
   const ids = [];
   const chunks = splitDiscordContent(content);
+  let forumMode = false;
+  let forumThreadId = "";
   for (let i = 0; i < chunks.length; i++) {
     const prefix = chunks.length > 1 ? `**(${i + 1}/${chunks.length})**\n` : "";
-    const resp = await fetch(`${webhookUrl}?wait=true`, {
+    const payload = {
+      content: prefix + chunks[i],
+      allowed_mentions: { parse: [] },
+    };
+    const url = new URL(webhookUrl);
+    url.searchParams.set("wait", "true");
+    if (forumThreadId) url.searchParams.set("thread_id", forumThreadId);
+    let resp = await fetch(url, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        content: prefix + chunks[i],
-        allowed_mentions: { parse: [] },
-      }),
+      body: JSON.stringify(payload),
     });
-    const text = await resp.text();
+    let text = await resp.text();
+    if (!resp.ok && i === 0) {
+      let errorCode = null;
+      try {
+        errorCode = JSON.parse(text).code;
+      } catch (_) {
+        // Keep the original Discord response for the error below.
+      }
+      if (errorCode === 220001) {
+        forumMode = true;
+        payload.thread_name = String(threadName || "주간 참여 리포트").slice(0, 100);
+        resp = await fetch(url, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(payload),
+        });
+        text = await resp.text();
+      }
+    }
     if (!resp.ok) {
       throw new Error(`Discord webhook failed (${resp.status}) ${text.slice(0, 200)}`);
     }
     try {
       const json = JSON.parse(text);
       if (json.id) ids.push(json.id);
+      if (forumMode && !forumThreadId && json.channel_id) forumThreadId = json.channel_id;
     } catch (_) {
       // Discord may return an empty body if wait behavior changes.
     }
@@ -372,15 +453,21 @@ async function markWeeklyReportPosted(pool, weekStart, messageIds) {
 async function generateSaveAndPostWeeklyReport(pool, weekStart, webhookUrl) {
   const report = await generateWeeklyReport(pool, weekStart);
   await saveWeeklyReport(pool, report);
-  const messageIds = await postReportToDiscordWebhook(webhookUrl, report.content);
+  const messageIds = await postReportToDiscordWebhook(
+    webhookUrl,
+    report.content,
+    `주간 참여 리포트 ${report.weekStart} ~ ${report.weekEnd}`
+  );
   await markWeeklyReportPosted(pool, weekStart, messageIds);
   return { ...report, messageIds };
 }
 
 module.exports = {
+  mondayOfISO,
   currentWeekStartKST,
   previousWeekStarts,
   ensureWeeklyReportsTable,
+  buildWeeklyReportMarkdown,
   generateWeeklyReport,
   saveWeeklyReport,
   postReportToDiscordWebhook,

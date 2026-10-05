@@ -395,6 +395,15 @@
     .field-label .hint {
       font-size: 0.78rem; color: var(--ink-mute); font-weight: 500;
     }
+    .field-hint {
+      margin: -2px 0 9px;
+      padding: 9px 11px;
+      border-radius: 10px;
+      background: #fff8e8;
+      color: #8a5a12;
+      font-size: 0.78rem;
+      line-height: 1.55;
+    }
 
     .input, .select, .textarea {
       width: 100%;
@@ -1513,7 +1522,8 @@
       align-items: center;
     }
     .item-row .item-text,
-    .item-row .item-url {
+    .item-row .item-url,
+    .item-row .item-insight {
       width: 100%;
       padding: 9px 12px;
       border-radius: 10px;
@@ -1526,8 +1536,15 @@
       font-variant-numeric: tabular-nums;
       font-size: 0.88rem;
     }
+    .item-row .item-insight {
+      grid-column: 1 / 3;
+      min-height: 62px;
+      resize: vertical;
+      line-height: 1.45;
+    }
     .item-row .item-text:focus,
-    .item-row .item-url:focus {
+    .item-row .item-url:focus,
+    .item-row .item-insight:focus {
       outline: none; border-color: var(--accent);
       box-shadow: 0 0 0 3px rgba(245, 158, 11, 0.15);
     }
@@ -1555,15 +1572,23 @@
     @media (max-width: 600px) {
       .item-row { grid-template-columns: 1fr 28px; }
       .item-row .item-url { grid-column: 1 / 2; }
-      .item-row .item-remove { grid-row: 1 / 3; }
+      .item-row .item-insight { grid-column: 1 / 2; }
+      .item-row .item-remove { grid-row: 1 / 4; }
     }
     /* Card per-item display */
     .team-item {
-      display: flex; gap: 6px; align-items: baseline;
+      display: flex; gap: 6px; align-items: baseline; flex-wrap: wrap;
       padding: 4px 0;
       border-bottom: 1px dashed #f5e8d0;
     }
     .team-item:last-child { border-bottom: none; }
+    .team-item-insight {
+      flex-basis: 100%;
+      color: var(--ink-mute);
+      font-size: 0.8rem;
+      line-height: 1.45;
+      padding-left: 2px;
+    }
     .team-item-text { flex: 1; min-width: 0; white-space: pre-wrap; word-break: break-word; }
     .team-item-actions {
       flex-shrink: 0;
@@ -1959,8 +1984,9 @@
         <div class="field">
           <label class="field-label">
             한 일
-            <span class="hint">항목별로 URL (필수)을 함께 적어주세요</span>
+            <span class="hint">항목별 URL과 Insight(필수·30자 이상)를 함께 적어주세요</span>
           </label>
+          <div class="field-hint">Insight 예시 · “결제사 타임아웃 시 주문 중복 생성 가능성을 차단했고, 재시도 정책과 단위 테스트 8건을 PR에 추가했습니다.”</div>
           <div class="item-list" id="doneItems"></div>
           <button type="button" class="item-add" data-target="doneItems" data-placeholder="예: KDQA-1101 어드민 검색 필터 마무리">+ 한 일 추가</button>
         </div>
@@ -1968,8 +1994,9 @@
         <div class="field">
           <label class="field-label">
             할 일
-            <span class="hint">항목별로 URL (필수)을 함께 적어주세요</span>
+            <span class="hint">항목별 URL과 Insight(필수·30자 이상)를 함께 적어주세요</span>
           </label>
+          <div class="field-hint">Insight 예시 · “결제 실패 후 사용자의 이탈을 줄이기 위해 실패 사유별 안내와 재시도 버튼 상태를 Figma에 정의하고, PM 확인까지 받으면 완료입니다.”</div>
           <div class="item-list" id="tasksItems"></div>
           <button type="button" class="item-add" data-target="tasksItems" data-placeholder="예: KDQA-1234 결제 모듈 PR 리뷰">+ 할 일 추가</button>
         </div>
@@ -2478,12 +2505,18 @@
     });
 
     /* ---------------- Multi-item rows (한 일/할 일) ---------------- */
-    function makeItemRow(textVal, urlVal, placeholder) {
+    function insightPlaceholderFor(containerId) {
+      return containerId.toLowerCase().includes("done")
+        ? "Insight (필수·30자 이상) · 어떤 문제를 해결했고 무엇이 변경됐는지"
+        : "Insight (필수·30자 이상) · 왜 필요한지와 완료 기준은 무엇인지";
+    }
+    function makeItemRow(textVal, urlVal, insightVal, placeholder, insightPlaceholder) {
       const row = document.createElement("div");
       row.className = "item-row";
       row.innerHTML = `
         <input class="item-text" type="text" placeholder="${esc(placeholder || "")}" value="${esc(textVal || "")}" />
         <input class="item-url" type="url" inputmode="url" placeholder="URL (필수)" value="${esc(urlVal || "")}" />
+        <textarea class="item-insight" rows="2" placeholder="${esc(insightPlaceholder || "")}">${esc(insightVal || "")}</textarea>
         <button type="button" class="item-remove" title="삭제">×</button>`;
       row.querySelector(".item-remove").addEventListener("click", () => {
         row.remove();
@@ -2495,9 +2528,15 @@
       const container = document.getElementById(containerId);
       if (!container) return;
       container.innerHTML = "";
-      const list = Array.isArray(items) && items.length ? items : [{ text: "", url: "" }];
+      const list = Array.isArray(items) && items.length ? items : [{ text: "", url: "", insight: "" }];
       for (const it of list) {
-        container.appendChild(makeItemRow(it.text || "", it.url || "", placeholder));
+        container.appendChild(makeItemRow(
+          it.text || "",
+          it.url || "",
+          it.insight || "",
+          placeholder,
+          insightPlaceholderFor(containerId)
+        ));
       }
     }
     function collectItemList(containerId) {
@@ -2505,9 +2544,18 @@
       document.querySelectorAll(`#${containerId} .item-row`).forEach((row) => {
         const text = row.querySelector(".item-text").value.trim();
         const url = row.querySelector(".item-url").value.trim();
-        if (text || url) out.push({ text, url });
+        const insight = row.querySelector(".item-insight").value.trim();
+        if (text || url || insight) out.push({ text, url, insight });
       });
       return out;
+    }
+    function validateItemInsights(doneItems, tasksItems) {
+      const missing = [...doneItems, ...tasksItems].find(
+        (item) => !item.text || item.insight.length < 30
+      );
+      if (!missing) return true;
+      toast("작업명과 30자 이상의 Insight를 각 항목에 작성해주세요");
+      return false;
     }
     // Wire "+ 추가" buttons (delegated for forward compat)
     document.addEventListener("click", (e) => {
@@ -2516,7 +2564,7 @@
       const target = btn.dataset.target;
       const placeholder = btn.dataset.placeholder || "";
       const container = document.getElementById(target);
-      if (container) container.appendChild(makeItemRow("", "", placeholder));
+      if (container) container.appendChild(makeItemRow("", "", "", placeholder, insightPlaceholderFor(target)));
     });
 
     function clearCheckinOnly() {
@@ -2925,6 +2973,7 @@
         toast("한 일 / 할 일 / 블락커 중 하나는 입력해주세요");
         return;
       }
+      if (!validateItemInsights(doneItems, tasksItems)) return;
       if (!checkinCutoff) {
         toast("이번 주 작업 시간을 먼저 저장한 뒤 체크인해주세요");
         document.getElementById("hoursCard").scrollIntoView({ behavior: "smooth", block: "start" });
@@ -3104,7 +3153,10 @@
               const link = it.url
                 ? `<span class="team-item-actions"><a class="team-item-link" href="${esc(it.url)}" target="_blank" rel="noopener" title="${esc(it.url)}">🔗 ${esc(host || "링크")}</a><button class="team-item-copy" type="button" data-copy-url="${esc(it.url)}" title="링크 복사" aria-label="링크 복사">📋</button></span>`
                 : "";
-              return `<div class="team-item">${text}${link}</div>`;
+              const insight = it.insight
+                ? `<div class="team-item-insight"><strong>Insight</strong> · ${esc(it.insight)}</div>`
+                : "";
+              return `<div class="team-item">${text}${link}${insight}</div>`;
             })
             .join("");
         };
@@ -3555,7 +3607,10 @@
             const link = item.url
               ? `<a href="${esc(item.url)}" target="_blank" rel="noopener" title="${esc(item.url)}">🔗 링크</a>`
               : "";
-            return `<div class="summary-task-item">${text}${link}</div>`;
+            const insight = item.insight
+              ? `<div class="team-item-insight"><strong>Insight</strong> · ${esc(item.insight)}</div>`
+              : "";
+            return `<div class="summary-task-item">${text}${link}${insight}</div>`;
           })
           .join("");
 
@@ -3609,6 +3664,7 @@
         toast("한 일 / 할 일 / 블락커 중 하나는 입력해주세요");
         return;
       }
+      if (!validateItemInsights(doneItems, tasksItems)) return;
       try {
         if (nextUserName !== editTargetUser) {
           const renameRes = await fetch("/api/checkin/user", {

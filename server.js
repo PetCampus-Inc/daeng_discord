@@ -11,6 +11,7 @@ pgTypes.setTypeParser(1082, (val) => val);
 const { getAssigneeStats, getProjects, getProjectStatuses, getMyIssues } = require("./src/jira-client");
 const {
   currentWeekStartKST,
+  previousWeekStarts,
   ensureWeeklyReportsTable,
   generateSaveAndPostWeeklyReport,
 } = require("./src/team-weekly-report");
@@ -265,7 +266,7 @@ function nowHHMMKST() {
   const k = new Date(Date.now() + 9 * 60 * 60 * 1000);
   return minToHHMM(k.getUTCHours() * 60 + k.getUTCMinutes());
 }
-// done/tasks: optionally a JSON array of {text, url}. Legacy string == single item.
+// done/tasks: optionally a JSON array of {text, url, insight}. Legacy string == single item.
 function normalizeItems(value) {
   if (value === undefined || value === null) return undefined;
   if (Array.isArray(value)) {
@@ -273,13 +274,14 @@ function normalizeItems(value) {
       .map((it) => ({
         text: typeof it?.text === "string" ? it.text.trim() : "",
         url: typeof it?.url === "string" ? it.url.trim() : "",
+        insight: typeof it?.insight === "string" ? it.insight.trim() : "",
       }))
-      .filter((it) => it.text || it.url);
+      .filter((it) => it.text || it.url || it.insight);
   }
   if (typeof value === "string") {
     const t = value.trim();
     if (!t) return [];
-    return [{ text: t, url: "" }];
+    return [{ text: t, url: "", insight: "" }];
   }
   return undefined;
 }
@@ -297,13 +299,14 @@ function itemsFromStorage(raw, fallbackUrl) {
         .map((it) => ({
           text: (it && typeof it.text === "string" ? it.text : "").trim(),
           url: (it && typeof it.url === "string" ? it.url : "").trim(),
+          insight: (it && typeof it.insight === "string" ? it.insight : "").trim(),
         }))
-        .filter((it) => it.text || it.url);
+        .filter((it) => it.text || it.url || it.insight);
     }
   } catch (_) {
     // not JSON — treat as plain text (legacy)
   }
-  return [{ text: String(raw).trim(), url: (fallbackUrl || "").trim() }].filter(
+  return [{ text: String(raw).trim(), url: (fallbackUrl || "").trim(), insight: "" }].filter(
     (it) => it.text || it.url
   );
 }
@@ -1396,6 +1399,16 @@ app.post("/api/checkin", async (req, res) => {
       doneItems !== undefined ? itemsToStorage(doneItems) : undefined;
     const tasksRaw =
       taskItems !== undefined ? itemsToStorage(taskItems) : undefined;
+
+    const itemsMissingInsight = [...(doneItems || []), ...(taskItems || [])].some(
+      (item) => !item.text || item.insight.length < 30
+    );
+    if (itemsMissingInsight) {
+      return res.status(400).json({
+        error: "각 한 일·할 일 항목에 30자 이상의 Insight를 작성해주세요.",
+        code: "ITEM_INSIGHT_REQUIRED",
+      });
+    }
 
     if (!userName) {
       return res.status(400).json({ error: "userName required" });
@@ -3132,17 +3145,17 @@ cron.schedule(
 );
 
 cron.schedule(
-  "0 20 * * 0",
+  "0 10 * * 0",
   async () => {
     const webhookUrl = process.env.TEAM_WEEKLY_WEBHOOK_URL || "";
     if (!webhookUrl) {
-      console.log("TEAM_WEEKLY_WEBHOOK_URL not set - skipping team weekly wrap-up");
+      console.log("TEAM_WEEKLY_WEBHOOK_URL not set - skipping team weekly participation report");
       return;
     }
     try {
-      const weekStart = currentWeekStartKST();
+      const weekStart = previousWeekStarts(1, currentWeekStartKST())[0];
       const result = await generateSaveAndPostWeeklyReport(pool, weekStart, webhookUrl);
-      console.log(`Team weekly wrap-up posted for ${result.weekStart}`);
+      console.log(`Team weekly participation report posted for ${result.weekStart}`);
     } catch (err) {
       console.error("Team weekly wrap-up error:", err.message);
     }
