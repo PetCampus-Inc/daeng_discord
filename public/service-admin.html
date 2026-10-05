@@ -1,0 +1,510 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Knockdog Service Admin Prototype</title>
+  <link rel="preconnect" href="https://cdn.jsdelivr.net" />
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.min.css" />
+  <style>
+    * { box-sizing: border-box; }
+    :root {
+      --navy: #17263c;
+      --navy-2: #20334d;
+      --orange: #f58445;
+      --orange-soft: #fff0e7;
+      --bg: #f5f7fa;
+      --card: #fff;
+      --ink: #172033;
+      --sub: #687388;
+      --muted: #99a2b1;
+      --line: #e7ebf0;
+      --green: #138b68;
+      --green-soft: #e9f7f2;
+      --yellow: #a56d00;
+      --yellow-soft: #fff6dc;
+      --red: #cb4b4b;
+      --red-soft: #fff0f0;
+      --blue: #3974c5;
+      --blue-soft: #edf5ff;
+      --shadow: 0 8px 28px rgba(23, 38, 60, .07);
+    }
+    body {
+      margin: 0;
+      min-height: 100vh;
+      font-family: "Pretendard Variable", Pretendard, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      color: var(--ink);
+      background: var(--bg);
+    }
+    button, input, select, textarea { font: inherit; }
+    button { cursor: pointer; }
+    a { color: inherit; text-decoration: none; }
+    .app { min-height: 100vh; display: grid; grid-template-columns: 248px minmax(0, 1fr); }
+    .sidebar {
+      position: sticky; top: 0; height: 100vh;
+      background: var(--navy); color: #fff;
+      padding: 24px 16px 18px;
+      display: flex; flex-direction: column;
+      z-index: 20;
+    }
+    .brand { display: flex; gap: 11px; align-items: center; padding: 0 10px 27px; }
+    .brand-mark {
+      width: 40px; height: 40px; border-radius: 14px;
+      display: grid; place-items: center; font-size: 21px;
+      background: linear-gradient(145deg, #ffa969, #ef6d35);
+      box-shadow: 0 8px 18px rgba(239, 109, 53, .26);
+    }
+    .brand strong { display: block; font-size: 16px; letter-spacing: -.02em; }
+    .brand small { color: #91a1b7; font-size: 11px; letter-spacing: .09em; text-transform: uppercase; }
+    .nav-title { padding: 14px 12px 7px; color: #71849d; font-size: 10px; font-weight: 750; letter-spacing: .12em; }
+    .nav-item {
+      width: 100%; border: 0; color: #afbdd0; background: transparent;
+      display: flex; align-items: center; gap: 11px;
+      padding: 11px 12px; margin: 2px 0; border-radius: 11px;
+      text-align: left; font-weight: 650; font-size: 14px;
+      transition: .15s ease;
+    }
+    .nav-item:hover { background: rgba(255,255,255,.06); color: #fff; }
+    .nav-item.active { color: #fff; background: var(--navy-2); box-shadow: inset 3px 0 var(--orange); }
+    .nav-icon { width: 20px; text-align: center; font-size: 16px; }
+    .nav-badge { margin-left: auto; min-width: 22px; padding: 2px 7px; border-radius: 999px; background: var(--orange); color: #fff; font-size: 11px; text-align: center; }
+    .sidebar-foot { margin-top: auto; padding-top: 18px; border-top: 1px solid rgba(255,255,255,.08); }
+    .admin-mini { display: flex; align-items: center; gap: 10px; padding: 8px; }
+    .avatar { width: 34px; height: 34px; border-radius: 50%; display: grid; place-items: center; flex: 0 0 auto; background: #ffe3d3; color: #bc5428; font-weight: 800; font-size: 12px; }
+    .admin-mini strong { font-size: 12px; display: block; }
+    .admin-mini span { font-size: 10px; color: #8294ac; }
+    .main { min-width: 0; }
+    .topbar {
+      min-height: 72px; padding: 0 34px; background: rgba(255,255,255,.9);
+      border-bottom: 1px solid var(--line); display: flex; align-items: center; justify-content: space-between;
+      position: sticky; top: 0; z-index: 15; backdrop-filter: blur(12px);
+    }
+    .crumb { font-weight: 760; letter-spacing: -.02em; }
+    .top-actions { display: flex; align-items: center; gap: 12px; }
+    .prototype-label { padding: 6px 10px; border-radius: 999px; color: #86602e; background: #fff6db; border: 1px solid #f5dfab; font-size: 11px; font-weight: 750; }
+    .icon-btn { width: 38px; height: 38px; border: 1px solid var(--line); background: #fff; border-radius: 11px; color: var(--sub); }
+    .content { max-width: 1440px; margin: 0 auto; padding: 34px; }
+    .page { display: none; animation: fade .16s ease; }
+    .page.active { display: block; }
+    @keyframes fade { from { opacity: .35; transform: translateY(3px); } }
+    .page-head { display: flex; align-items: flex-end; justify-content: space-between; gap: 16px; margin-bottom: 24px; }
+    .page-head h1 { margin: 0 0 6px; font-size: 27px; letter-spacing: -.04em; }
+    .page-head p { margin: 0; color: var(--sub); font-size: 14px; }
+    .btn { border: 1px solid var(--line); background: #fff; border-radius: 10px; padding: 9px 14px; color: var(--ink); font-size: 13px; font-weight: 700; }
+    .btn:hover { border-color: #cad1da; background: #fbfcfd; }
+    .btn.primary { background: var(--navy); border-color: var(--navy); color: #fff; }
+    .btn.orange { background: var(--orange); border-color: var(--orange); color: #fff; }
+    .btn.danger { color: var(--red); border-color: #f0c4c4; background: #fff; }
+    .stats { display: grid; grid-template-columns: repeat(6, 1fr); gap: 14px; margin-bottom: 20px; }
+    .stat { background: var(--card); border: 1px solid var(--line); border-radius: 16px; padding: 18px; box-shadow: 0 2px 12px rgba(23,38,60,.03); min-width: 0; }
+    .stat-label { color: var(--sub); font-size: 12px; font-weight: 650; display: flex; justify-content: space-between; gap: 8px; }
+    .stat-icon { width: 26px; height: 26px; border-radius: 8px; display: grid; place-items: center; background: #f2f4f8; }
+    .stat strong { display: block; font-size: 25px; margin-top: 12px; letter-spacing: -.04em; }
+    .stat-foot { margin-top: 6px; font-size: 11px; color: var(--muted); }
+    .up { color: var(--green); font-weight: 750; }
+    .attention { color: var(--orange); font-weight: 750; }
+    .dashboard-grid { display: grid; grid-template-columns: minmax(0, 1.55fr) minmax(300px, .85fr); gap: 18px; }
+    .card { background: var(--card); border: 1px solid var(--line); border-radius: 17px; box-shadow: var(--shadow); overflow: hidden; }
+    .card-head { padding: 18px 20px 14px; display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+    .card-head h2 { font-size: 16px; margin: 0; letter-spacing: -.02em; }
+    .card-head p { margin: 4px 0 0; color: var(--muted); font-size: 11px; }
+    .segmented { display: flex; padding: 3px; gap: 2px; border-radius: 9px; background: #f2f4f7; }
+    .segment { border: 0; background: transparent; padding: 5px 9px; color: var(--muted); border-radius: 7px; font-size: 11px; font-weight: 700; }
+    .segment.active { background: #fff; color: var(--ink); box-shadow: 0 1px 4px rgba(20,30,45,.1); }
+    .chart { height: 256px; padding: 12px 22px 20px; display: flex; flex-direction: column; }
+    .chart-legend { display: flex; gap: 16px; justify-content: flex-end; color: var(--sub); font-size: 11px; }
+    .dot { width: 7px; height: 7px; border-radius: 50%; display: inline-block; margin-right: 5px; }
+    .chart svg { width: 100%; flex: 1; overflow: visible; }
+    .queue { padding: 0 18px 16px; }
+    .queue-item { display: flex; gap: 12px; padding: 13px 2px; border-top: 1px solid var(--line); align-items: center; }
+    .queue-item:first-child { border-top: 0; }
+    .queue-info { min-width: 0; flex: 1; }
+    .queue-info strong { display: block; font-size: 13px; }
+    .queue-info span { color: var(--muted); font-size: 11px; }
+    .wait { color: var(--yellow); background: var(--yellow-soft); padding: 5px 8px; border-radius: 7px; font-size: 10px; font-weight: 700; white-space: nowrap; }
+    .funnel { margin-top: 18px; grid-column: 1 / -1; }
+    .funnel-body { padding: 8px 22px 24px; display: grid; grid-template-columns: repeat(4, 1fr); align-items: center; }
+    .funnel-step { position: relative; padding: 13px 18px; background: #f8fafc; border: 1px solid var(--line); border-radius: 12px; }
+    .funnel-step:not(:last-child) { margin-right: 28px; }
+    .funnel-step:not(:last-child)::after { content: "→"; position: absolute; right: -21px; top: 50%; transform: translateY(-50%); color: #aeb7c3; }
+    .funnel-step span { display: block; color: var(--sub); font-size: 11px; }
+    .funnel-step strong { font-size: 20px; }
+    .funnel-step em { float: right; margin-top: 6px; font-style: normal; color: var(--green); font-size: 10px; }
+    .table-card { background: #fff; border: 1px solid var(--line); border-radius: 17px; overflow: hidden; box-shadow: var(--shadow); }
+    .tabs { display: flex; gap: 22px; padding: 0 20px; border-bottom: 1px solid var(--line); overflow-x: auto; }
+    .tab { padding: 15px 2px 13px; border: 0; border-bottom: 2px solid transparent; color: var(--sub); background: transparent; font-size: 13px; font-weight: 700; white-space: nowrap; }
+    .tab.active { border-color: var(--orange); color: var(--ink); }
+    .toolbar { padding: 14px 18px; display: flex; align-items: center; gap: 9px; border-bottom: 1px solid var(--line); }
+    .search { position: relative; flex: 1; max-width: 360px; }
+    .search input { width: 100%; border: 1px solid var(--line); border-radius: 10px; padding: 9px 12px 9px 34px; outline: none; color: var(--ink); background: #fbfcfd; }
+    .search::before { content: "⌕"; position: absolute; left: 12px; top: 7px; color: var(--muted); font-size: 18px; }
+    .filter { border: 1px solid var(--line); border-radius: 10px; padding: 9px 30px 9px 11px; background: #fff; color: var(--sub); font-size: 12px; }
+    .result-count { margin-left: auto; color: var(--muted); font-size: 11px; }
+    .table-wrap { overflow-x: auto; }
+    table { width: 100%; border-collapse: collapse; min-width: 820px; }
+    th { padding: 11px 18px; background: #fafbfc; color: #8b95a5; font-size: 10px; text-align: left; font-weight: 750; letter-spacing: .03em; }
+    td { padding: 13px 18px; border-top: 1px solid var(--line); font-size: 12px; color: #4d586c; }
+    tbody tr { transition: background .12s; }
+    tbody tr:hover { background: #fffaf7; }
+    .person { display: flex; align-items: center; gap: 10px; }
+    .person strong { display: block; color: var(--ink); font-size: 13px; }
+    .person small { color: var(--muted); }
+    .role { display: inline-flex; padding: 4px 8px; border-radius: 999px; background: #f1f3f6; color: #536075; font-size: 10px; font-weight: 750; }
+    .role.owner { background: var(--orange-soft); color: #b85d2c; }
+    .status { display: inline-flex; align-items: center; gap: 5px; font-size: 11px; font-weight: 700; }
+    .status::before { content: ""; width: 6px; height: 6px; border-radius: 50%; background: currentColor; }
+    .status.active { color: var(--green); }
+    .status.pending { color: var(--yellow); }
+    .status.suspended, .status.revoked { color: var(--red); }
+    .more { border: 0; background: transparent; color: #8993a2; font-size: 18px; padding: 3px 8px; }
+    .application-layout { display: grid; grid-template-columns: minmax(0, 1fr) 390px; gap: 18px; align-items: start; }
+    .detail-panel { position: sticky; top: 91px; background: #fff; border: 1px solid var(--line); border-radius: 17px; box-shadow: var(--shadow); overflow: hidden; }
+    .detail-empty { padding: 70px 25px; text-align: center; color: var(--muted); }
+    .detail-content { padding: 21px; }
+    .detail-content h2 { margin: 0 0 4px; font-size: 18px; }
+    .detail-content > p { margin: 0 0 18px; color: var(--muted); font-size: 11px; }
+    .detail-section { border-top: 1px solid var(--line); padding: 16px 0 4px; }
+    .detail-section h3 { margin: 0 0 12px; font-size: 11px; color: var(--sub); text-transform: uppercase; letter-spacing: .06em; }
+    .detail-row { display: flex; justify-content: space-between; gap: 14px; margin: 9px 0; font-size: 12px; }
+    .detail-row span { color: var(--muted); }
+    .document { display: flex; justify-content: space-between; align-items: center; border: 1px solid var(--line); background: #fafbfc; border-radius: 10px; padding: 10px; font-size: 11px; }
+    .detail-actions { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; padding-top: 16px; }
+    .detail-actions .approve { grid-column: 1 / -1; background: var(--navy); color: #fff; border-color: var(--navy); }
+    .row-selected { background: #fff8f3 !important; box-shadow: inset 3px 0 var(--orange); }
+    .placeholder-page { background: #fff; border: 1px solid var(--line); border-radius: 18px; padding: 70px 24px; text-align: center; box-shadow: var(--shadow); }
+    .placeholder-page b { display: block; margin: 12px 0 7px; font-size: 18px; }
+    .placeholder-page p { margin: 0; color: var(--sub); font-size: 13px; }
+    .placeholder-icon { font-size: 38px; }
+    .modal-backdrop { position: fixed; inset: 0; background: rgba(12,22,37,.5); z-index: 100; display: none; align-items: center; justify-content: center; padding: 18px; }
+    .modal-backdrop.show { display: flex; }
+    .modal { width: min(450px, 100%); background: #fff; border-radius: 18px; box-shadow: 0 24px 80px rgba(10,20,35,.28); padding: 23px; }
+    .modal h2 { margin: 0 0 6px; font-size: 19px; }
+    .modal > p { margin: 0 0 18px; color: var(--sub); font-size: 12px; line-height: 1.55; }
+    .field { margin: 14px 0; }
+    .field label { display: block; margin-bottom: 7px; font-size: 11px; font-weight: 750; color: var(--sub); }
+    .field textarea, .field select { width: 100%; border: 1px solid var(--line); border-radius: 10px; padding: 10px; outline: none; resize: vertical; min-height: 76px; }
+    .field select { min-height: auto; }
+    .modal-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 18px; }
+    .toast { position: fixed; right: 26px; bottom: 24px; background: var(--navy); color: #fff; border-radius: 11px; padding: 12px 16px; box-shadow: 0 12px 34px rgba(20,34,53,.24); font-size: 12px; font-weight: 650; transform: translateY(80px); opacity: 0; transition: .22s; z-index: 120; }
+    .toast.show { transform: translateY(0); opacity: 1; }
+    .mobile-bar { display: none; }
+    @media (max-width: 1180px) {
+      .stats { grid-template-columns: repeat(3, 1fr); }
+      .application-layout { grid-template-columns: 1fr; }
+      .detail-panel { position: static; }
+    }
+    @media (max-width: 820px) {
+      .app { display: block; }
+      .sidebar { position: fixed; left: -260px; width: 248px; transition: left .2s; box-shadow: 8px 0 28px rgba(0,0,0,.2); }
+      .sidebar.open { left: 0; }
+      .mobile-bar { display: block; }
+      .topbar { padding: 0 18px; min-height: 62px; }
+      .content { padding: 22px 16px 50px; }
+      .dashboard-grid { grid-template-columns: 1fr; }
+      .funnel { grid-column: auto; }
+      .funnel-body { grid-template-columns: 1fr 1fr; gap: 10px; }
+      .funnel-step { margin-right: 0 !important; }
+      .funnel-step::after { display: none; }
+    }
+    @media (max-width: 560px) {
+      .stats { grid-template-columns: 1fr 1fr; }
+      .page-head { align-items: flex-start; flex-direction: column; }
+      .toolbar { flex-wrap: wrap; }
+      .search { flex-basis: 100%; max-width: none; }
+      .result-count { margin-left: 0; }
+      .prototype-label { display: none; }
+      .funnel-body { grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body>
+  <div class="app">
+    <aside class="sidebar" id="sidebar">
+      <div class="brand">
+        <div class="brand-mark">🐶</div>
+        <div><strong>Knockdog</strong><small>Service Admin</small></div>
+      </div>
+      <div class="nav-title">서비스 운영</div>
+      <button class="nav-item active" data-page="dashboard"><span class="nav-icon">▦</span>대시보드</button>
+      <button class="nav-item" data-page="members"><span class="nav-icon">♙</span>회원 관리</button>
+      <button class="nav-item" data-page="daycares"><span class="nav-icon">⌂</span>유치원 관리</button>
+      <button class="nav-item" data-page="applications"><span class="nav-icon">✓</span>원장 인증 현황<span class="nav-badge" id="verificationNavBadge">—</span></button>
+      <button class="nav-item" data-page="logs"><span class="nav-icon">≡</span>운영 이력</button>
+      <div class="nav-title">내부 운영</div>
+      <a class="nav-item" href="/"><span class="nav-icon">◷</span>팀 체크인</a>
+      <button class="nav-item" data-page="team"><span class="nav-icon">♟</span>내부 팀원 관리</button>
+      <div class="sidebar-foot">
+        <div class="admin-mini"><div class="avatar">관리</div><div><strong>관리자</strong><span>Super admin</span></div></div>
+      </div>
+    </aside>
+
+    <main class="main">
+      <header class="topbar">
+        <div style="display:flex;align-items:center;gap:12px;"><button class="icon-btn mobile-bar" id="menuBtn">☰</button><span class="crumb" id="crumb">서비스 대시보드</span></div>
+        <div class="top-actions"><span class="prototype-label" id="dataModeLabel">데이터 연결 확인 중</span><button class="icon-btn" title="알림">♧</button><div class="avatar">관</div></div>
+      </header>
+
+      <div class="content">
+        <section class="page active" id="page-dashboard">
+          <div class="page-head"><div><h1>서비스 대시보드</h1><p>회원 가입과 유치원 운영 현황을 한눈에 확인하세요.</p></div><button class="btn">최근 30일⌄</button></div>
+          <div class="stats">
+            <article class="stat"><div class="stat-label">전체 회원 <span class="stat-icon">♙</span></div><strong id="statTotalUsers">1,284</strong><div class="stat-foot"><span class="up" id="statNewUsers">+42명</span> 최근 30일</div></article>
+            <article class="stat"><div class="stat-label">견주 회원 <span class="stat-icon">🐕</span></div><strong id="statGuardians">1,137</strong><div class="stat-foot">반려견 보유 활성 회원</div></article>
+            <article class="stat"><div class="stat-label">활성 원장 <span class="stat-icon">♜</span></div><strong id="statOwners">147</strong><div class="stat-foot"><span class="up" id="statNewOwners">+5명</span> 최근 7일</div></article>
+            <article class="stat"><div class="stat-label">원장 연결 유치원 <span class="stat-icon">⌂</span></div><strong id="statSchools">132</strong><div class="stat-foot" id="statSchoolFoot">운영 중 124곳</div></article>
+            <article class="stat"><div class="stat-label">인증 진행 중 <span class="stat-icon">◴</span></div><strong id="statInProgress">12</strong><div class="stat-foot">사업자 인증 완료 전</div></article>
+            <article class="stat"><div class="stat-label">해지된 원장 <span class="stat-icon">!</span></div><strong id="statRevoked">4</strong><div class="stat-foot"><span style="color:var(--red);font-weight:750;">이력 확인</span></div></article>
+          </div>
+
+          <div class="dashboard-grid">
+            <article class="card">
+              <div class="card-head"><div><h2>신규 가입 추이</h2><p>일별 가입 완료 기준</p></div><div class="segmented"><button class="segment">7일</button><button class="segment active">30일</button><button class="segment">3개월</button></div></div>
+              <div class="chart">
+                <div class="chart-legend"><span><i class="dot" style="background:#f58445"></i>견주</span><span><i class="dot" style="background:#3974c5"></i>원장</span></div>
+                <svg id="signupChartSvg" viewBox="0 0 700 190" preserveAspectRatio="none" aria-label="가입 추이 차트">
+                  <g stroke="#edf0f4" stroke-width="1"><line x1="0" y1="35" x2="700" y2="35"/><line x1="0" y1="80" x2="700" y2="80"/><line x1="0" y1="125" x2="700" y2="125"/><line x1="0" y1="170" x2="700" y2="170"/></g>
+                  <path d="M0,150 C35,145 45,112 80,120 S135,95 170,108 S225,72 265,85 S335,115 375,91 S430,55 470,68 S520,35 560,56 S625,22 700,37 L700,170 L0,170 Z" fill="rgba(245,132,69,.10)"/>
+                  <path d="M0,150 C35,145 45,112 80,120 S135,95 170,108 S225,72 265,85 S335,115 375,91 S430,55 470,68 S520,35 560,56 S625,22 700,37" fill="none" stroke="#f58445" stroke-width="3" stroke-linecap="round"/>
+                  <path d="M0,164 C60,157 100,160 145,149 S210,153 260,141 S335,147 390,132 S450,139 510,122 S600,130 700,110" fill="none" stroke="#3974c5" stroke-width="2.5" stroke-linecap="round" stroke-dasharray="5 4"/>
+                  <g fill="#9aa4b2" font-size="10"><text x="0" y="187">9/6</text><text x="170" y="187">9/13</text><text x="345" y="187">9/20</text><text x="520" y="187">9/27</text><text x="675" y="187">10/5</text></g>
+                </svg>
+              </div>
+            </article>
+
+            <article class="card">
+              <div class="card-head"><div><h2>최근 원장 인증</h2><p>최근 제출·진행·해지 이력입니다.</p></div><button class="btn" data-go="applications">전체 보기</button></div>
+              <div class="queue" id="verificationQueue">
+                <div class="queue-item"><div class="avatar">김</div><div class="queue-info"><strong>김민지 · 멍멍스쿨</strong><span>서울 마포구 · 원장 신청</span></div><span class="wait">4일 대기</span></div>
+                <div class="queue-item"><div class="avatar" style="background:#e8f1ff;color:#3974c5">박</div><div class="queue-info"><strong>박서준 · 도그데이</strong><span>경기 성남시 · 원장 신청</span></div><span class="wait">3일 대기</span></div>
+                <div class="queue-item"><div class="avatar" style="background:#e9f7f2;color:#138b68">이</div><div class="queue-info"><strong>이수현 · 포레스트독</strong><span>서울 성동구 · 서류 보완</span></div><span class="wait">2일 대기</span></div>
+                <div class="queue-item"><div class="avatar" style="background:#f1efff;color:#6e59bd">최</div><div class="queue-info"><strong>최유진 · 도담유치원</strong><span>인천 연수구 · 원장 신청</span></div><span class="wait">오늘</span></div>
+              </div>
+            </article>
+
+            <article class="card funnel">
+              <div class="card-head"><div><h2>원장 인증 구성</h2><p>누적 인증 기록과 현재 활성 권한 기준</p></div><span style="font-size:11px;color:var(--muted)">읽기 전용 집계</span></div>
+              <div class="funnel-body">
+                <div class="funnel-step"><span>전체 인증 기록</span><strong id="flowAll">—</strong></div>
+                <div class="funnel-step"><span>사업자번호 대기</span><strong id="flowPending">—</strong></div>
+                <div class="funnel-step"><span>인증 제출 완료</span><strong id="flowSubmitted">—</strong></div>
+                <div class="funnel-step"><span>현재 활성 원장</span><strong id="flowOwners">—</strong></div>
+              </div>
+            </article>
+          </div>
+        </section>
+
+        <section class="page" id="page-members">
+          <div class="page-head"><div><h1>회원 관리</h1><p>서비스 회원의 상태와 역할을 조회하고 관리합니다.</p></div><button class="btn">내보내기 ↓</button></div>
+          <div class="table-card">
+            <div class="tabs" id="memberTabs"><button class="tab active" data-member-filter="all">전체</button><button class="tab" data-member-filter="guardian">견주</button><button class="tab" data-member-filter="owner">원장</button><button class="tab" data-member-filter="withdrawn">탈퇴</button></div>
+            <div class="toolbar"><div class="search"><input id="memberSearch" placeholder="이름, 이메일 또는 회원 ID 검색" /></div><select class="filter"><option>가입일 전체</option><option>최근 7일</option><option>최근 30일</option></select><span class="result-count" id="memberCount">6명 표시</span></div>
+            <div class="table-wrap"><table><thead><tr><th>회원</th><th>회원 유형</th><th>계정 상태</th><th>원장 상태</th><th>가입일</th><th>최근 활동</th><th></th></tr></thead><tbody id="memberRows"></tbody></table></div>
+          </div>
+        </section>
+
+        <section class="page" id="page-applications">
+          <div class="page-head"><div><h1>원장 인증 현황</h1><p>자동 사업자 인증과 원장 권한 연결 상태를 조회합니다.</p></div></div>
+          <div class="application-layout">
+            <div class="table-card">
+              <div class="tabs" id="applicationTabs"><button class="tab active" data-app-filter="">전체</button><button class="tab" data-app-filter="BUSINESS_REGISTRATION_PENDING">사업자번호 대기</button><button class="tab" data-app-filter="SUBMITTED">인증 완료</button><button class="tab" data-app-filter="REVOKED">해지됨</button></div>
+              <div class="toolbar"><div class="search"><input placeholder="신청자 또는 유치원 검색" /></div><select class="filter"><option>오래된 순</option><option>최신 순</option></select></div>
+              <div class="table-wrap"><table style="min-width:650px"><thead><tr><th>신청자</th><th>유치원</th><th>지역</th><th>신청일</th><th>대기 시간</th></tr></thead><tbody id="applicationRows"></tbody></table></div>
+            </div>
+            <aside class="detail-panel" id="applicationDetail"><div class="detail-empty"><div style="font-size:30px">☝</div><p>왼쪽에서 신청을 선택해주세요.</p></div></aside>
+          </div>
+        </section>
+
+        <section class="page" id="page-daycares">
+          <div class="page-head"><div><h1>유치원 관리</h1><p>등록된 유치원과 운영 상태를 관리합니다.</p></div><button class="btn primary">+ 유치원 등록</button></div>
+          <div class="table-card"><div class="tabs" id="schoolTabs"><button class="tab active" data-school-status="">전체</button><button class="tab" data-school-status="ACTIVE">운영 중</button><button class="tab" data-school-status="CLOSED">폐업</button></div><div class="toolbar"><div class="search"><input id="schoolSearch" placeholder="유치원명, 원장명 또는 지역 검색" /></div><span class="result-count" id="schoolCount">조회 중</span></div><div class="table-wrap"><table><thead><tr><th>유치원</th><th>대표 원장</th><th>지역</th><th>운영 상태</th><th>원생</th><th>사업자 인증</th><th></th></tr></thead><tbody id="schoolRows"></tbody></table></div></div>
+        </section>
+
+        <section class="page" id="page-logs"><div class="page-head"><div><h1>운영 이력</h1><p>승인, 거절, 정지와 권한 변경 기록을 확인합니다.</p></div></div><div class="placeholder-page"><div class="placeholder-icon">≡</div><b>감사 로그 화면</b><p>실제 데이터 연결 단계에서 처리자, 대상, 변경 전후 상태와 사유를 표시합니다.</p></div></section>
+        <section class="page" id="page-team"><div class="page-head"><div><h1>내부 팀원 관리</h1><p>서비스 회원과 분리된 Knockdog 내부 운영 영역입니다.</p></div><a href="/" class="btn primary">기존 체크인 화면 열기</a></div><div class="placeholder-page"><div class="placeholder-icon">♟</div><b>기존 팀원 관리는 유지합니다</b><p>현재 체크인 화면의 팀원 관리를 이 영역으로 옮기는 구성을 미리 보여줍니다.</p></div></section>
+      </div>
+    </main>
+  </div>
+
+  <div class="modal-backdrop" id="actionModal">
+    <div class="modal"><h2 id="modalTitle">신청 승인</h2><p id="modalDescription">이 사용자에게 원장 권한을 부여합니다.</p><div class="field" id="modalReasonField"><label>처리 메모</label><textarea id="modalReason" placeholder="처리 사유나 내부 메모를 입력해주세요."></textarea></div><div class="field" id="modalNotifyField"><label>사용자 알림</label><select><option>앱 알림과 이메일 발송</option><option>알림 발송 안 함</option></select></div><div class="modal-actions"><button class="btn" data-close-modal>취소</button><button class="btn orange" id="modalConfirm">확인</button></div></div>
+  </div>
+  <div class="toast" id="toast">화면 초안에서는 데이터가 저장되지 않습니다.</div>
+
+  <script>
+    let members = [];
+    let applications = [];
+    let schools = [];
+    let liveConnected = false;
+    const pageNames = { dashboard:"서비스 대시보드", members:"회원 관리", daycares:"유치원 관리", applications:"원장 인증 현황", logs:"운영 이력", team:"내부 팀원 관리" };
+    let memberFilter = "all";
+    let verificationFilter = "";
+    let schoolStatus = "";
+    let memberSearchTimer;
+    let schoolSearchTimer;
+
+    const esc = (value) => String(value ?? "").replace(/[&<>'"]/g, char => ({
+      "&":"&amp;", "<":"&lt;", ">":"&gt;", "'":"&#39;", '"':"&quot;"
+    })[char]);
+    const number = (value) => Number(value || 0).toLocaleString("ko-KR");
+    const dateOnly = (value) => value ? String(value).slice(0, 10) : "—";
+    const verificationLabels = {
+      KINDERGARTEN_INFO_COMPLETED:"유치원 정보 입력",
+      BUSINESS_REGISTRATION_PENDING:"사업자번호 대기",
+      SUBMITTED:"인증 완료",
+      REVOKED:"해지됨"
+    };
+
+    async function api(path) {
+      const response = await fetch(path, { headers: { Accept: "application/json" } });
+      if (!response.ok) {
+        const body = await response.json().catch(() => ({}));
+        const error = new Error(body.error || `HTTP ${response.status}`);
+        error.status = response.status;
+        throw error;
+      }
+      return response.json();
+    }
+
+    function goPage(name) {
+      document.querySelectorAll(".page").forEach(p => p.classList.toggle("active", p.id === `page-${name}`));
+      document.querySelectorAll(".nav-item[data-page]").forEach(n => n.classList.toggle("active", n.dataset.page === name));
+      document.getElementById("crumb").textContent = pageNames[name] || name;
+      document.getElementById("sidebar").classList.remove("open");
+      if (name === "members") loadMembers();
+      if (name === "applications") loadApplications();
+      if (name === "daycares") loadSchools();
+    }
+    document.querySelectorAll("[data-page]").forEach(el => el.addEventListener("click", () => goPage(el.dataset.page)));
+    document.querySelectorAll("[data-go]").forEach(el => el.addEventListener("click", () => goPage(el.dataset.go)));
+    document.getElementById("menuBtn").addEventListener("click", () => document.getElementById("sidebar").classList.toggle("open"));
+
+    function statusLabel(value) {
+      const normalized = String(value || "none").toLowerCase();
+      const labels = { active:"활성", withdrawn:"탈퇴", approved:"승인", pending:"심사 중", revoked:"자격 해지", none:"미보유", closed:"폐업" };
+      const cls = normalized === "approved" ? "active" : normalized === "withdrawn" || normalized === "closed" ? "revoked" : normalized;
+      return `<span class="status ${cls}">${labels[normalized] || esc(value)}</span>`;
+    }
+    function renderMembers() {
+      document.getElementById("memberRows").innerHTML = members.map(m => {
+        const roles = [m.isOwner ? "원장" : "", m.isGuardian ? "견주" : ""].filter(Boolean).join(" · ") || "일반 회원";
+        return `<tr><td><div class="person"><div class="avatar">${esc((m.name || "?")[0])}</div><div><strong>${esc(m.name)}</strong><small>${esc(m.email || m.phone || "연락처 미등록")} · ${esc(m.userId)}</small></div></div></td><td><span class="role ${m.isOwner ? "owner" : ""}">${roles}</span></td><td>${statusLabel(m.status)}</td><td>${m.isOwner ? statusLabel("approved") : statusLabel("none")}</td><td>${dateOnly(m.createdAt)}</td><td>${m.petCount}마리${m.schoolName ? ` · ${esc(m.schoolName)}` : ""}</td><td><button class="more" data-member-action="${esc(m.name)}">⋯</button></td></tr>`;
+      }).join("") || `<tr><td colspan="7" style="text-align:center;padding:40px;color:var(--muted)">검색 결과가 없습니다.</td></tr>`;
+    }
+    async function loadMembers() {
+      if (!liveConnected) return;
+      const search = document.getElementById("memberSearch").value.trim();
+      document.getElementById("memberCount").textContent = "불러오는 중";
+      try {
+        const data = await api(`/api/service-admin/members?type=${encodeURIComponent(memberFilter)}&search=${encodeURIComponent(search)}&pageSize=50`);
+        members = data.members || [];
+        document.getElementById("memberCount").textContent = `전체 ${number(data.total)}명 · 최대 50명 표시`;
+        renderMembers();
+      } catch (error) { showToast(error.message); }
+    }
+    document.getElementById("memberTabs").addEventListener("click", e => { const tab=e.target.closest(".tab"); if(!tab)return; document.querySelectorAll("#memberTabs .tab").forEach(t=>t.classList.remove("active")); tab.classList.add("active"); memberFilter=tab.dataset.memberFilter; loadMembers(); });
+    document.getElementById("memberSearch").addEventListener("input", () => { clearTimeout(memberSearchTimer); memberSearchTimer=setTimeout(loadMembers, 250); });
+    document.getElementById("memberRows").addEventListener("click", e => { const b=e.target.closest("[data-member-action]"); if(!b)return; openModal("조회 전용 회원 정보", `${b.dataset.memberAction} 회원의 상태는 현재 관리자 화면에서 변경할 수 없습니다.`, "확인"); });
+
+    function renderApplications() {
+      document.getElementById("applicationRows").innerHTML = applications.map(a => `<tr data-app-id="${a.id}" style="cursor:pointer"><td><div class="person"><div class="avatar">${esc((a.userName || "?")[0])}</div><strong>${esc(a.userName)}</strong></div></td><td><strong style="color:var(--ink)">${esc(a.kindergartenName)}</strong></td><td>${esc(a.kindergartenAddress)}</td><td>${dateOnly(a.submittedAt)}</td><td><span class="wait">${esc(verificationLabels[a.status] || a.status)}</span></td></tr>`).join("") || `<tr><td colspan="5" style="text-align:center;padding:40px;color:var(--muted)">인증 데이터가 없습니다.</td></tr>`;
+    }
+    function showApplication(id) {
+      const a=applications.find(x=>x.id===id); if(!a)return;
+      document.querySelectorAll("#applicationRows tr").forEach(r=>r.classList.toggle("row-selected", Number(r.dataset.appId)===id));
+      document.getElementById("applicationDetail").innerHTML = `<div class="detail-content"><h2>${esc(a.userName)}</h2><p>${esc(a.kindergartenName)} 원장 인증 현황 · 조회 전용</p><div class="detail-section"><h3>인증 상태</h3><div class="detail-row"><span>현재 단계</span><b>${esc(verificationLabels[a.status] || a.status)}</b></div><div class="detail-row"><span>제출일</span><b>${dateOnly(a.submittedAt)}</b></div><div class="detail-row"><span>권한 부여일</span><b>${dateOnly(a.ownerGrantedAt)}</b></div></div><div class="detail-section"><h3>유치원 정보</h3><div class="detail-row"><span>유치원명</span><b>${esc(a.kindergartenName)}</b></div><div class="detail-row"><span>주소</span><b>${esc(a.kindergartenAddress)}</b></div><div class="detail-row"><span>사업자번호</span><b>${esc(a.businessRegistrationNumber || "미등록")}</b></div></div><div class="detail-section"><h3>대표자 정보</h3><div class="detail-row"><span>대표자</span><b>${esc(a.representativeName)}</b></div><div class="detail-row"><span>연락처</span><b>${esc(a.representativePhone || "미등록")}</b></div></div><div class="document" style="margin-top:14px"><span>읽기 전용 연결</span><b style="color:var(--green)">DB 조회</b></div></div>`;
+    }
+    document.getElementById("applicationRows").addEventListener("click", e => { const row=e.target.closest("tr[data-app-id]"); if(row) showApplication(Number(row.dataset.appId)); });
+    async function loadApplications() {
+      if (!liveConnected) return;
+      try {
+        const suffix = verificationFilter ? `&status=${encodeURIComponent(verificationFilter)}` : "";
+        const data = await api(`/api/service-admin/verifications?pageSize=50${suffix}`);
+        applications = data.verifications || [];
+        renderApplications();
+        document.getElementById("applicationDetail").innerHTML = `<div class="detail-empty"><div style="font-size:30px">☝</div><p>왼쪽에서 인증 건을 선택해주세요.</p></div>`;
+      } catch (error) { showToast(error.message); }
+    }
+    document.querySelectorAll("#applicationTabs .tab").forEach(tab=>tab.addEventListener("click",()=>{document.querySelectorAll("#applicationTabs .tab").forEach(t=>t.classList.remove("active"));tab.classList.add("active");verificationFilter=tab.dataset.appFilter || "";loadApplications();}));
+
+    function renderSchools() {
+      document.getElementById("schoolRows").innerHTML = schools.map(s => `<tr><td><div class="person"><div class="avatar">${esc((s.name || "?")[0])}</div><div><strong>${esc(s.name)}</strong><small>SCHOOL-${esc(s.id)}</small></div></div></td><td>${esc(s.ownerName)}</td><td>${esc(s.address)}</td><td>${statusLabel(s.status)}</td><td>${number(s.activeMembers)}명 <small style="color:var(--muted)">대기 ${number(s.pendingMembers)}</small></td><td>${s.businessVerified ? '<span class="status active">인증</span>' : '<span class="status pending">미인증</span>'}</td><td><button class="more">⋯</button></td></tr>`).join("") || `<tr><td colspan="7" style="text-align:center;padding:40px;color:var(--muted)">유치원 데이터가 없습니다.</td></tr>`;
+    }
+    async function loadSchools() {
+      if (!liveConnected) return;
+      const search = document.getElementById("schoolSearch").value.trim();
+      try {
+        const status = schoolStatus ? `&status=${schoolStatus}` : "";
+        const data = await api(`/api/service-admin/schools?pageSize=50&search=${encodeURIComponent(search)}${status}`);
+        schools = data.schools || [];
+        document.getElementById("schoolCount").textContent = `전체 ${number(data.total)}곳 · 최대 50곳 표시`;
+        renderSchools();
+      } catch (error) { showToast(error.message); }
+    }
+    document.getElementById("schoolTabs").addEventListener("click", e => { const tab=e.target.closest(".tab");if(!tab)return;document.querySelectorAll("#schoolTabs .tab").forEach(t=>t.classList.remove("active"));tab.classList.add("active");schoolStatus=tab.dataset.schoolStatus || "";loadSchools(); });
+    document.getElementById("schoolSearch").addEventListener("input",()=>{clearTimeout(schoolSearchTimer);schoolSearchTimer=setTimeout(loadSchools,250);});
+
+    function drawSignupTrend(rows) {
+      if (!rows?.length) return;
+      const svg = document.getElementById("signupChartSvg");
+      const max = Math.max(1, ...rows.map(row => Number(row.count)));
+      const points = rows.map((row, index) => {
+        const x = rows.length === 1 ? 350 : index * (700 / (rows.length - 1));
+        const y = 165 - (Number(row.count) / max) * 125;
+        return [x, y];
+      });
+      const path = points.map((p, index) => `${index ? "L" : "M"}${p[0].toFixed(1)},${p[1].toFixed(1)}`).join(" ");
+      const first = rows[0].date?.slice(5) || "";
+      const middle = rows[Math.floor(rows.length / 2)].date?.slice(5) || "";
+      const last = rows[rows.length - 1].date?.slice(5) || "";
+      svg.innerHTML = `<g stroke="#edf0f4"><line x1="0" y1="40" x2="700" y2="40"/><line x1="0" y1="82" x2="700" y2="82"/><line x1="0" y1="124" x2="700" y2="124"/><line x1="0" y1="165" x2="700" y2="165"/></g><path d="${path} L700,165 L0,165 Z" fill="rgba(245,132,69,.10)"/><path d="${path}" fill="none" stroke="#f58445" stroke-width="3" stroke-linejoin="round" stroke-linecap="round"/><g fill="#9aa4b2" font-size="10"><text x="0" y="187">${first}</text><text x="335" y="187">${middle}</text><text x="672" y="187">${last}</text></g>`;
+    }
+
+    async function loadOverview() {
+      try {
+        const data = await api("/api/service-admin/overview?days=30");
+        liveConnected = true;
+        const s = data.stats || {};
+        document.getElementById("dataModeLabel").textContent = "운영 DB · 읽기 전용";
+        document.getElementById("dataModeLabel").style.cssText = "color:#08765a;background:#e9f7f2;border-color:#bfe8d9";
+        document.getElementById("statTotalUsers").textContent = number(s.totalUsers);
+        document.getElementById("statNewUsers").textContent = `+${number(s.newUsers30d)}명`;
+        document.getElementById("statGuardians").textContent = number(s.guardians);
+        document.getElementById("statOwners").textContent = number(s.activeOwners);
+        document.getElementById("statNewOwners").textContent = `+${number(s.newOwners7d)}명`;
+        document.getElementById("statSchools").textContent = number(s.managedSchools);
+        document.getElementById("statSchoolFoot").textContent = `전체 ${number(s.totalSchools)}곳 · 운영 중 ${number(s.activeSchools)}곳`;
+        const vc = s.verificationCounts || {};
+        const inProgress = (vc.KINDERGARTEN_INFO_COMPLETED || 0) + (vc.BUSINESS_REGISTRATION_PENDING || 0);
+        const verificationTotal = Object.values(vc).reduce((sum, count) => sum + Number(count || 0), 0);
+        document.getElementById("statInProgress").textContent = number(inProgress);
+        document.getElementById("statRevoked").textContent = number(vc.REVOKED || s.revokedOwners);
+        document.getElementById("verificationNavBadge").textContent = number(inProgress);
+        document.getElementById("flowAll").textContent = number(verificationTotal);
+        document.getElementById("flowPending").textContent = number(vc.BUSINESS_REGISTRATION_PENDING);
+        document.getElementById("flowSubmitted").textContent = number(vc.SUBMITTED);
+        document.getElementById("flowOwners").textContent = number(s.activeOwners);
+        drawSignupTrend(data.signupTrend);
+        const queue = data.recentVerifications || [];
+        document.getElementById("verificationQueue").innerHTML = queue.map(item => `<div class="queue-item"><div class="avatar">${esc((item.nickname || "?")[0])}</div><div class="queue-info"><strong>${esc(item.nickname || item.userId)} · ${esc(item.kindergartenName)}</strong><span>${esc(verificationLabels[item.status] || item.status)}</span></div><span class="wait">${dateOnly(item.submittedAt)}</span></div>`).join("") || `<div class="detail-empty" style="padding:35px">최근 인증 데이터가 없습니다.</div>`;
+        await Promise.all([loadMembers(), loadSchools(), loadApplications()]);
+      } catch (error) {
+        document.getElementById("dataModeLabel").textContent = "더미 데이터 · DB 미연결";
+        document.getElementById("dataModeLabel").title = error.message;
+        document.getElementById("memberRows").innerHTML = `<tr><td colspan="7" style="text-align:center;padding:40px;color:var(--muted)">운영 DB 연결 후 회원 데이터가 표시됩니다.</td></tr>`;
+        document.getElementById("schoolRows").innerHTML = `<tr><td colspan="7" style="text-align:center;padding:40px;color:var(--muted)">운영 DB 연결 후 유치원 데이터가 표시됩니다.</td></tr>`;
+        document.getElementById("applicationRows").innerHTML = `<tr><td colspan="5" style="text-align:center;padding:40px;color:var(--muted)">운영 DB 연결 후 인증 데이터가 표시됩니다.</td></tr>`;
+      }
+    }
+
+    function openModal(title, description, confirm) { document.getElementById("modalTitle").textContent=title; document.getElementById("modalDescription").textContent=description; document.getElementById("modalConfirm").textContent=confirm; document.getElementById("modalReason").value=""; document.getElementById("actionModal").classList.add("show"); }
+    function closeModal(){ document.getElementById("actionModal").classList.remove("show"); }
+    document.querySelectorAll("[data-close-modal]").forEach(b=>b.addEventListener("click",closeModal));
+    document.getElementById("actionModal").addEventListener("click",e=>{if(e.target.id==="actionModal")closeModal();});
+    document.getElementById("modalConfirm").addEventListener("click",()=>{closeModal();showToast("화면 초안이므로 실제 데이터는 변경되지 않았습니다.");});
+    let toastTimer;
+    function showToast(message){const t=document.getElementById("toast");t.textContent=message;t.classList.add("show");clearTimeout(toastTimer);toastTimer=setTimeout(()=>t.classList.remove("show"),2600);}
+    document.querySelectorAll(".segmented").forEach(group=>group.addEventListener("click",e=>{const b=e.target.closest(".segment");if(!b)return;group.querySelectorAll(".segment").forEach(x=>x.classList.remove("active"));b.classList.add("active");showToast("차트 기간을 변경한 화면 예시입니다.");}));
+    loadOverview();
+  </script>
+</body>
+</html>
