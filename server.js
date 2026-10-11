@@ -2024,8 +2024,6 @@ app.get("/api/checkin/month", async (req, res) => {
       month,
       monthStart,
       monthEnd,
-      members,
-      offByDate,
       notesByDate,
     });
   } catch (err) {
