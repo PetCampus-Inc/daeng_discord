@@ -1,0 +1,23 @@
+name: daeng-admin
+
+services:
+  daeng-admin:
+    image: ${DAENG_ADMIN_IMAGE:?DAENG_ADMIN_IMAGE is required}
+    container_name: daeng_admin
+    platform: linux/amd64
+    ports:
+      - "127.0.0.1:3001:3001"
+    environment:
+      SERVICE_DB_HOST: mysql
+      SERVICE_DB_PORT: 3306
+      SERVICE_DB_NAME: knockdog
+      SERVICE_DB_USER: ${SPRING_DATASOURCE_USERNAME:?SPRING_DATASOURCE_USERNAME is required}
+      SERVICE_DB_PASSWORD: ${SPRING_DATASOURCE_PASSWORD:?SPRING_DATASOURCE_PASSWORD is required}
+    networks:
+      - service-db
+    restart: unless-stopped
+
+networks:
+  service-db:
+    external: true
+    name: ec2-user_default
