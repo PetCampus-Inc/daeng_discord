@@ -45,6 +45,7 @@ EC2 Nginx는 `api.knockdog.net/api/service-admin/` 요청을 Node 컨테이너�
 
 ```text
 daeng_discord/
+├── .railwayignore                # EC2 전용 앱의 Railway CLI 업로드 제외
 ├── server.js                      # /home 유지, 관리자 MySQL 조회 라우트는 중계로 교체
 ├── public/service-admin.html      # Railway에 유지
 ├── src/service-admin-auth.js       # Railway의 기존 Basic 인증
@@ -61,7 +62,7 @@ daeng_discord/
 ```
 
 - 새 앱에는 다섯 GET 응답의 필드·검색·필터·페이지네이션·마스킹을 유지한다. PostgreSQL 풀, `initDatabase()`, 팀 운영 라우트, Discord 작업, 관리자 HTML은 포함하지 않는다. 기존 `server.js` 전체를 새 앱에서 `require()`하지 않는다.
-- Railway 런타임은 EC2 전용 모듈을 불러오지 않는다. `.railwayignore`는 현재 배포 방식에서 제외 동작을 확인한 뒤 추가한다.
+- Railway 런타임은 EC2 전용 모듈을 불러오지 않는다. 루트 `.railwayignore`가 `apps/daeng-admin/`을 `railway up` 업로드에서 제외한다.
 - Railway의 `server.js`에는 `/home`의 Basic 인증과 `/api/service-admin/**` 중계만 남긴다. 중계는 허용된 GET 경로·쿼리 문자열만 전달하고, 응답 상태·본문·시간 초과·upstream 오류를 처리한다. 브라우저의 Basic `Authorization` 헤더는 EC2로 전달하지 않는다.
 - EC2 공개 API의 요청별 인증은 아직 없다. 운영자별 세션·권한 검사를 추가할 때까지 이 경로로 조회 데이터가 노출될 수 있다. Railway Basic 인증만으로 EC2 주소에 직접 들어오는 요청을 막을 수 없다.
 - 기존 Basic 인증은 이번 조회 이전 동안만 유지한다. 향후 개인별 Google 로그인·권한 요구사항을 Basic 인증이나 공유 서비스 토큰으로 충족했다고 간주하지 않는다.
