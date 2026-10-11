@@ -2012,39 +2012,10 @@ app.get("/api/checkin/month", async (req, res) => {
   const monthStart = `${month}-01`;
   const monthEnd = new Date(Date.UTC(year, monthNumber, 0)).toISOString().slice(0, 10);
   try {
-    const [membersResult, checkinsResult, notesResult] = await Promise.all([
-      pool.query(
-        `SELECT name FROM team_members WHERE archived = FALSE ORDER BY name`
-      ),
-      pool.query(
-        `SELECT user_name, check_date
-         FROM checkins
-         WHERE check_date BETWEEN $1 AND $2
-           AND (COALESCE(done, '') <> '' OR COALESCE(tasks, '') <> '' OR COALESCE(blockers, '') <> '')
-         ORDER BY check_date, user_name`,
-        [monthStart, monthEnd]
-      ),
-      pool.query(
-        `SELECT note_date, content FROM calendar_notes WHERE note_date BETWEEN $1 AND $2`,
-        [monthStart, monthEnd]
-      ),
-    ]);
-    const checkedByDate = new Map();
-    for (const row of checkinsResult.rows) {
-      const date = row.check_date instanceof Date
-        ? row.check_date.toISOString().slice(0, 10)
-        : String(row.check_date).slice(0, 10);
-      if (!checkedByDate.has(date)) checkedByDate.set(date, new Set());
-      checkedByDate.get(date).add(row.user_name);
-    }
-    const members = membersResult.rows.map((row) => row.name);
-    const offByDate = {};
-    for (let day = 1; day <= Number(monthEnd.slice(-2)); day++) {
-      const date = `${month}-${String(day).padStart(2, "0")}`;
-      const checked = checkedByDate.get(date) || new Set();
-      const off = members.filter((name) => !checked.has(name));
-      if (off.length) offByDate[date] = off;
-    }
+    const notesResult = await pool.query(
+      `SELECT note_date, content FROM calendar_notes WHERE note_date BETWEEN $1 AND $2`,
+      [monthStart, monthEnd]
+    );
     const notesByDate = Object.fromEntries(notesResult.rows.map((row) => [
       row.note_date instanceof Date ? row.note_date.toISOString().slice(0, 10) : String(row.note_date).slice(0, 10),
       row.content || "",

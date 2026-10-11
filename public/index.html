@@ -2004,22 +2004,22 @@
     :root {
       --bg-from: #ffffff;
       --bg-to: #ffffff;
-      --ink: #111111;
-      --ink-soft: rgba(17, 17, 17, 0.68);
-      --ink-mute: rgba(17, 17, 17, 0.42);
-      --line: rgba(17, 17, 17, 0.14);
+      --ink: #262626;
+      --ink-soft: rgba(38, 38, 38, 0.68);
+      --ink-mute: rgba(38, 38, 38, 0.46);
+      --line: rgba(38, 38, 38, 0.16);
       --card: #ffffff;
-      --accent: #111111;
-      --accent-strong: #111111;
-      --accent-soft: rgba(17, 17, 17, 0.08);
-      --good: #111111;
+      --accent: #262626;
+      --accent-strong: #262626;
+      --accent-soft: rgba(38, 38, 38, 0.08);
+      --good: #262626;
       --warn: #111111;
       --shadow-sm: 0 1px 2px rgba(17, 17, 17, 0.05);
       --shadow-md: 0 8px 24px rgba(17, 17, 17, 0.06);
       --shadow-lg: 0 16px 36px rgba(17, 17, 17, 0.08);
     }
     body { background: #ffffff; }
-    .brand-mark, .hero-emoji { background: #111111; }
+    .brand-mark, .hero-emoji { background: #262626; }
     .hero-card, .quick-card, .checkin-card, .board {
       background: #ffffff !important;
       border: 1px solid var(--line) !important;
@@ -2045,10 +2045,10 @@
     }
     .preset:hover, .notice-actions button:hover, .quick-edit-btn:hover, .ghost:hover {
       background: rgba(17, 17, 17, 0.08) !important;
-      border-color: #111111 !important;
-      color: #111111 !important;
+      border-color: #262626 !important;
+      color: #262626 !important;
     }
-    .submit, .item-add:hover { background: #111111 !important; color: #ffffff !important; box-shadow: none !important; }
+    .submit, .item-add:hover { background: #262626 !important; color: #ffffff !important; box-shadow: none !important; }
     .item-input, .item-url, .item-insight, .item-add, .empty,
     .quick-empty, .notice-body.empty, .board-empty {
       background: #ffffff !important;
@@ -2061,18 +2061,43 @@
       border-color: var(--line) !important;
       box-shadow: none !important;
     }
-    .item-add { color: #111111 !important; }
-    .bug-fab, .bug-float, #bugReportBtn { background: #111111 !important; color: #ffffff !important; box-shadow: none !important; }
-    .bug-fab:hover, .bug-float:hover, #bugReportBtn:hover { background: #111111 !important; box-shadow: none !important; }
+    .item-add { color: #262626 !important; }
+    .bug-fab, .bug-float, #bugReportBtn { background: #262626 !important; color: #ffffff !important; box-shadow: none !important; }
+    .bug-fab:hover, .bug-float:hover, #bugReportBtn:hover { background: #262626 !important; box-shadow: none !important; }
     .badge, .ci-week, .ci-count.good, .week-plan-summary.complete {
       background: rgba(37, 99, 235, 0.10) !important;
-      color: #111111 !important;
+      color: #262626 !important;
     }
     .save-note.saved, .day-meta.availability, .day-meta.delayed,
     .day-meta.unavail, .ci-count.warn, .save-note.late { color: #111111 !important; }
-    .day-status.checked, .day-status.late, .day-status.pending,
-    .tl-bar.late, .tl-bar.availability { background: #111111 !important; border-color: #111111 !important; }
-    .day-status.missed { color: #111111 !important; box-shadow: inset 0 0 0 1px #111111 !important; }
+    .day-status.checked, .day-status.late, .day-status.pending { background: #262626 !important; border-color: #262626 !important; }
+    /* Timeline labels must remain readable: keep every bar on a light surface. */
+    .tl-bar, .tl-bar.late, .tl-bar.availability {
+      background: #ffffff !important;
+      border-color: #262626 !important;
+      color: #262626 !important;
+      box-shadow: none !important;
+    }
+    .tl-bar.availability { border-style: dashed !important; }
+    .tl-bar.late::before { background: #262626; color: #ffffff; }
+    /* Short ranges keep their true width; their label floats above the bar instead of clipping. */
+    .tl-track { overflow: visible; }
+    .tl-bar.compact { overflow: visible; padding: 0; z-index: 5; }
+    .tl-bar.compact .tl-bar-label {
+      position: absolute;
+      left: 0;
+      top: 50%;
+      transform: translateY(-50%);
+      padding: 2px 6px;
+      border: 1px solid #262626;
+      border-radius: 4px;
+      background: #ffffff;
+      color: #262626;
+      line-height: 1.2;
+      white-space: nowrap;
+    }
+    .tl-bar.late.compact::before { display: none; }
+    .day-status.missed { color: #262626 !important; box-shadow: inset 0 0 0 1px #262626 !important; }
     .hero-emoji { color: #ffffff; }
 
     .month-calendar { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); border-top: 1px solid var(--line); border-left: 1px solid var(--line); }
@@ -2080,7 +2105,7 @@
     .month-dow { padding: 9px 6px; font-size: 0.72rem; font-weight: 700; color: var(--ink-soft); text-align: center; background: #ffffff; }
     .month-day { min-height: 104px; padding: 9px; background: #ffffff; }
     .month-day.empty { min-height: 104px; padding: 0; background: rgba(17, 17, 17, 0.025) !important; border-style: solid !important; }
-    .month-day.today { box-shadow: inset 0 2px 0 #111111; }
+    .month-day.today { box-shadow: inset 0 2px 0 #262626; }
     .month-day.future { background: rgba(17, 17, 17, 0.025); }
     .month-date { display: flex; justify-content: space-between; align-items: baseline; font-size: 0.78rem; font-weight: 800; }
     .month-count { color: var(--ink-soft); font-size: 0.7rem; font-weight: 600; }
@@ -2088,7 +2113,7 @@
     .month-member { padding: 3px 5px; border: 1px solid #111111; color: #111111; font-size: 0.68rem; line-height: 1.1; }
     .month-empty { margin-top: 10px; color: var(--ink-mute); font-size: 0.72rem; }
     .month-note { width: 100%; min-height: 32px; margin-top: 8px; resize: none; border: none; border-top: 1px solid var(--line); padding: 6px 0 0; background: transparent; color: var(--ink); font: inherit; font-size: 0.72rem; line-height: 1.35; }
-    .month-note:focus { outline: none; border-top-color: #111111; }
+    .month-note:focus { outline: none; border-top-color: #262626; }
     @media (max-width: 768px) {
       .month-calendar { overflow-x: auto; grid-template-columns: repeat(7, minmax(94px, 1fr)); }
       .month-day { min-height: 94px; padding: 7px; }
@@ -2299,7 +2324,7 @@
       <div class="board-head">
         <div>
           <h2>월간 체크인 현황</h2>
-          <div style="margin-top:5px; font-size:0.78rem; color:var(--ink-mute);">날짜별 휴무 인원만 간결하게 표시합니다.</div>
+          <div style="margin-top:5px; font-size:0.78rem; color:var(--ink-mute);">팀 공용 일정과 메모를 기록합니다.</div>
         </div>
         <div class="week-nav">
           <button type="button" id="monthPrev">← 이전</button>
@@ -4486,12 +4511,13 @@
           const left = pctOf(range.start);
           const right = pctOf(range.end);
           const width = Math.max(0, right - left);
+          const isCompact = width < 12;
           const barLabel = isAvailability
             ? `${entry.availabilityLabel || "기본 대응 가능"} ${entry.availabilityStartTime}–${entry.availabilityEndTime}`
             : entry.isLate && entry.checkedInAt
             ? `${entry.startTime}–${entry.endTime} · ${entry.checkedInAt}`
             : `${entry.startTime}–${entry.endTime}`;
-          trackInner += `<div class="tl-bar ${isAvailability ? "availability" : entry.isLate ? "late" : ""}" style="left:${left}%; width:${width}%;" title="${esc(barLabel)}">${esc(barLabel)}</div>`;
+          trackInner += `<div class="tl-bar ${isAvailability ? "availability" : entry.isLate ? "late" : ""} ${isCompact ? "compact" : ""}" style="left:${left}%; width:${width}%;" title="${esc(barLabel)}"><span class="tl-bar-label">${esc(barLabel)}</span></div>`;
 
           // Overlap with me (only on other members' rows)
           if (!isMine && meRange) {
@@ -4912,14 +4938,9 @@
         for (let i = 0; i < firstDay; i++) cells.push(`<div class="month-day empty"></div>`);
         for (let day = 1; day <= lastDay; day++) {
           const iso = `${viewMonth}-${String(day).padStart(2, "0")}`;
-          const offNames = data.offByDate?.[iso] || [];
           const note = data.notesByDate?.[iso] || "";
-          const offTitle = offNames.length ? `휴무: ${offNames.join(", ")}` : "";
-          cells.push(`<div class="month-day ${iso === today ? "today" : ""} ${iso > today ? "future" : ""}" title="${esc(offTitle)}">
-            <div class="month-date"><span>${day}</span>${offNames.length ? `<span class="month-count" title="${esc(offTitle)}">휴무 ${offNames.length}명</span>` : ""}</div>
-            ${offNames.length
-              ? `<div class="month-members"><span class="month-member" title="${esc(offNames.join(", "))}">휴무</span></div>`
-              : ""}
+          cells.push(`<div class="month-day ${iso === today ? "today" : ""} ${iso > today ? "future" : ""}">
+            <div class="month-date"><span>${day}</span></div>
             <textarea class="month-note" data-date="${iso}" maxlength="300" placeholder="메모 입력">${esc(note)}</textarea>
           </div>`);
         }
