@@ -399,7 +399,14 @@
         members = data.members || [];
         document.getElementById("memberCount").textContent = `전체 ${number(data.total)}명 · 최대 50명 표시`;
         renderMembers();
-      } catch (error) { showToast(error.message); }
+        return true;
+      } catch (error) {
+        members = [];
+        document.getElementById("memberCount").textContent = "조회 실패";
+        document.getElementById("memberRows").innerHTML = `<tr><td colspan="7" style="text-align:center;padding:40px;color:var(--muted)">회원 데이터를 불러오지 못했습니다.</td></tr>`;
+        showToast(error.message);
+        return false;
+      }
     }
     document.getElementById("memberTabs").addEventListener("click", e => { const tab=e.target.closest(".tab"); if(!tab)return; document.querySelectorAll("#memberTabs .tab").forEach(t=>t.classList.remove("active")); tab.classList.add("active"); memberFilter=tab.dataset.memberFilter; loadMembers(); });
     document.getElementById("memberSearch").addEventListener("input", () => { clearTimeout(memberSearchTimer); memberSearchTimer=setTimeout(loadMembers, 250); });
@@ -422,7 +429,13 @@
         applications = data.verifications || [];
         renderApplications();
         document.getElementById("applicationDetail").innerHTML = `<div class="detail-empty"><div style="font-size:30px">☝</div><p>왼쪽에서 인증 건을 선택해주세요.</p></div>`;
-      } catch (error) { showToast(error.message); }
+        return true;
+      } catch (error) {
+        applications = [];
+        document.getElementById("applicationRows").innerHTML = `<tr><td colspan="5" style="text-align:center;padding:40px;color:var(--muted)">인증 데이터를 불러오지 못했습니다.</td></tr>`;
+        showToast(error.message);
+        return false;
+      }
     }
     document.querySelectorAll("#applicationTabs .tab").forEach(tab=>tab.addEventListener("click",()=>{document.querySelectorAll("#applicationTabs .tab").forEach(t=>t.classList.remove("active"));tab.classList.add("active");verificationFilter=tab.dataset.appFilter || "";loadApplications();}));
 
@@ -438,7 +451,14 @@
         schools = data.schools || [];
         document.getElementById("schoolCount").textContent = `전체 ${number(data.total)}곳 · 최대 50곳 표시`;
         renderSchools();
-      } catch (error) { showToast(error.message); }
+        return true;
+      } catch (error) {
+        schools = [];
+        document.getElementById("schoolCount").textContent = "조회 실패";
+        document.getElementById("schoolRows").innerHTML = `<tr><td colspan="7" style="text-align:center;padding:40px;color:var(--muted)">유치원 데이터를 불러오지 못했습니다.</td></tr>`;
+        showToast(error.message);
+        return false;
+      }
     }
     document.getElementById("schoolTabs").addEventListener("click", e => { const tab=e.target.closest(".tab");if(!tab)return;document.querySelectorAll("#schoolTabs .tab").forEach(t=>t.classList.remove("active"));tab.classList.add("active");schoolStatus=tab.dataset.schoolStatus || "";loadSchools(); });
     document.getElementById("schoolSearch").addEventListener("input",()=>{clearTimeout(schoolSearchTimer);schoolSearchTimer=setTimeout(loadSchools,250);});
@@ -486,13 +506,27 @@
         drawSignupTrend(data.signupTrend);
         const queue = data.recentVerifications || [];
         document.getElementById("verificationQueue").innerHTML = queue.map(item => `<div class="queue-item"><div class="avatar">${esc((item.nickname || "?")[0])}</div><div class="queue-info"><strong>${esc(item.nickname || item.userId)} · ${esc(item.kindergartenName)}</strong><span>${esc(verificationLabels[item.status] || item.status)}</span></div><span class="wait">${dateOnly(item.submittedAt)}</span></div>`).join("") || `<div class="detail-empty" style="padding:35px">최근 인증 데이터가 없습니다.</div>`;
-        await Promise.all([loadMembers(), loadSchools(), loadApplications()]);
+        const listResults = await Promise.all([loadMembers(), loadSchools(), loadApplications()]);
+        if (listResults.some(result => !result)) throw new Error("일부 운영 데이터를 불러오지 못했습니다.");
       } catch (error) {
-        document.getElementById("dataModeLabel").textContent = "더미 데이터 · DB 미연결";
+        liveConnected = false;
+        members = [];
+        schools = [];
+        applications = [];
+        document.getElementById("dataModeLabel").textContent = "운영 데이터 조회 실패";
+        document.getElementById("dataModeLabel").style.cssText = "";
         document.getElementById("dataModeLabel").title = error.message;
-        document.getElementById("memberRows").innerHTML = `<tr><td colspan="7" style="text-align:center;padding:40px;color:var(--muted)">운영 DB 연결 후 회원 데이터가 표시됩니다.</td></tr>`;
-        document.getElementById("schoolRows").innerHTML = `<tr><td colspan="7" style="text-align:center;padding:40px;color:var(--muted)">운영 DB 연결 후 유치원 데이터가 표시됩니다.</td></tr>`;
-        document.getElementById("applicationRows").innerHTML = `<tr><td colspan="5" style="text-align:center;padding:40px;color:var(--muted)">운영 DB 연결 후 인증 데이터가 표시됩니다.</td></tr>`;
+        ["statTotalUsers", "statNewUsers", "statGuardians", "statOwners", "statNewOwners", "statSchools", "statSchoolFoot", "statInProgress", "statRevoked", "verificationNavBadge", "flowAll", "flowPending", "flowSubmitted", "flowOwners"].forEach(id => {
+          document.getElementById(id).textContent = "—";
+        });
+        document.getElementById("signupChartSvg").innerHTML = "";
+        document.getElementById("verificationQueue").innerHTML = `<div class="detail-empty" style="padding:35px">운영 데이터를 불러오지 못했습니다.</div>`;
+        document.getElementById("memberCount").textContent = "조회 실패";
+        document.getElementById("schoolCount").textContent = "조회 실패";
+        document.getElementById("memberRows").innerHTML = `<tr><td colspan="7" style="text-align:center;padding:40px;color:var(--muted)">회원 데이터를 불러오지 못했습니다.</td></tr>`;
+        document.getElementById("schoolRows").innerHTML = `<tr><td colspan="7" style="text-align:center;padding:40px;color:var(--muted)">유치원 데이터를 불러오지 못했습니다.</td></tr>`;
+        document.getElementById("applicationRows").innerHTML = `<tr><td colspan="5" style="text-align:center;padding:40px;color:var(--muted)">인증 데이터를 불러오지 못했습니다.</td></tr>`;
+        document.getElementById("applicationDetail").innerHTML = `<div class="detail-empty"><p>인증 데이터를 불러오지 못했습니다.</p></div>`;
       }
     }
 
