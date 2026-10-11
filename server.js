@@ -3,7 +3,8 @@ const path = require("path");
 const { Client, GatewayIntentBits, Partials } = require("discord.js");
 const cron = require("node-cron");
 const { Pool, types: pgTypes } = require("pg");
-const { createServiceAdmin } = require("./apps/daeng-admin/service-admin");
+const { requireServiceAdmin } = require("./src/service-admin-auth");
+const { proxyServiceAdmin } = require("./src/service-admin-proxy");
 
 // Keep DATE (OID 1082) as raw "YYYY-MM-DD" string to avoid TZ shifts
 pgTypes.setTypeParser(1082, (val) => val);
@@ -19,7 +20,7 @@ const { createCareersWebhookHandler } = require("./src/careers-webhook");
 
 const app = express();
 const PORT = process.env.PORT || 5000;
-const LEGACY_PORT = 5000;
+const LEGACY_PORT = process.env.LEGACY_PORT || 5000;
 
 app.use(express.json());
 
@@ -27,7 +28,6 @@ const pool = new Pool({
   connectionString: process.env.DATABASE_URL,
 });
 
-const serviceAdmin = createServiceAdmin();
 const jiraReviewAutomation = createJiraReviewAutomation({ pool });
 const subwayGapAlert = createSubwayGapAlert();
 const careersWebhookHandler = createCareersWebhookHandler();
@@ -704,13 +704,13 @@ async function generateReport() {
   ].join("\n");
 }
 
-app.get("/home", serviceAdmin.requireServiceAdmin, (req, res) => {
+app.get("/home", requireServiceAdmin, (req, res) => {
   res.sendFile(path.join(__dirname, "public", "service-admin.html"));
 });
 app.get("/service-admin.html", (req, res) => {
   res.redirect(308, "/home");
 });
-app.use("/api/service-admin", serviceAdmin.requireServiceAdmin, serviceAdmin.requireServiceDb, serviceAdmin.router);
+app.use("/api/service-admin", requireServiceAdmin, proxyServiceAdmin);
 app.use(express.static(path.join(__dirname, "public")));
 
 app.options("/api/careers/application-alert", careersWebhookHandler.options);
