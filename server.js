@@ -63,6 +63,12 @@ const jiraReviewAutomation = createJiraReviewAutomation({ pool });
 const subwayGapAlert = createSubwayGapAlert();
 const careersWebhookHandler = createCareersWebhookHandler();
 
+// Recurring availability is intentionally separate from check-ins. It is shown
+// on the weekly board but never creates attendance, work hours, or Delayed data.
+const RECURRING_AVAILABILITY = new Map([
+  ["최진영", { startTime: "09:00", endTime: "23:00", label: "기본 대응 가능" }],
+]);
+
 async function initDatabase() {
   try {
     await pool.query(`
@@ -168,6 +174,13 @@ async function initDatabase() {
     await pool.query(`ALTER TABLE checkins ADD COLUMN IF NOT EXISTS unavailable_text TEXT DEFAULT ''`);
     await pool.query(`ALTER TABLE checkins ADD COLUMN IF NOT EXISTS checked_in_at VARCHAR(5)`);
     await pool.query(`ALTER TABLE checkins ADD COLUMN IF NOT EXISTS link_url TEXT DEFAULT ''`);
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS calendar_notes (
+        note_date DATE PRIMARY KEY,
+        content TEXT NOT NULL DEFAULT '',
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      )
+    `);
     await ensureWeeklyReportsTable(pool);
     await pool.query(`
       CREATE TABLE IF NOT EXISTS bug_reports (
@@ -1799,17 +1812,16 @@ app.post("/api/checkin/week-hours", async (req, res) => {
       }
     }
 
-    // Weekday all-or-nothing rule: after this save, every affected week's
-    // Mon–Fri must be uniformly all-filled (5/5) or all-empty (0/5).
+    // A weekly plan is complete only when every day from Mon through Sun is set.
     {
       const weeksTouched = new Set();
       for (const h of hours) weeksTouched.add(mondayOfISO(h.date));
       for (const monday of weeksTouched) {
-        const weekdayDates = [0, 1, 2, 3, 4].map((i) => addDaysISO(monday, i));
+        const weekDates = [0, 1, 2, 3, 4, 5, 6].map((i) => addDaysISO(monday, i));
         const existing = await pool.query(
           `SELECT check_date, hours_text FROM checkins
            WHERE user_name = $1 AND check_date = ANY($2::date[])`,
-          [userName, weekdayDates]
+          [userName, weekDates]
         );
         const existingMap = new Map();
         for (const row of existing.rows) {
@@ -1821,19 +1833,19 @@ app.post("/api/checkin/week-hours", async (req, res) => {
         }
         const reqMap = new Map();
         for (const h of hours) {
-          if (weekdayDates.includes(h.date)) {
+          if (weekDates.includes(h.date)) {
             reqMap.set(h.date, (h.text || "").trim());
           }
         }
-        const effective = weekdayDates.map((d) =>
+        const effective = weekDates.map((d) =>
           reqMap.has(d) ? reqMap.get(d) : existingMap.get(d) || ""
         );
         const filledCount = effective.filter((v) => v).length;
-        if (filledCount > 0 && filledCount < 5) {
-          const missing = weekdayDates.filter((_, i) => !effective[i]);
+        if (filledCount !== 7) {
+          const missing = weekDates.filter((_, i) => !effective[i]);
           return res.status(400).json({
-            error: `평일(월–금)은 한꺼번에 다 입력해야 합니다. 빠진 날짜: ${missing.join(", ")}`,
-            code: "WEEKDAY_REQUIRED",
+            error: `이번 주(월–일)는 한꺼번에 모두 입력해야 합니다. 빠진 날짜: ${missing.join(", ")}`,
+            code: "WEEK_REQUIRED",
             weekStart: monday,
             missing,
           });
@@ -1951,12 +1963,123 @@ app.get("/api/checkin/week", async (req, res) => {
         dailyMin: dailyMinutes(row.start_time, row.end_time, row.unavailable_text),
       });
     }
+    for (const [userName, availability] of RECURRING_AVAILABILITY) {
+      const entries = byUser.get(userName) || [];
+      const existingDates = new Set(entries.map((entry) => entry.date));
+      for (const date of dates) {
+        if (existingDates.has(date)) continue;
+        entries.push({
+          date,
+          startTime: "",
+          endTime: "",
+          hoursText: "",
+          unavailableText: "",
+          hasCheckin: false,
+          checkedInAt: "",
+          isLate: false,
+          doneItems: [],
+          tasksItems: [],
+          blockers: "",
+          dailyMin: null,
+          availabilityStartTime: availability.startTime,
+          availabilityEndTime: availability.endTime,
+          availabilityLabel: availability.label,
+        });
+      }
+      for (const entry of entries) {
+        entry.availabilityStartTime = availability.startTime;
+        entry.availabilityEndTime = availability.endTime;
+        entry.availabilityLabel = availability.label;
+      }
+      byUser.set(userName, entries.sort((a, b) => a.date.localeCompare(b.date)));
+    }
     const users = [...byUser.entries()]
       .map(([userName, entries]) => ({ userName, entries }))
       .sort((a, b) => b.entries.length - a.entries.length);
     res.json({ weekStart, weekEnd, dates, users });
   } catch (err) {
     console.error("Checkin week error:", err.message);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.get("/api/checkin/month", async (req, res) => {
+  const month = String(req.query.month || "");
+  if (!/^\d{4}-\d{2}$/.test(month)) {
+    return res.status(400).json({ error: "month must be YYYY-MM" });
+  }
+  const [year, monthNumber] = month.split("-").map(Number);
+  const monthStart = `${month}-01`;
+  const monthEnd = new Date(Date.UTC(year, monthNumber, 0)).toISOString().slice(0, 10);
+  try {
+    const [membersResult, checkinsResult, notesResult] = await Promise.all([
+      pool.query(
+        `SELECT name FROM team_members WHERE archived = FALSE ORDER BY name`
+      ),
+      pool.query(
+        `SELECT user_name, check_date
+         FROM checkins
+         WHERE check_date BETWEEN $1 AND $2
+           AND (COALESCE(done, '') <> '' OR COALESCE(tasks, '') <> '' OR COALESCE(blockers, '') <> '')
+         ORDER BY check_date, user_name`,
+        [monthStart, monthEnd]
+      ),
+      pool.query(
+        `SELECT note_date, content FROM calendar_notes WHERE note_date BETWEEN $1 AND $2`,
+        [monthStart, monthEnd]
+      ),
+    ]);
+    const checkedByDate = new Map();
+    for (const row of checkinsResult.rows) {
+      const date = row.check_date instanceof Date
+        ? row.check_date.toISOString().slice(0, 10)
+        : String(row.check_date).slice(0, 10);
+      if (!checkedByDate.has(date)) checkedByDate.set(date, new Set());
+      checkedByDate.get(date).add(row.user_name);
+    }
+    const members = membersResult.rows.map((row) => row.name);
+    const offByDate = {};
+    for (let day = 1; day <= Number(monthEnd.slice(-2)); day++) {
+      const date = `${month}-${String(day).padStart(2, "0")}`;
+      const checked = checkedByDate.get(date) || new Set();
+      const off = members.filter((name) => !checked.has(name));
+      if (off.length) offByDate[date] = off;
+    }
+    const notesByDate = Object.fromEntries(notesResult.rows.map((row) => [
+      row.note_date instanceof Date ? row.note_date.toISOString().slice(0, 10) : String(row.note_date).slice(0, 10),
+      row.content || "",
+    ]));
+    res.json({
+      month,
+      monthStart,
+      monthEnd,
+      members,
+      offByDate,
+      notesByDate,
+    });
+  } catch (err) {
+    console.error("Checkin month error:", err.message);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.put("/api/calendar-notes/:date", async (req, res) => {
+  const date = String(req.params.date || "");
+  const content = String(req.body?.content || "").trim().slice(0, 300);
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) return res.status(400).json({ error: "invalid date" });
+  try {
+    if (!content) {
+      await pool.query(`DELETE FROM calendar_notes WHERE note_date = $1`, [date]);
+    } else {
+      await pool.query(
+        `INSERT INTO calendar_notes (note_date, content, updated_at)
+         VALUES ($1, $2, CURRENT_TIMESTAMP)
+         ON CONFLICT (note_date) DO UPDATE SET content = EXCLUDED.content, updated_at = CURRENT_TIMESTAMP`,
+        [date, content]
+      );
+    }
+    res.json({ success: true, date, content });
+  } catch (err) {
     res.status(500).json({ error: err.message });
   }
 });

@@ -13,29 +13,26 @@
     * { margin: 0; padding: 0; box-sizing: border-box; }
 
     :root {
-      --bg-from: #fef9f3;
-      --bg-to: #fff5eb;
-      --ink: #1f2937;
-      --ink-soft: #475569;
+      --bg-from: #f8fafc;
+      --bg-to: #eef2f7;
+      --ink: #172033;
+      --ink-soft: #526176;
       --ink-mute: #94a3b8;
-      --line: #f1ddc4;
+      --line: #dfe6ef;
       --card: #ffffff;
-      --accent: #f59e0b;
-      --accent-strong: #ea580c;
-      --accent-soft: #fef3c7;
+      --accent: #2563eb;
+      --accent-strong: #1d4ed8;
+      --accent-soft: #eff6ff;
       --good: #16a34a;
       --warn: #dc2626;
-      --shadow-sm: 0 2px 8px rgba(15, 23, 42, 0.05);
-      --shadow-md: 0 8px 24px rgba(15, 23, 42, 0.08);
-      --shadow-lg: 0 20px 50px rgba(234, 88, 12, 0.18);
+      --shadow-sm: 0 1px 3px rgba(15, 23, 42, 0.05);
+      --shadow-md: 0 8px 24px rgba(15, 23, 42, 0.06);
+      --shadow-lg: 0 16px 36px rgba(15, 23, 42, 0.08);
     }
 
     body {
       font-family: 'Pretendard Variable', Pretendard, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
-      background:
-        radial-gradient(1100px 700px at 90% -10%, #ffe1bf 0%, transparent 60%),
-        radial-gradient(900px 600px at -10% 110%, #ffe4cc 0%, transparent 55%),
-        linear-gradient(180deg, var(--bg-from) 0%, var(--bg-to) 100%);
+      background: linear-gradient(180deg, var(--bg-from) 0%, var(--bg-to) 100%);
       min-height: 100vh;
       color: var(--ink);
       padding: 28px 24px 80px;
@@ -63,10 +60,10 @@
     }
     .brand-mark {
       width: 36px; height: 36px;
-      border-radius: 12px;
-      background: linear-gradient(135deg, #fbbf24, #ea580c);
+      border-radius: 8px;
+      background: #172033;
       display: grid; place-items: center;
-      box-shadow: 0 4px 12px rgba(234, 88, 12, 0.35);
+      box-shadow: 0 4px 12px rgba(15, 23, 42, 0.18);
     }
     .brand-mark img {
       width: 22px; height: 22px; object-fit: contain;
@@ -79,7 +76,8 @@
       display: inline-flex; align-items: center; gap: 8px;
       background: #fff;
       padding: 8px 14px;
-      border-radius: 999px;
+      border-radius: 8px;
+      border: 1px solid var(--line);
       box-shadow: var(--shadow-sm);
       font-size: 0.88rem;
       color: var(--ink-soft);
@@ -99,19 +97,15 @@
     @media (max-width: 900px) { .hero { grid-template-columns: 1fr; } }
 
     .hero-card {
-      background: linear-gradient(135deg, #fff6e8 0%, #ffe9cf 100%);
-      border-radius: 24px;
+      background: #fff;
+      border: 1px solid var(--line);
+      border-radius: 16px;
       padding: 32px 32px 28px;
       box-shadow: var(--shadow-md);
       position: relative;
       overflow: hidden;
     }
-    .hero-card::after {
-      content: ""; position: absolute; right: -40px; bottom: -40px;
-      width: 220px; height: 220px; border-radius: 50%;
-      background: radial-gradient(circle, rgba(255,255,255,0.6), transparent 60%);
-      pointer-events: none;
-    }
+    .hero-card::after { display: none; }
     .greet-eyebrow {
       font-size: 0.85rem; color: var(--accent-strong); font-weight: 600;
       letter-spacing: 0.04em; text-transform: uppercase; margin-bottom: 8px;
@@ -126,17 +120,19 @@
     .hero-emoji {
       position: absolute; top: 24px; right: 28px;
       width: 78px; height: 78px;
-      background: #fff; border-radius: 24px;
+      background: #172033; border-radius: 10px;
       display: grid; place-items: center;
-      box-shadow: 0 10px 24px rgba(234, 88, 12, 0.18);
-      font-size: 2.4rem;
+      box-shadow: none;
+      font-size: 1.5rem;
+      font-weight: 800;
+      color: #fff;
     }
     /* Hero announcement (notice) */
     .notice {
       margin-top: 18px;
       background: rgba(255,255,255,0.7);
-      border: 1px solid rgba(245, 158, 11, 0.35);
-      border-radius: 16px;
+      border: 1px solid var(--line);
+      border-radius: 10px;
       padding: 14px 16px;
       position: relative;
       z-index: 1;
@@ -728,6 +724,11 @@
       font-weight: 400;
       font-size: 0.9rem;
     }
+    .day-total.availability {
+      color: #0f766e;
+      font-size: 0.82rem;
+      font-weight: 700;
+    }
     .day-range {
       font-size: 0.7rem;
       color: var(--ink-soft);
@@ -816,6 +817,15 @@
       font-size: 0.55rem; font-weight: 800;
       letter-spacing: 0;
     }
+    .day-meta.availability { color: #0f766e; }
+    .day-meta.availability::before {
+      content: "기본";
+      font-size: 0.58rem;
+      padding: 1px 4px;
+      border-radius: 999px;
+      background: #dff6f1;
+      color: #0f766e;
+    }
     .row-name { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
     .ci-count {
       font-size: 0.72rem; font-weight: 700; padding: 2px 9px; border-radius: 999px;
@@ -857,6 +867,103 @@
       flex-direction: column;
       gap: 6px;
     }
+    /* Weekly planning is a once-a-week task: keep it spacious when editing
+       and compact after save. */
+    .weekly-editor {
+      border: 1px solid #f1ddc4;
+      border-radius: 18px;
+      background: #fffdfa;
+      overflow: hidden;
+    }
+    .weekly-editor > summary {
+      list-style: none;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 14px;
+      padding: 15px 18px;
+      cursor: pointer;
+      user-select: none;
+    }
+    .weekly-editor > summary::-webkit-details-marker { display: none; }
+    .weekly-editor > summary::after {
+      content: "⌄";
+      color: var(--accent-strong);
+      font-size: 1.1rem;
+      font-weight: 800;
+      transition: transform .18s ease;
+    }
+    .weekly-editor[open] > summary {
+      border-bottom: 1px solid #f1ddc4;
+      background: #fff8ec;
+    }
+    .weekly-editor[open] > summary::after { transform: rotate(180deg); }
+    .weekly-editor-title {
+      display: flex;
+      align-items: baseline;
+      gap: 8px;
+      min-width: 0;
+      font-weight: 800;
+      color: var(--ink);
+    }
+    .weekly-editor-title small {
+      color: var(--ink-mute);
+      font-size: 0.76rem;
+      font-weight: 600;
+    }
+    .week-plan-summary {
+      margin-left: auto;
+      color: var(--ink-soft);
+      font-size: 0.82rem;
+      font-weight: 600;
+      white-space: nowrap;
+    }
+    .week-plan-summary.complete { color: #15803d; }
+    .weekly-editor-body { padding: 20px 18px 18px; }
+    .weekly-editor .week-hours-list {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 10px;
+    }
+    .weekly-editor .wh-row {
+      position: relative;
+      display: block;
+      min-height: 0;
+      padding: 13px;
+    }
+    .weekly-editor .wh-day {
+      flex-direction: row;
+      justify-content: space-between;
+      align-items: baseline;
+      padding-right: 34px;
+      margin-bottom: 12px;
+    }
+    .weekly-editor .wh-inputs { gap: 10px; }
+    .weekly-editor .wh-input-group {
+      align-items: flex-start;
+      flex-direction: row;
+      gap: 8px;
+    }
+    .weekly-editor .wh-input-label { flex: 0 0 32px; padding-top: 7px; }
+    .weekly-editor .wh-clear { position: absolute; top: 10px; right: 10px; }
+    .week-planner-note {
+      margin: 0 0 14px;
+      color: var(--ink-soft);
+      font-size: 0.8rem;
+      line-height: 1.55;
+    }
+
+    /* A restrained, product-oriented visual layer for the core workspace. */
+    .checkin-card, .board, .quick-card { border-radius: 16px; border-color: var(--line); }
+    .checkin-card { box-shadow: var(--shadow-md); }
+    .badge, .preset, .bulk-custom, .week-nav { border-radius: 8px; }
+    .input, .select, .textarea, .wh-time-select, .wh-time-note { border-radius: 8px; border-color: var(--line); }
+    .submit { border-radius: 8px; box-shadow: none; }
+    .weekly-editor { border-radius: 12px; border-color: var(--line); background: #fff; }
+    .weekly-editor[open] > summary { background: #f8fafc; border-bottom-color: var(--line); }
+    .wh-row { border-radius: 10px; border-color: var(--line); background: #fff; }
+    .wh-row.today { background: #f8fbff; border-color: #93c5fd; box-shadow: 0 0 0 2px rgba(37, 99, 235, 0.08); }
+    .wh-row.weekend { background: #f8fafc; border-style: solid; }
     .wh-row {
       display: grid;
       grid-template-columns: 80px 1fr 32px;
@@ -1381,6 +1488,13 @@
     .tl-bar.late {
       background: linear-gradient(135deg, #fde7c8, #fbbf24);
     }
+    .tl-bar.availability {
+      background: repeating-linear-gradient(135deg, #dff6f1 0, #dff6f1 8px, #c8eee7 8px, #c8eee7 16px);
+      border-color: #14b8a6;
+      border-style: dashed;
+      color: #0f766e;
+      box-shadow: none;
+    }
     .tl-bar.late::before {
       content: "L";
       display: inline-flex; align-items: center; justify-content: center;
@@ -1764,6 +1878,14 @@
       .wh-day .dom { font-size: 0.82rem; }
       .wh-input-label { flex: 0 0 28px; font-size: 0.66rem; }
       .wh-input { padding: 7px 10px; font-size: 0.88rem; }
+      .weekly-editor > summary { padding: 13px 14px; }
+      .weekly-editor-body { padding: 14px 12px; }
+      .weekly-editor .week-hours-list { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+      .weekly-editor .wh-row {
+        min-height: 0;
+        padding: 10px;
+      }
+      .weekly-editor .wh-input-group { gap: 6px; }
       .presets { gap: 6px; }
       .preset { padding: 6px 12px; font-size: 0.82rem; }
       .bulk-custom { width: 100%; }
@@ -1867,11 +1989,110 @@
       .quick-links { grid-template-columns: 1fr; }
       .greet-title { font-size: 1.3rem; }
       .wh-row { grid-template-columns: 48px 1fr 24px; gap: 6px; }
+      .weekly-editor .week-hours-list { grid-template-columns: 1fr; }
+      .weekly-editor .wh-row { display: block; }
+      .weekly-editor-title { flex-direction: column; gap: 1px; }
+      .week-plan-summary { font-size: 0.74rem; }
       .wh-clear { width: 24px; height: 24px; }
       .week-table tr td.day-cell::before { flex: 0 0 48px; font-size: 0.74rem; }
       .week-table tr td.day-cell { gap: 8px; }
       .summary-table th:nth-child(2),
       .summary-table td:nth-child(2) { display: none; } /* hide day-dots column on smallest */
+    }
+
+    /* Visual system: black, white, and one blue accent only. */
+    :root {
+      --bg-from: #ffffff;
+      --bg-to: #ffffff;
+      --ink: #111111;
+      --ink-soft: rgba(17, 17, 17, 0.68);
+      --ink-mute: rgba(17, 17, 17, 0.42);
+      --line: rgba(17, 17, 17, 0.14);
+      --card: #ffffff;
+      --accent: #111111;
+      --accent-strong: #111111;
+      --accent-soft: rgba(17, 17, 17, 0.08);
+      --good: #111111;
+      --warn: #111111;
+      --shadow-sm: 0 1px 2px rgba(17, 17, 17, 0.05);
+      --shadow-md: 0 8px 24px rgba(17, 17, 17, 0.06);
+      --shadow-lg: 0 16px 36px rgba(17, 17, 17, 0.08);
+    }
+    body { background: #ffffff; }
+    .brand-mark, .hero-emoji { background: #111111; }
+    .hero-card, .quick-card, .checkin-card, .board {
+      background: #ffffff !important;
+      border: 1px solid var(--line) !important;
+      box-shadow: var(--shadow-md) !important;
+    }
+    .notice, .weekly-editor, .weekly-editor[open] > summary,
+    .wh-row, .wh-row.weekend, .wh-row.today, .field-hint {
+      background: rgba(17, 17, 17, 0.035) !important;
+      border-color: var(--line) !important;
+      box-shadow: none !important;
+    }
+    .input, .select, .textarea, .wh-time-select, .wh-time-note,
+    .bulk-custom, .week-nav, .chip {
+      background: #ffffff !important;
+      border-color: var(--line) !important;
+      color: var(--ink) !important;
+    }
+    .preset, .notice-actions button, .quick-edit-btn, .ghost {
+      background: #ffffff !important;
+      border-color: var(--line) !important;
+      color: var(--ink) !important;
+      box-shadow: none !important;
+    }
+    .preset:hover, .notice-actions button:hover, .quick-edit-btn:hover, .ghost:hover {
+      background: rgba(17, 17, 17, 0.08) !important;
+      border-color: #111111 !important;
+      color: #111111 !important;
+    }
+    .submit, .item-add:hover { background: #111111 !important; color: #ffffff !important; box-shadow: none !important; }
+    .item-input, .item-url, .item-insight, .item-add, .empty,
+    .quick-empty, .notice-body.empty, .board-empty {
+      background: #ffffff !important;
+      border-color: var(--line) !important;
+      color: var(--ink-soft) !important;
+    }
+    .item-row .item-text, .item-row .item-url, .item-row .item-insight,
+    .item-row .item-text:focus, .item-row .item-url:focus, .item-row .item-insight:focus {
+      background: #ffffff !important;
+      border-color: var(--line) !important;
+      box-shadow: none !important;
+    }
+    .item-add { color: #111111 !important; }
+    .bug-fab, .bug-float, #bugReportBtn { background: #111111 !important; color: #ffffff !important; box-shadow: none !important; }
+    .bug-fab:hover, .bug-float:hover, #bugReportBtn:hover { background: #111111 !important; box-shadow: none !important; }
+    .badge, .ci-week, .ci-count.good, .week-plan-summary.complete {
+      background: rgba(37, 99, 235, 0.10) !important;
+      color: #111111 !important;
+    }
+    .save-note.saved, .day-meta.availability, .day-meta.delayed,
+    .day-meta.unavail, .ci-count.warn, .save-note.late { color: #111111 !important; }
+    .day-status.checked, .day-status.late, .day-status.pending,
+    .tl-bar.late, .tl-bar.availability { background: #111111 !important; border-color: #111111 !important; }
+    .day-status.missed { color: #111111 !important; box-shadow: inset 0 0 0 1px #111111 !important; }
+    .hero-emoji { color: #ffffff; }
+
+    .month-calendar { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); border-top: 1px solid var(--line); border-left: 1px solid var(--line); }
+    .month-dow, .month-day { border-right: 1px solid var(--line); border-bottom: 1px solid var(--line); }
+    .month-dow { padding: 9px 6px; font-size: 0.72rem; font-weight: 700; color: var(--ink-soft); text-align: center; background: #ffffff; }
+    .month-day { min-height: 104px; padding: 9px; background: #ffffff; }
+    .month-day.empty { min-height: 104px; padding: 0; background: rgba(17, 17, 17, 0.025) !important; border-style: solid !important; }
+    .month-day.today { box-shadow: inset 0 2px 0 #111111; }
+    .month-day.future { background: rgba(17, 17, 17, 0.025); }
+    .month-date { display: flex; justify-content: space-between; align-items: baseline; font-size: 0.78rem; font-weight: 800; }
+    .month-count { color: var(--ink-soft); font-size: 0.7rem; font-weight: 600; }
+    .month-members { margin-top: 8px; display: flex; flex-wrap: wrap; gap: 4px; }
+    .month-member { padding: 3px 5px; border: 1px solid #111111; color: #111111; font-size: 0.68rem; line-height: 1.1; }
+    .month-empty { margin-top: 10px; color: var(--ink-mute); font-size: 0.72rem; }
+    .month-note { width: 100%; min-height: 32px; margin-top: 8px; resize: none; border: none; border-top: 1px solid var(--line); padding: 6px 0 0; background: transparent; color: var(--ink); font: inherit; font-size: 0.72rem; line-height: 1.35; }
+    .month-note:focus { outline: none; border-top-color: #111111; }
+    @media (max-width: 768px) {
+      .month-calendar { overflow-x: auto; grid-template-columns: repeat(7, minmax(94px, 1fr)); }
+      .month-day { min-height: 94px; padding: 7px; }
+      .month-member { font-size: 0.64rem; }
     }
   </style>
 </head>
@@ -1898,15 +2119,15 @@
     <!-- Hero -->
     <section class="hero">
       <div class="hero-card">
-        <div class="hero-emoji">🐶</div>
+        <div class="hero-emoji">K</div>
         <div class="greet-eyebrow" id="greetEyebrow">Good morning</div>
         <h1 class="greet-title">
-          오늘도 <em>가볍게</em> 시작해볼까요?<br />
-          작업 전, 하루를 정리해요.
+          이번 주의 <em>계획</em>을 정리하세요.<br />
+          팀의 작업 시간을 한눈에 맞춥니다.
         </h1>
         <p class="greet-sub">
-          체크인을 하면 동료들도 오늘 누가 무엇을 할지 한 눈에 볼 수 있어요.<br />
-          블락커가 있다면 솔직하게 적어두세요 — 누군가 도와줄 수 있어요.
+          주간 계획을 먼저 저장하고, 매일의 체크인으로 진행 상황을 공유하세요.<br />
+          이슈와 블로커를 기록하면 팀이 더 빠르게 대응할 수 있습니다.
         </p>
         <div class="notice" id="notice">
           <div class="notice-head">
@@ -1928,49 +2149,58 @@
     <!-- Section 1: Weekly work hours -->
     <section class="checkin-card" id="hoursCard">
       <div class="checkin-head">
-        <h2 id="formTitle">이번 주 작업 시간 <span style="font-size:0.78rem; color:var(--ink-soft); font-weight:500;">(대응 가능 시간대)</span></h2>
+        <h2 id="formTitle">이번 주 작업 계획 <span style="font-size:0.78rem; color:var(--ink-soft); font-weight:500;">(대응 가능 시간대)</span></h2>
         <span class="badge" id="weekBadge">—</span>
       </div>
 
-      <div class="field">
-        <label class="field-label">
-          이름
-          <span class="hint">팀원 목록에서 선택</span>
-        </label>
-        <div style="display:flex; gap:8px; align-items:center; flex-wrap:wrap;">
-          <select class="select" id="userName" style="flex:1; min-width:140px;"></select>
-          <button type="button" id="manageMembersBtn" class="preset" style="white-space:nowrap;">팀원 관리</button>
-          <button type="button" id="loadMineBtn" class="preset" style="white-space:nowrap;">내 데이터 불러오기</button>
+      <details class="weekly-editor" id="weeklyEditor">
+        <summary>
+          <span class="weekly-editor-title">주간 플래너 <small>주 1회 입력 · 저장 후 필요할 때만 펼쳐 수정</small></span>
+          <span class="week-plan-summary" id="weekPlanSummary">7일 계획을 입력해주세요</span>
+        </summary>
+        <div class="weekly-editor-body">
+          <div class="field">
+            <label class="field-label">
+              이름
+              <span class="hint">팀원 목록에서 선택</span>
+            </label>
+            <div style="display:flex; gap:8px; align-items:center; flex-wrap:wrap;">
+              <select class="select" id="userName" style="flex:1; min-width:140px;"></select>
+              <button type="button" id="manageMembersBtn" class="preset" style="white-space:nowrap;">팀원 관리</button>
+              <button type="button" id="loadMineBtn" class="preset" style="white-space:nowrap;">내 데이터 불러오기</button>
+            </div>
+          </div>
+
+          <p class="week-planner-note">월요일부터 일요일까지 7일을 한 번에 저장합니다. 불가 시간은 일정·회의처럼 작업이 어려운 구간만 추가하면 됩니다.</p>
+
+          <div class="presets" id="bulkPresets" style="margin: 0 0 14px;">
+            <button class="preset" type="button" data-bulk="09:00-18:00">주간 일괄 9-18</button>
+            <button class="preset" type="button" data-bulk="10:00-19:00">주간 일괄 10-19</button>
+            <button class="preset" type="button" data-bulk="10:30-19:30">주간 일괄 10:30-19:30</button>
+            <div class="bulk-custom" aria-label="직접 일괄 입력">
+              <span class="bulk-custom-label">직접</span>
+              <select class="wh-time-select" id="bulkStart" aria-label="일괄 시작 시간"></select>
+              <span class="wh-time-sep">~</span>
+              <select class="wh-time-select" id="bulkEnd" aria-label="일괄 종료 시간"></select>
+              <button class="preset" type="button" id="bulkWeekdaysBtn">주간 적용</button>
+            </div>
+            <button class="preset" type="button" id="clearAllBtn" style="background:#fff; color:#dc2626; border-color:#fecaca;">입력 초기화</button>
+          </div>
+
+          <div class="field" style="margin-bottom: 12px;">
+            <label class="field-label">
+              요일별 작업 시간
+              <span class="hint">30분 단위 선택 · 월~일 7일을 모두 입력해야 저장됩니다</span>
+            </label>
+            <div id="weekHoursList" class="week-hours-list"></div>
+          </div>
+
+          <div class="submit-row" style="margin-top:14px; padding-top:14px;">
+            <span class="save-note" id="hoursNote">저장 안 됨</span>
+            <button class="submit" id="saveHoursBtn" type="button" style="padding:12px 24px;">이번 주 저장</button>
+          </div>
         </div>
-      </div>
-
-      <div class="field" style="margin-bottom: 12px;">
-        <label class="field-label">
-          요일별 작업 시간 (대응 가능)
-          <span class="hint">30분 단위로 선택. 평일(월–금)은 5일 모두 입력해야 저장됩니다 — 추후 추가 불가</span>
-        </label>
-        <div id="weekHoursList" class="week-hours-list"></div>
-      </div>
-
-      <div class="presets" id="bulkPresets" style="margin-top: 8px;">
-        <button class="preset" type="button" data-bulk="09:00-18:00">평일 일괄 9-18</button>
-        <button class="preset" type="button" data-bulk="10:00-19:00">평일 일괄 10-19</button>
-        <button class="preset" type="button" data-bulk="10:30-19:30">평일 일괄 10:30-19:30</button>
-        <div class="bulk-custom" aria-label="직접 일괄 입력">
-          <span class="bulk-custom-label">직접</span>
-          <select class="wh-time-select" id="bulkStart" aria-label="일괄 시작 시간"></select>
-          <span class="wh-time-sep">~</span>
-          <select class="wh-time-select" id="bulkEnd" aria-label="일괄 종료 시간"></select>
-          <button class="preset" type="button" id="bulkWeekdaysBtn">평일 적용</button>
-          <button class="preset" type="button" id="bulkAllDaysBtn">전체 적용</button>
-        </div>
-        <button class="preset" type="button" id="clearAllBtn" style="background:#fff; color:#dc2626; border-color:#fecaca;">전체 삭제</button>
-      </div>
-
-      <div class="submit-row" style="margin-top:14px; padding-top:14px;">
-        <span class="save-note" id="hoursNote">저장 안 됨</span>
-        <button class="submit" id="saveHoursBtn" type="button" style="padding:12px 24px;">이번 주 저장</button>
-      </div>
+      </details>
     </section>
 
     <!-- Section 2: Check-in (today only) -->
@@ -2060,8 +2290,25 @@
         <span style="display:inline-flex; align-items:center; gap:6px;"><i style="width:14px;height:14px;border-radius:50%;background:var(--good);display:inline-block;"></i> 체크인 완료</span>
         <span style="display:inline-flex; align-items:center; gap:6px;"><i style="width:14px;height:14px;border-radius:50%;background:#fff;box-shadow:inset 0 0 0 2px #fecaca;display:inline-block;"></i> 미체크 (지난 평일)</span>
         <span style="display:inline-flex; align-items:center; gap:6px;"><i style="width:14px;height:14px;border-radius:50%;background:var(--accent-soft);box-shadow:inset 0 0 0 2px #fcd9a0;display:inline-block;"></i> 오늘 아직</span>
-        <span>· 셀 안 숫자 = 작업 가능 시간대</span>
+        <span style="display:inline-flex; align-items:center; gap:6px;"><i style="width:14px;height:14px;border-radius:4px;background:#dff6f1;border:1px dashed #14b8a6;display:inline-block;"></i> 기본 대응 가능 시간</span>
+        <span>· 기본 대응 가능 시간은 실제 체크인·출결·Delayed에 반영되지 않습니다.</span>
       </div>
+    </section>
+
+    <section class="board" id="monthCheckinSection" style="margin-top: 22px;">
+      <div class="board-head">
+        <div>
+          <h2>월간 체크인 현황</h2>
+          <div style="margin-top:5px; font-size:0.78rem; color:var(--ink-mute);">날짜별 휴무 인원만 간결하게 표시합니다.</div>
+        </div>
+        <div class="week-nav">
+          <button type="button" id="monthPrev">← 이전</button>
+          <span class="label" id="monthLabel">—</span>
+          <button type="button" id="monthNext">다음 →</button>
+          <button type="button" id="monthToday">이번 달</button>
+        </div>
+      </div>
+      <div id="monthCheckinCalendar" class="month-calendar"></div>
     </section>
 
   </div>
@@ -2176,6 +2423,13 @@
   </div>
 
   <script>
+    // Daily check-in is the primary action; keep the weekly planner directly below it.
+    const hoursCard = document.getElementById("hoursCard");
+    const standupCard = document.getElementById("standupCard");
+    if (hoursCard && standupCard && hoursCard.parentNode === standupCard.parentNode) {
+      hoursCard.parentNode.insertBefore(standupCard, hoursCard);
+    }
+
     /* ---------------- Time + greeting ---------------- */
     const pad = (n) => String(n).padStart(2, "0");
 
@@ -2333,7 +2587,7 @@
       start.innerHTML = timeOptsHTML("09:00");
       end.innerHTML = timeOptsHTML("18:00");
     }
-    function applyBulkRange(start, end, { includeWeekend = false } = {}) {
+    function applyBulkRange(start, end, { includeWeekend = true } = {}) {
       const s = snapTime(start);
       const e = snapTime(end);
       if (!s || !e) {
@@ -2430,6 +2684,20 @@
         .join("");
       document.getElementById("weekHoursList").innerHTML = html;
       document.getElementById("weekBadge").textContent = `${activeWeekStart()} 주차`;
+      updateWeekPlanSummary();
+    }
+    function updateWeekPlanSummary() {
+      const summary = document.getElementById("weekPlanSummary");
+      if (!summary) return;
+      const weekRows = Array.from(document.querySelectorAll(".wh-row")).slice(0, 7);
+      const filled = weekRows.filter((row) => {
+        const start = row.querySelector(".wh-start");
+        const end = row.querySelector(".wh-end");
+        return start && end && start.value && end.value;
+      }).length;
+      const isComplete = filled === 7;
+      summary.textContent = isComplete ? "7일 계획 입력됨 · 수정" : `${filled}/7일 입력`;
+      summary.classList.toggle("complete", isComplete);
     }
     initBulkCustomControls();
     function collectWeekHoursInputs() {
@@ -2466,13 +2734,6 @@
       applyBulkRange(
         document.getElementById("bulkStart").value,
         document.getElementById("bulkEnd").value
-      );
-    });
-    document.getElementById("bulkAllDaysBtn").addEventListener("click", () => {
-      applyBulkRange(
-        document.getElementById("bulkStart").value,
-        document.getElementById("bulkEnd").value,
-        { includeWeekend: true }
       );
     });
     document.getElementById("clearAllBtn").addEventListener("click", () => {
@@ -2692,6 +2953,7 @@
       const note = document.getElementById("hoursNote");
       note.textContent = "수정됨 — 저장하세요";
       note.classList.remove("saved");
+      updateWeekPlanSummary();
     }
     function markCheckinDirty() {
       const note = document.getElementById("saveNote");
@@ -2821,6 +3083,7 @@
       const note = document.getElementById("hoursNote");
       note.textContent = text;
       note.classList.add("saved");
+      updateWeekPlanSummary();
     }
 
     /* ---------------- Save week hours (batch) ---------------- */
@@ -2830,15 +3093,14 @@
       userInput.value = userName;
       const { items } = collectWeekHoursInputs();
 
-      // Client-side preflight: weekdays must be all-filled or all-empty.
-      const weekdayItems = items.slice(0, 5);
-      const filled = weekdayItems.filter((h) => h.text && h.text.trim());
-      if (filled.length > 0 && filled.length < 5) {
-        const missing = weekdayItems
+      // Client-side preflight: a weekly plan always covers all seven days.
+      const filled = items.filter((h) => h.text && h.text.trim());
+      if (filled.length !== 7) {
+        const missing = items
           .filter((h) => !(h.text && h.text.trim()))
           .map((h) => h.date)
           .join(", ");
-        toast(`평일은 5일 모두 입력해야 저장돼요. 빠진 날짜: ${missing}`);
+        toast(`이번 주는 월~일 7일을 모두 입력해야 저장돼요. 빠진 날짜: ${missing}`);
         return;
       }
       // Validate ranges using workday-virtual minutes so 자정을 넘는 범위(예: 15:00-01:30)도 통과.
@@ -2884,7 +3146,7 @@
             prefillWeekHoursFor(userName, { force: true });
             return;
           }
-          if (data && data.code === "WEEKDAY_REQUIRED") {
+          if (data && (data.code === "WEEK_REQUIRED" || data.code === "WEEKDAY_REQUIRED")) {
             toast(data.error);
             return;
           }
@@ -2892,6 +3154,10 @@
         }
         toast("이번 주 작업 시간 저장됨 ⏰");
         markHoursSaved(`${new Date().toLocaleTimeString("ko-KR")} 에 저장됨`);
+        const weekFilled = Array.from(document.querySelectorAll(".wh-row"))
+          .slice(0, 7)
+          .every((row) => row.querySelector(".wh-start").value && row.querySelector(".wh-end").value);
+        if (weekFilled) document.getElementById("weeklyEditor").open = false;
         const todayItem = items.find((h) => h.date === todayKSTStr());
         if (todayItem) {
           const parsed = (todayItem.text || "").match(/(\d{1,2})(?::(\d{2}))?\s*[-~–—]/);
@@ -4206,7 +4472,12 @@
               ? `${entry.startTime || ""}-${entry.endTime || ""}`
               : "")
           : "";
-        const range = entry ? parseRangeVirt(rawText) : null;
+        const actualRange = entry ? parseRangeVirt(rawText) : null;
+        const availabilityText = entry?.availabilityStartTime && entry?.availabilityEndTime
+          ? `${entry.availabilityStartTime}-${entry.availabilityEndTime}`
+          : "";
+        const isAvailability = !actualRange && !!availabilityText;
+        const range = actualRange || parseRangeVirt(availabilityText);
 
         let trackInner = "";
         if (!range) {
@@ -4215,10 +4486,12 @@
           const left = pctOf(range.start);
           const right = pctOf(range.end);
           const width = Math.max(0, right - left);
-          const barLabel = entry.isLate && entry.checkedInAt
+          const barLabel = isAvailability
+            ? `${entry.availabilityLabel || "기본 대응 가능"} ${entry.availabilityStartTime}–${entry.availabilityEndTime}`
+            : entry.isLate && entry.checkedInAt
             ? `${entry.startTime}–${entry.endTime} · ${entry.checkedInAt}`
             : `${entry.startTime}–${entry.endTime}`;
-          trackInner += `<div class="tl-bar ${entry.isLate ? "late" : ""}" style="left:${left}%; width:${width}%;" title="${esc(barLabel)}">${esc(barLabel)}</div>`;
+          trackInner += `<div class="tl-bar ${isAvailability ? "availability" : entry.isLate ? "late" : ""}" style="left:${left}%; width:${width}%;" title="${esc(barLabel)}">${esc(barLabel)}</div>`;
 
           // Overlap with me (only on other members' rows)
           if (!isMine && meRange) {
@@ -4391,6 +4664,10 @@
                   : "";
                 const unavailText = entry ? (entry.unavailableText || "") : "";
                 const hasHours = !!rawText;
+                const availabilityText = entry?.availabilityStartTime && entry?.availabilityEndTime
+                  ? `${entry.availabilityStartTime}–${entry.availabilityEndTime}`
+                  : "";
+                const hasAvailability = !hasHours && !!availabilityText;
                 const dailyMin = entry && typeof entry.dailyMin === "number" ? entry.dailyMin : null;
                 const totalLabel = formatHours(dailyMin);
                 if (dailyMin != null) weeklyMin += dailyMin;
@@ -4399,6 +4676,7 @@
                 const tipParts = [d];
                 if (totalLabel) tipParts.push(`${totalLabel} · ${rawText}`);
                 else if (hasHours) tipParts.push(rawText);
+                else if (hasAvailability) tipParts.push(`${entry.availabilityLabel || "기본 대응 가능"} ${availabilityText}`);
                 else tipParts.push("시간 미입력");
                 if (unavailText) tipParts.push(`불가 ${unavailText}`);
                 if (state === "late" && entry && entry.checkedInAt) {
@@ -4406,22 +4684,26 @@
                 } else if (stateTip[state]) {
                   tipParts.push(stateTip[state]);
                 }
-                const tip = `${tipParts.join(" · ")} · 클릭해서 수정`;
+                const tip = hasAvailability
+                  ? `${tipParts.join(" · ")} · 실제 체크인과 별도`
+                  : `${tipParts.join(" · ")} · 클릭해서 수정`;
                 const statusLabel = STATE_LABEL[state] || "";
                 const showStatusDot = state !== "none";
-                const primary = totalLabel || (hasHours ? rawText : "—");
+                const primary = totalLabel || (hasHours ? rawText : hasAvailability ? availabilityText : "—");
                 return `<td class="day-cell editable ci-${state} ${isToday ? "today" : ""} ${isWeekend ? "weekend" : ""}"
                   data-user="${esc(u.userName)}"
                   data-iso="${d}"
                   data-text="${esc(rawText)}"
                   data-unavail="${esc(unavailText)}"
+                  data-default-availability="${hasAvailability ? "true" : "false"}"
                   data-dow="${WEEK_DOW_LABELS[i]}"
                   data-dom="${d.slice(5).replace("-", "/")}"
                   title="${esc(tip)}">
                   ${showStatusDot ? `<span class="day-status ${state}" aria-label="${esc(statusLabel)}">${CI_BADGE[state]}</span>` : ""}
                   <div class="day-cell-content">
-                    <span class="day-total ${hasHours ? "" : "empty"}">${esc(primary)}</span>
+                    <span class="day-total ${hasHours ? "" : hasAvailability ? "availability" : "empty"}">${esc(primary)}</span>
                     ${totalLabel && hasHours ? `<span class="day-range">${esc(rawText)}</span>` : ""}
+                    ${hasAvailability ? `<span class="day-meta availability">기본 대응 가능</span>` : ""}
                     ${unavailText ? unavailText.split(";").map((s) => s.trim()).filter(Boolean).map((seg) => `<span class="day-meta unavail" title="대응 불가">${esc(seg)}</span>`).join("") : ""}
                     ${state === "late" && entry && entry.checkedInAt ? `<span class="day-meta delayed" title="Delayed 체크인">${esc(entry.checkedInAt)}</span>` : ""}
                   </div>
@@ -4479,6 +4761,10 @@
     document.getElementById("weekBoard").addEventListener("click", (e) => {
       const cell = e.target.closest("td.day-cell.editable");
       if (!cell || cell.querySelector(".day-cell-edit")) return;
+      if (cell.dataset.defaultAvailability === "true") {
+        toast("기본 대응 가능 시간입니다. 실제 체크인은 별도로 작성해주세요.");
+        return;
+      }
       const userName = cell.dataset.user;
       const iso = cell.dataset.iso;
       const current = cell.dataset.text || "";
@@ -4545,7 +4831,7 @@
               loadWeek();
               return;
             }
-            if (data && data.code === "WEEKDAY_REQUIRED") {
+            if (data && (data.code === "WEEK_REQUIRED" || data.code === "WEEKDAY_REQUIRED")) {
               toast(data.error);
               cell.innerHTML = original;
               return;
@@ -4590,8 +4876,89 @@
       const userName = userInput.value.trim();
       if (userName) prefillWeekHoursFor(userName);
     });
+
+    /* ---------------- Monthly check-in calendar ---------------- */
+    function currentMonthKST() {
+      return todayKSTStr().slice(0, 7);
+    }
+    function shiftMonth(month, delta) {
+      const [year, monthNumber] = month.split("-").map(Number);
+      const d = new Date(Date.UTC(year, monthNumber - 1 + delta, 1));
+      return d.toISOString().slice(0, 7);
+    }
+    let viewMonth = currentMonthKST();
+    function monthLabel(month) {
+      const [year, monthNumber] = month.split("-").map(Number);
+      return `${year}년 ${monthNumber}월`;
+    }
+    function monthDays(month) {
+      const [year, monthNumber] = month.split("-").map(Number);
+      const lastDay = new Date(Date.UTC(year, monthNumber, 0)).getUTCDate();
+      const firstDay = new Date(Date.UTC(year, monthNumber - 1, 1)).getUTCDay();
+      return { lastDay, firstDay };
+    }
+    async function loadMonthCalendar() {
+      const calendar = document.getElementById("monthCheckinCalendar");
+      const label = document.getElementById("monthLabel");
+      label.textContent = monthLabel(viewMonth);
+      calendar.innerHTML = `<div class="month-dow">일</div><div class="month-dow">월</div><div class="month-dow">화</div><div class="month-dow">수</div><div class="month-dow">목</div><div class="month-dow">금</div><div class="month-dow">토</div>`;
+      try {
+        const r = await fetch(`/api/checkin/month?month=${viewMonth}`);
+        const data = await r.json();
+        if (!r.ok) throw new Error(data.error || "fail");
+        const { lastDay, firstDay } = monthDays(viewMonth);
+        const today = todayKSTStr();
+        const cells = [];
+        for (let i = 0; i < firstDay; i++) cells.push(`<div class="month-day empty"></div>`);
+        for (let day = 1; day <= lastDay; day++) {
+          const iso = `${viewMonth}-${String(day).padStart(2, "0")}`;
+          const offNames = data.offByDate?.[iso] || [];
+          const note = data.notesByDate?.[iso] || "";
+          const offTitle = offNames.length ? `휴무: ${offNames.join(", ")}` : "";
+          cells.push(`<div class="month-day ${iso === today ? "today" : ""} ${iso > today ? "future" : ""}" title="${esc(offTitle)}">
+            <div class="month-date"><span>${day}</span>${offNames.length ? `<span class="month-count" title="${esc(offTitle)}">휴무 ${offNames.length}명</span>` : ""}</div>
+            ${offNames.length
+              ? `<div class="month-members"><span class="month-member" title="${esc(offNames.join(", "))}">휴무</span></div>`
+              : ""}
+            <textarea class="month-note" data-date="${iso}" maxlength="300" placeholder="메모 입력">${esc(note)}</textarea>
+          </div>`);
+        }
+        while (cells.length % 7) cells.push(`<div class="month-day empty"></div>`);
+        calendar.innerHTML += cells.join("");
+      } catch (err) {
+        calendar.innerHTML += `<div class="empty" style="grid-column:1 / -1;">월간 체크인 현황을 불러오지 못했습니다.</div>`;
+      }
+    }
+    document.getElementById("monthPrev").addEventListener("click", () => {
+      viewMonth = shiftMonth(viewMonth, -1);
+      loadMonthCalendar();
+    });
+    document.getElementById("monthNext").addEventListener("click", () => {
+      viewMonth = shiftMonth(viewMonth, 1);
+      loadMonthCalendar();
+    });
+    document.getElementById("monthToday").addEventListener("click", () => {
+      viewMonth = currentMonthKST();
+      loadMonthCalendar();
+    });
+    document.getElementById("monthCheckinCalendar").addEventListener("change", async (event) => {
+      const input = event.target.closest(".month-note");
+      if (!input) return;
+      try {
+        const response = await fetch(`/api/calendar-notes/${input.dataset.date}`, {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ content: input.value }),
+        });
+        if (!response.ok) throw new Error();
+        toast("달력 메모 저장됨");
+      } catch (_) {
+        toast("달력 메모 저장 실패");
+      }
+    });
     renderWeekHoursInputs();
     loadWeek();
+    loadMonthCalendar();
   </script>
 </body>
 </html>
