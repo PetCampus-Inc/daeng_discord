@@ -54,12 +54,30 @@ test("weekly participation report summarizes checkins, delays, evidence, and ins
     ],
   });
 
-  assert.match(content, /철수 · 출결 2\/5일 · Delayed 1회/);
-  assert.match(content, /결과물: KD3-101 검색 필터 개발 \/ KD3-108 Discord 알림 개선/);
-  assert.match(content, /Insight: 검색 결과를 빠르게 좁힐 수 있도록 조건 조합 흐름을 정리했습니다/);
-  assert.match(content, /영희 · 출결 0\/5일/);
+  assert.match(content, /철수 · ★★★☆☆ 2\.8/);
+  assert.match(content, /참여: 체크인 2\/5일 · 작업 15h 30m · Delayed 1회/);
+  assert.match(content, /사유: 결과물 3건 · 할 일 0건 · Insight 3건이 기록되었습니다/);
+  assert.match(content, /영희 · ★★★☆☆ 2\.8/);
   assert.doesNotMatch(content, /주간 랭킹/);
   assert.equal(memberSummaries.find((member) => member.name === "철수").lateCount, 1);
+});
+
+test("weekly participation report excludes configured members from ratings", () => {
+  const { content, memberSummaries } = buildWeeklyReportMarkdown(
+    {
+      weekStart: "2026-08-17",
+      weekEnd: "2026-08-21",
+      dates: [],
+      users: [{ userName: "김현수", entries: [] }],
+    },
+    { exemptMembers: "김현수", exemptReason: "시험기간" }
+  );
+
+  assert.match(content, /김현수 · 평가 제외/);
+  assert.match(content, /사유: 시험기간/);
+  assert.doesNotMatch(content, /김현수 · ★/);
+  assert.equal(memberSummaries[0].exempt, true);
+  assert.equal(memberSummaries[0].rating, null);
 });
 
 test("Discord forum webhook creates a thread and continues chunks in it", async () => {

@@ -94,6 +94,33 @@ function formatHours(min) {
   return m ? `${h}h ${m}m` : `${h}h`;
 }
 
+function normalizedMemberName(name) {
+  return String(name || "").replace(/^👑\s*/, "").trim();
+}
+
+function excludedMemberNames(value) {
+  const source = value === undefined ? process.env.TEAM_WEEKLY_EXEMPT_MEMBERS || "" : value;
+  const names = Array.isArray(source) ? source : String(source).split(",");
+  return new Set(names.map(normalizedMemberName).filter(Boolean));
+}
+
+function contributionRating(member) {
+  const raw =
+    member.checkinCount * 12 +
+    member.outputCount * 2 +
+    member.taskCount +
+    member.insightCount +
+    Math.min(member.weeklyMin / 60, 60) * 0.05 -
+    member.lateCount * 3;
+  const rating = Math.max(2.8, Math.min(4.8, 3.5 + (raw - 74.5) * 0.1));
+  return Math.round(rating * 10) / 10;
+}
+
+function ratingStars(rating) {
+  const filled = Math.max(0, Math.min(5, Math.round(rating)));
+  return `${"★".repeat(filled)}${"☆".repeat(5 - filled)}`;
+}
+
 function isLateCheckin(startTime, checkedInAt) {
   const sm = hhmmToMin(startTime);
   const cm = hhmmToMin(checkedInAt);
@@ -210,50 +237,82 @@ async function loadWeekCheckins(pool, weekStart) {
   };
 }
 
-function buildWeeklyReportMarkdown(data) {
+function buildWeeklyReportMarkdown(data, options = {}) {
+  const exemptNames = excludedMemberNames(options.exemptMembers);
+  const exemptReason = String(options.exemptReason || process.env.TEAM_WEEKLY_EXEMPT_REASON || "운영상 이번 주 평가에서 제외").trim();
   const memberSummaries = data.users
     .map((user) => {
       let checkinCount = 0;
       let lateCount = 0;
       let weeklyMin = 0;
+      let outputCount = 0;
+      let taskCount = 0;
+      let insightCount = 0;
       const evidence = [];
       const insights = [];
       for (const entry of user.entries) {
         if (entry.hasCheckin) checkinCount++;
         if (entry.isLate) lateCount++;
         if (typeof entry.dailyMin === "number") weeklyMin += entry.dailyMin;
-        for (const item of [...(entry.doneItems || []), ...(entry.taskItems || entry.tasksItems || [])]) {
+        for (const item of entry.doneItems || []) {
           if (item?.text) evidence.push(item.text);
-          if (item?.insight) insights.push(item.insight);
+          if (item?.text) outputCount++;
+          if (item?.insight) {
+            insights.push(item.insight);
+            insightCount++;
+          }
+        }
+        for (const item of entry.taskItems || entry.tasksItems || []) {
+          if (item?.text) evidence.push(item.text);
+          if (item?.text) taskCount++;
+          if (item?.insight) {
+            insights.push(item.insight);
+            insightCount++;
+          }
         }
       }
-      return {
+      const member = {
         name: user.userName,
         checkinCount,
         lateCount,
         weeklyMin,
+        outputCount,
+        taskCount,
+        insightCount,
         evidence: [...new Set(evidence)].slice(0, 6),
         insights: [...new Set(insights)].slice(0, 6),
       };
+      member.exempt = exemptNames.has(normalizedMemberName(member.name));
+      member.rating = member.exempt ? null : contributionRating(member);
+      return member;
     })
-    .sort((a, b) => a.name.localeCompare(b.name));
+    .sort((a, b) => (b.rating || -1) - (a.rating || -1) || a.name.localeCompare(b.name));
 
-  const totalMin = memberSummaries.reduce((sum, member) => sum + member.weeklyMin, 0);
-  const totalCheckins = memberSummaries.reduce((sum, member) => sum + member.checkinCount, 0);
-  const totalLate = memberSummaries.reduce((sum, member) => sum + member.lateCount, 0);
+  const evaluatedMembers = memberSummaries.filter((member) => !member.exempt);
+  const totalMin = evaluatedMembers.reduce((sum, member) => sum + member.weeklyMin, 0);
+  const totalCheckins = evaluatedMembers.reduce((sum, member) => sum + member.checkinCount, 0);
+  const totalLate = evaluatedMembers.reduce((sum, member) => sum + member.lateCount, 0);
   const lines = [
-    "## 🐶 주간 참여 리포트",
+    "## 🐶 주간 기여도 리뷰",
     `**${data.weekStart}(월) ~ ${data.weekEnd}(금)**`,
-    "출결·Delayed·결과물·Insight를 기반으로 정리한 기록입니다.",
+    "출결·Delayed·결과물·할 일·Insight를 기반으로 산정한 주간 기록입니다.",
     "",
   ];
 
   for (const member of memberSummaries) {
+    if (member.exempt) {
+      lines.push(
+        `### ${member.name} · 평가 제외`,
+        `- 사유: ${exemptReason}.`,
+        "- 이번 주 기록은 참고로만 남기며, 별점·순위·팀 평균에는 반영하지 않습니다.",
+        ""
+      );
+      continue;
+    }
     lines.push(
-      `### ${member.name} · 출결 ${member.checkinCount}/5일${member.lateCount ? ` · Delayed ${member.lateCount}회` : ""}`,
-      `- 작업시간: ${formatHours(member.weeklyMin)}`,
-      `- 결과물: ${member.evidence.length ? member.evidence.join(" / ") : "기록 없음"}`,
-      `- Insight: ${member.insights.length ? member.insights.join(" / ") : "기록 없음"}`,
+      `### ${member.name} · ${ratingStars(member.rating)} ${member.rating.toFixed(1)}`,
+      `- 참여: 체크인 ${member.checkinCount}/5일 · 작업 ${formatHours(member.weeklyMin)} · ${member.lateCount ? `Delayed ${member.lateCount}회` : "Delayed 없음"}.`,
+      `- 사유: 결과물 ${member.outputCount}건 · 할 일 ${member.taskCount}건 · Insight ${member.insightCount}건이 기록되었습니다.`,
       ""
     );
   }
@@ -263,11 +322,11 @@ function buildWeeklyReportMarkdown(data) {
     "",
     "### 팀 요약",
     `- 총 작업시간: ${formatHours(totalMin)}`,
-    `- 참여 인원: ${memberSummaries.length}명`,
+    `- 평가 인원: ${evaluatedMembers.length}명${memberSummaries.length !== evaluatedMembers.length ? ` · 평가 제외 ${memberSummaries.length - evaluatedMembers.length}명` : ""}`,
     `- 체크인: ${totalCheckins}건`,
     `- Delayed: ${totalLate}회`
   );
-  if (!memberSummaries.length || totalCheckins === 0) {
+  if (!evaluatedMembers.length || totalCheckins === 0) {
     lines.push("", "_이번 주 체크인 기록이 없거나 체크인 내용이 비어 있습니다._");
   }
   return { content: lines.join("\n"), memberSummaries };
@@ -338,10 +397,10 @@ ${facts}`;
 
 async function generateWeeklyReport(pool, weekStart, options = {}) {
   const data = await loadWeekCheckins(pool, weekStart);
-  const { content: factualContent, memberSummaries } = buildWeeklyReportMarkdown(data);
+  const { content: factualContent, memberSummaries } = buildWeeklyReportMarkdown(data, options);
   let aiContent = "";
   try {
-    aiContent = await generateParticipationInsights(memberSummaries, options);
+    aiContent = await generateParticipationInsights(memberSummaries.filter((member) => !member.exempt), options);
   } catch (error) {
     console.error("Weekly participation AI report error:", error.message);
     aiContent = "_AI 참여 인사이트 생성에 실패했습니다. 위의 사실 기록을 확인해 주세요._";
@@ -450,8 +509,8 @@ async function markWeeklyReportPosted(pool, weekStart, messageIds) {
   );
 }
 
-async function generateSaveAndPostWeeklyReport(pool, weekStart, webhookUrl) {
-  const report = await generateWeeklyReport(pool, weekStart);
+async function generateSaveAndPostWeeklyReport(pool, weekStart, webhookUrl, options = {}) {
+  const report = await generateWeeklyReport(pool, weekStart, options);
   await saveWeeklyReport(pool, report);
   const messageIds = await postReportToDiscordWebhook(
     webhookUrl,
