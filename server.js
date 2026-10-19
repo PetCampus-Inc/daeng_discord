@@ -11,7 +11,6 @@ pgTypes.setTypeParser(1082, (val) => val);
 const { getAssigneeStats, getProjects, getProjectStatuses, getMyIssues } = require("./src/jira-client");
 const {
   currentWeekStartKST,
-  previousWeekStarts,
   ensureWeeklyReportsTable,
   generateSaveAndPostWeeklyReport,
 } = require("./src/team-weekly-report");
@@ -2796,7 +2795,8 @@ cron.schedule(
       return;
     }
     try {
-      const weekStart = previousWeekStarts(1, currentWeekStartKST())[0];
+      // Sunday 10:00 KST evaluates the Monday–Friday that just ended.
+      const weekStart = currentWeekStartKST();
       const result = await generateSaveAndPostWeeklyReport(pool, weekStart, webhookUrl);
       console.log(`Team weekly participation report posted for ${result.weekStart}`);
     } catch (err) {
