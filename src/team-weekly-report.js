@@ -121,6 +121,48 @@ function ratingStars(rating) {
   return `${"★".repeat(filled)}${"☆".repeat(5 - filled)}`;
 }
 
+function cleanReviewText(value) {
+  return String(value || "").replace(/\s+/g, " ").trim();
+}
+
+function defaultReviewLines(member) {
+  const artifacts = member.evidence.slice(0, 3).map(cleanReviewText).filter(Boolean);
+  const artifactText = artifacts.length ? artifacts.join("·") : "체크인에 남긴 작업";
+  const insight = cleanReviewText(member.insights[0]);
+  const firstLine = insight
+    ? `${artifactText} 작업을 진행했습니다. ${insight}`
+    : `${artifactText} 작업을 진행하며 이번 주 업무를 이어갔습니다.`;
+
+  if (member.checkinCount < 5 || member.lateCount > 0 || member.outputCount + member.taskCount < 3) {
+    const issues = [
+      member.checkinCount < 5 ? `체크인 ${member.checkinCount}/5일` : "",
+      member.lateCount > 0 ? `Delayed ${member.lateCount}회` : "",
+      member.outputCount + member.taskCount < 3 ? "작업 기록 부족" : "",
+    ].filter(Boolean).join(" · ");
+    return [
+      firstLine,
+      `${issues}가 확인됩니다. 다음 주에는 완료 결과물·링크·작업 판단을 함께 남겨 기여 내용을 검증 가능하게 해주세요.`,
+    ];
+  }
+
+  return [
+    firstLine,
+    "완료한 작업과 다음 작업의 맥락이 기록되어 있어, 다음 주에도 결과물 링크와 검증 내용을 함께 남겨주세요.",
+  ];
+}
+
+function normalizeNarratives(narratives) {
+  const byName = new Map();
+  for (const narrative of narratives || []) {
+    const name = normalizedMemberName(narrative?.name);
+    const lines = Array.isArray(narrative?.lines)
+      ? narrative.lines.map(cleanReviewText).filter(Boolean).slice(0, 2)
+      : [];
+    if (name && lines.length === 2) byName.set(name, lines);
+  }
+  return byName;
+}
+
 function isLateCheckin(startTime, checkedInAt) {
   const sm = hhmmToMin(startTime);
   const cm = hhmmToMin(checkedInAt);
@@ -248,6 +290,7 @@ async function loadWeekCheckins(pool, weekStart) {
 function buildWeeklyReportMarkdown(data, options = {}) {
   const exemptNames = excludedMemberNames(options.exemptMembers);
   const exemptReason = String(options.exemptReason || process.env.TEAM_WEEKLY_EXEMPT_REASON || "운영상 이번 주 평가에서 제외").trim();
+  const narratives = normalizeNarratives(options.narratives);
   const memberSummaries = data.users
     .map((user) => {
       let checkinCount = 0;
@@ -317,10 +360,11 @@ function buildWeeklyReportMarkdown(data, options = {}) {
       );
       continue;
     }
+    const reviewLines = narratives.get(normalizedMemberName(member.name)) || defaultReviewLines(member);
     lines.push(
       `### ${member.name} · ${ratingStars(member.rating)} ${member.rating.toFixed(1)}`,
-      `- 참여: 체크인 ${member.checkinCount}/5일 · 작업 ${formatHours(member.weeklyMin)} · ${member.lateCount ? `Delayed ${member.lateCount}회` : "Delayed 없음"}.`,
-      `- 사유: 결과물 ${member.outputCount}건 · 할 일 ${member.taskCount}건 · Insight ${member.insightCount}건이 기록되었습니다.`,
+      "",
+      ...reviewLines,
       ""
     );
   }
@@ -377,11 +421,10 @@ async function generateParticipationInsights(memberSummaries, {
 } = {}) {
   if (!openaiKey || !memberSummaries.length) return "";
   const facts = JSON.stringify(memberSummaries, null, 2).slice(0, 30000);
-  const prompt = `당신은 팀 운영 리포트 작성자다. 아래 체크인 집계만 근거로 한국어 Markdown을 작성하라.
-각 구성원마다 '참여 현황', '결과물·Insight 근거', '다음 주 확인 사항'을 한 줄씩 쓴다.
-체크인 3일 미만, Delayed 반복, 결과물 또는 Insight 부재는 '확인 필요'로 분명히 표시한다.
-근거 없는 업무 성과나 사유를 만들지 말고, 사람의 하차 여부를 판단하거나 결정하지 않는다.
-랭킹·점수·비교 표현은 쓰지 않는다.
+  const prompt = `당신은 팀 운영 리포트 작성자다. 아래 체크인 집계만 근거로 각 구성원의 주간 기여 사유를 작성하라.
+반드시 JSON만 반환한다. 형식은 {"members":[{"name":"이름","lines":["문장 1","문장 2"]}]} 이다.
+각 구성원의 문장은 정확히 두 문장이다. 첫 문장은 evidence에 있는 구체 작업물 1~3개를 직접 언급하고, 그 작업이 해결한 문제 또는 팀·서비스에 준 영향을 설명한다. 두 번째 문장은 Insight 또는 작업의 연결성을 설명한다. 낮은 기록(체크인 미달, Delayed, 결과물 부족)이 있으면 두 번째 문장에서 관찰 사실을 바탕으로 다음 주 개선 행동을 구체적으로 제시한다.
+근거 없는 업무 성과·링크·사유를 만들지 말고, 사람의 하차 여부를 판단하거나 결정하지 않는다. 평점·순위·비교 표현은 쓰지 않는다.
 
 집계 데이터:
 ${facts}`;
@@ -400,23 +443,25 @@ ${facts}`;
   if (!response.ok) {
     throw new Error(`OpenAI weekly report failed (${response.status}): ${(await response.text()).slice(0, 300)}`);
   }
-  return responseText(await response.json());
+  const text = responseText(await response.json()).replace(/^```(?:json)?\s*|\s*```$/g, "").trim();
+  const parsed = JSON.parse(text);
+  return Array.isArray(parsed?.members) ? parsed.members : [];
 }
 
 async function generateWeeklyReport(pool, weekStart, options = {}) {
   const data = await loadWeekCheckins(pool, weekStart);
-  const { content: factualContent, memberSummaries } = buildWeeklyReportMarkdown(data, options);
-  let aiContent = "";
+  const { memberSummaries } = buildWeeklyReportMarkdown(data, options);
+  let narratives = [];
   try {
-    aiContent = await generateParticipationInsights(memberSummaries.filter((member) => !member.exempt), options);
+    narratives = await generateParticipationInsights(memberSummaries.filter((member) => !member.exempt), options);
   } catch (error) {
     console.error("Weekly participation AI report error:", error.message);
-    aiContent = "_AI 참여 인사이트 생성에 실패했습니다. 위의 사실 기록을 확인해 주세요._";
   }
+  const { content } = buildWeeklyReportMarkdown(data, { ...options, narratives });
   return {
     weekStart: data.weekStart,
     weekEnd: data.weekEnd,
-    content: aiContent ? `${factualContent}\n\n---\n\n## AI 참여 인사이트\n${aiContent}` : factualContent,
+    content,
   };
 }
 

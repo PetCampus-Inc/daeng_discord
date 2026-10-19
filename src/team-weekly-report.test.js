@@ -55,11 +55,43 @@ test("weekly participation report summarizes checkins, delays, evidence, and ins
   });
 
   assert.match(content, /철수 · ★★★☆☆ 2\.8/);
-  assert.match(content, /참여: 체크인 2\/5일 · 작업 15h 30m · Delayed 1회/);
-  assert.match(content, /사유: 결과물 3건 · 할 일 0건 · Insight 3건이 기록되었습니다/);
+  assert.match(content, /KD3-101 검색 필터 개발·KD3-108 Discord 알림 개선 작업을 진행했습니다/);
+  assert.match(content, /체크인 2\/5일 · Delayed 1회가 확인됩니다/);
   assert.match(content, /영희 · ★★★☆☆ 2\.8/);
   assert.doesNotMatch(content, /주간 랭킹/);
   assert.equal(memberSummaries.find((member) => member.name === "철수").lateCount, 1);
+});
+
+test("weekly participation report uses AI narrative only when it contains two grounded lines", () => {
+  const { content } = buildWeeklyReportMarkdown(
+    {
+      weekStart: "2026-08-17",
+      weekEnd: "2026-08-21",
+      dates: [],
+      users: [{
+        userName: "철수",
+        entries: [{
+          hasCheckin: true,
+          isLate: false,
+          dailyMin: 480,
+          doneItems: [{ text: "KD3-101 검색 필터 개발", insight: "조건 조합 흐름을 정리했습니다." }],
+        }],
+      }],
+    },
+    {
+      narratives: [{
+        name: "철수",
+        lines: [
+          "검색 필터 개발로 사용자가 조건을 빠르게 좁힐 수 있게 했습니다.",
+          "조건 조합 흐름을 정리해 다음 화면 설계의 기준을 남겼습니다.",
+        ],
+      }],
+    }
+  );
+
+  assert.match(content, /검색 필터 개발로 사용자가 조건을 빠르게 좁힐 수 있게 했습니다/);
+  assert.match(content, /조건 조합 흐름을 정리해 다음 화면 설계의 기준을 남겼습니다/);
+  assert.doesNotMatch(content, /체크인 1\/5일/);
 });
 
 test("weekly participation report excludes configured members from ratings", () => {
