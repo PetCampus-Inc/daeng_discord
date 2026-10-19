@@ -198,11 +198,19 @@ async function loadWeekCheckins(pool, weekStart) {
       ORDER BY user_name, check_date`,
     [weekStart, weekEnd]
     ),
-    pool.query(`SELECT name FROM team_members WHERE archived = FALSE ORDER BY name`),
+    pool.query(
+      `SELECT name
+         FROM team_members
+        WHERE archived = FALSE
+          AND TRIM(name) <> ''
+          AND TRIM(name) <> '-'
+        ORDER BY name`
+    ),
   ]);
   const byUser = new Map();
   for (const row of membersResult.rows) byUser.set(row.name, []);
   for (const row of result.rows) {
+    if (!normalizedMemberName(row.user_name) || String(row.user_name).trim() === "-") continue;
     const date =
       row.check_date instanceof Date
         ? row.check_date.toISOString().slice(0, 10)
