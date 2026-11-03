@@ -89,7 +89,7 @@ jobs:
       - name: Rotate INFLEARN_STATE_B64 secret with refreshed cookies
         if: success() && steps.cadence.outputs.should_run == 'true'
         env:
-          GH_TOKEN: ${{ github.token }}
+          GH_TOKEN: ${{ secrets.GH_PAT }}
         run: |
           if [ -z "${GH_TOKEN}" ]; then
             echo "GitHub 토큰이 없어 Secret 갱신을 건너뜁니다."
