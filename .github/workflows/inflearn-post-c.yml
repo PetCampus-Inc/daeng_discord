@@ -25,7 +25,9 @@ concurrency:
 
 jobs:
   post:
-    runs-on: ubuntu-latest
+    # Playwright 1.60 does not yet support the Ubuntu 26.04 image behind
+    # ubuntu-latest. Keep the runner compatible until Playwright is upgraded.
+    runs-on: ubuntu-24.04
     timeout-minutes: 15
     steps:
       - name: Decide whether this run should post
@@ -87,10 +89,10 @@ jobs:
       - name: Rotate INFLEARN_STATE_B64 secret with refreshed cookies
         if: success() && steps.cadence.outputs.should_run == 'true'
         env:
-          GH_TOKEN: ${{ secrets.GH_PAT }}
+          GH_TOKEN: ${{ github.token }}
         run: |
           if [ -z "${GH_TOKEN}" ]; then
-            echo "GH_PAT 가 없어서 secret 갱신을 건너뜁니다."
+            echo "GitHub 토큰이 없어 Secret 갱신을 건너뜁니다."
             exit 0
           fi
           node - scripts/inflearn/state.json /tmp/inflearn-state-compact.json <<'NODE'
@@ -120,8 +122,11 @@ jobs:
           fs.writeFileSync(output, JSON.stringify(compact));
           NODE
           NEW=$(base64 -w0 /tmp/inflearn-state-compact.json)
-          echo -n "$NEW" | gh secret set INFLEARN_STATE_B64 --repo "${{ github.repository }}"
-          echo "INFLEARN_STATE_B64 갱신 완료"
+          if echo -n "$NEW" | gh secret set INFLEARN_STATE_B64 --repo "${{ github.repository }}"; then
+            echo "INFLEARN_STATE_B64 갱신 완료"
+          else
+            echo "::warning::INFLEARN_STATE_B64 갱신 실패 — 다음 실행 전 로그인 세션을 확인하세요."
+          fi
 
       - name: Discord alert on failure
         if: failure() && steps.cadence.outputs.should_run == 'true'
